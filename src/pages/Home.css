@@ -1,0 +1,135 @@
+.home {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero {
+  text-align: center;
+  padding: 3rem 0;
+  margin-bottom: 3rem;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  background: linear-gradient(135deg, #646cff 0%, #535bf2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+
+.subtitle {
+  font-size: 1.3rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.5rem;
+}
+
+.intro {
+  text-align: center;
+  font-size: 1.1rem;
+  line-height: 1.8;
+  margin-bottom: 4rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 3rem;
+}
+
+.link-card {
+  background: rgba(30, 30, 30, 0.6);
+  border: 1px solid rgba(100, 108, 255, 0.3);
+  border-radius: 12px;
+  padding: 2rem;
+  transition: all 0.3s ease;
+}
+
+.link-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(100, 108, 255, 0.6);
+  box-shadow: 0 10px 30px rgba(100, 108, 255, 0.2);
+}
+
+.link-card h3 {
+  color: #646cff;
+  margin-bottom: 1rem;
+}
+
+.link-card p {
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.card-link {
+  display: inline-block;
+  color: #646cff;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.card-link:hover {
+  color: #535bf2;
+}
+
+@media (prefers-color-scheme: light) {
+  .subtitle {
+    color: rgba(33, 53, 71, 0.7);
+  }
+  
+  .link-card {
+    background: rgba(255, 255, 255, 0.6);
+    border-color: rgba(100, 108, 255, 0.2);
+  }
+  
+  .link-card:hover {
+    border-color: rgba(100, 108, 255, 0.5);
+    box-shadow: 0 10px 30px rgba(100, 108, 255, 0.15);
+  }
+  
+  .link-card p {
+    color: rgba(33, 53, 71, 0.8);
+  }
+  
+  .link-card h3 {
+    color: #747bff;
+  }
+  
+  .card-link {
+    color: #747bff;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 2rem;
+  }
+  
+  .subtitle {
+    font-size: 1rem;
+  }
+  
+  .intro {
+    font-size: 1rem;
+  }
+  
+  .quick-links {
+    grid-template-columns: 1fr;
+  }
+}
