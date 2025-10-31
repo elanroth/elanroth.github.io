@@ -2,7 +2,7 @@
 import "./Anagrams.css";
 import { AnagramsGame } from "./logic/gameLogic";
 
-const game = new AnagramsGame(["Alice", "Bob"], englishWords);
+// const game = new AnagramsGame(["Alice", "Bob"], englishWords);
 
 
 function Anagrams() {
