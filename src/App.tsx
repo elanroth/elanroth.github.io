@@ -31,7 +31,7 @@ export default function App() {
       <header className="border-b border-border bg-card/70 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
-            <h1>Your Name</h1>
+            <h1>Elan Roth</h1>
             
             <div className="flex items-center space-x-4">
               <nav className="flex space-x-1">
@@ -73,9 +73,9 @@ export default function App() {
         {activeTab === 'blog' && <BlogTab />}
       </main>
 
-      <footer className="border-t border-border py-6 text-center text-muted-foreground">
-        <p>© 2024 Your Name</p>
-      </footer>
+      {/* <footer className="border-t border-border py-6 text-center text-muted-foreground">
+        <p></p>
+      </footer> */}
     </div>
   );
 }
