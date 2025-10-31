@@ -1,23 +1,22 @@
 import { ImageWithFallback } from "../figma/ImageWithFallback";
-import profileImage from "dist/images/IMG_1852.jpeg";
 import { Card } from "../ui/card";
 
 
 const currentProjects = [
   {
-    title: "Project Title 1",
+    title: "Optimal Scott Sentences of Reduced Abelian p-Groups",
     description:
-      "Brief description of what this project is about and what you're currently working on.",
+      "We are working to find the exact Scott complexity of these specific groups",
   },
   {
-    title: "Project Title 2",
+    title: "Formalizing Turing Degrees in Lean 4",
     description:
-      "Another project that you're actively developing or researching.",
+      "We are contributing to mathlib libary by formally defining these computable theoretic notions",
   },
   {
-    title: "Project Title 3",
+    title: "Measuring Moduli Fibonacci Cycles",
     description:
-      "A third project that represents your current focus areas.",
+      "I thought it'd be fun to try to measure the area of curves created by the Fibonacci sequence modulo a fixed n",
   },
 ];
 
@@ -32,14 +31,14 @@ export function Home() {
           supported by the US Fulbright Program. Mathematically, I am most interested in
           computability theory and type theory, especially formal proof assistants. Generally,
           I am curious how mathematics can model religious belief and be used to
-          create and improve interfaith dialogue.
+          foster interfaith dialogue.
           </p>
         </div>
 
         <div className="flex justify-center md:justify-end">
           <div className="w-80 h-80 rounded-2xl overflow-hidden border-2 border-primary/20 shadow-lg">
             <ImageWithFallback
-              src="/images/IMG_1852.jpeg"
+              src="/images/Curr.JPG"
               alt="Elan Roth"
               className="w-full h-full object-cover"
             />
