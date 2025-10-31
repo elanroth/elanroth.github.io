@@ -5,6 +5,10 @@ import Research from './pages/Research'
 import Blog from './pages/Blog'
 import Bookshelf from './pages/Bookshelf'
 import './App.css'
+import Anagrams from "./pages/Anagrams/Anagrams";
+
+
+
 
 function App() {
   return (
@@ -17,6 +21,7 @@ function App() {
             <Route path="/research" element={<Research />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/bookshelf" element={<Bookshelf />} />
+            <Route path="/anagrams" element={<Anagrams />} />
           </Routes>
         </main>
       </div>

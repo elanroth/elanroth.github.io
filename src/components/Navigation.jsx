@@ -27,6 +27,10 @@ function Navigation() {
           <li>
             <Link to="/bookshelf" className={isActive('/bookshelf')}>Bookshelf</Link>
           </li>
+          <li>
+            <Link to="/anagrams" className={isActive('/anagrams')}>Anagrams</Link>
+          </li>
+
         </ul>
       </div>
     </nav>
