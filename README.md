@@ -1,3 +1,7 @@
+Now deleting this whole thing. Going to bring in what Figma made me, thanks guys.
+
+
+
 # Elan Roth - Personal Website
 
 A React-based website for organizing research, projects, and hosting a blog about mathematics and philosophy.
