@@ -1,5 +1,6 @@
 {
       "name": "elanroth.github.io",
+      "homepage": "https://username.github.io/repo-name",
       "version": "0.1.0",
       "private": true,
       "dependencies": {
