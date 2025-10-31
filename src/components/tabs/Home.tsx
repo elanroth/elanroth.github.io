@@ -1,6 +1,7 @@
 import { ImageWithFallback } from "../figma/ImageWithFallback";
+import profileImage from "dist/images/IMG_1852.jpeg";
 import { Card } from "../ui/card";
-// import profileImage from "../images/IMG_1852.png";
+
 
 const currentProjects = [
   {
@@ -38,7 +39,7 @@ export function Home() {
         <div className="flex justify-center md:justify-end">
           <div className="w-80 h-80 rounded-2xl overflow-hidden border-2 border-primary/20 shadow-lg">
             <ImageWithFallback
-              src="https://images.unsplash.com/photo-1593442257276-1895e27c8ed6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3YXJtJTIwd29ya3NwYWNlJTIwZGVza3xlbnwxfHx8fDE3NjE4NzEyMzh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+              src="/images/IMG_1852.jpeg"
               alt="Elan Roth"
               className="w-full h-full object-cover"
             />
