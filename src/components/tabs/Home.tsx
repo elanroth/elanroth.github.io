@@ -27,11 +27,9 @@ export function Home() {
         <div className="flex flex-col justify-center space-y-4">
           <h1 className="text-3xl md:text-4xl">Elan Roth</h1>
           <p className="text-muted-foreground leading-relaxed">
-          Currently researching mathematical logic at the University of Waterloo being
-          supported by the US Fulbright Program. Mathematically, I am most interested in
-          computability theory and type theory, especially formal proof assistants. Generally,
-          I am curious how mathematics can model religious belief and be used to
-          foster interfaith dialogue.
+          Currently researching mathematical logic at the University of Waterloo with Dr. Barbara Csima 
+          on a Fulbright Scholarship. I am most interested in
+          computability theory and type theory, especially working with formal proof assistants.
           </p>
         </div>
 
