@@ -21,9 +21,9 @@ export default function App() {
 
   const tabs = [
     { id: 'home' as Tab, label: 'Home', icon: HomeIcon },
-    { id: 'bookshelf' as Tab, label: 'Bookshelf', icon: BookOpen },
-    { id: 'cv' as Tab, label: 'CV', icon: FileText },
-    { id: 'blog' as Tab, label: 'Blog', icon: PenLine }
+    // { id: 'bookshelf' as Tab, label: 'Bookshelf', icon: BookOpen },
+    { id: 'blog' as Tab, label: 'Fun Thoughts', icon: PenLine },
+    { id: 'cv' as Tab, label: 'CV', icon: FileText }
   ];
 
   return (
@@ -47,20 +47,20 @@ export default function App() {
                           : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                       }`}
                     >
-                      <Icon size={18} />
+                      {/* <Icon size={18} /> */}
                       <span>{tab.label}</span>
                     </button>
                   );
                 })}
               </nav>
 
-              <button
+              {/* <button
                 onClick={() => setIsDark(!isDark)}
                 className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 aria-label="Toggle dark mode"
               >
                 {isDark ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
