@@ -1,0 +1,27 @@
+.mathblock {
+  display: block;
+  margin: 0.75rem 0;
+}
+.mathblock .mathblock-inner {
+  display: inline-block;
+}
+.mathblock.align-left { text-align: left; }
+.mathblock.align-center { text-align: center; }
+.mathblock.align-right { text-align: right; }
+
+/* Draggable uses transform to move the element; when enabled we make it position: relative
+   so that the transform doesn't remove it unexpectedly from flow in most layouts. */
+.mathblock.draggable {
+  cursor: move;
+  position: relative;
+  z-index: 10;
+}
+
+.kb-error {
+  color: #c00;
+  background: #fff0f0;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+/* KaTeX's CSS will style the rendered markup if katex is installed. */

@@ -4,6 +4,7 @@ import { Home } from './components/tabs/Home';
 import { Bookshelf } from './components/tabs/Bookshelf';
 import { CVTab } from './components/tabs/CVTab';
 import { BlogTab } from './components/tabs/BlogTab';
+import Banangrams from './Banagrams/Banagrams';
 
 type Tab = 'home' | 'bookshelf' | 'cv' | 'blog';
 
@@ -21,10 +22,14 @@ export default function App() {
 
   const tabs = [
     { id: 'home' as Tab, label: 'Home', icon: HomeIcon },
-    // { id: 'bookshelf' as Tab, label: 'Bookshelf', icon: BookOpen },
     { id: 'blog' as Tab, label: 'Fun Thoughts', icon: PenLine },
-    { id: 'cv' as Tab, label: 'CV', icon: FileText }
+    { id : 'cv' as Tab, label: 'CV', icon: HomeIcon }
+    // { id: 'bookshelf' as Tab, label: 'Bookshelf', icon: BookOpen },
   ];
+
+  const pdfUrl = '/Elan%20Roth%20CV.pdf';
+
+  // return <Banangrams />;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -37,6 +42,20 @@ export default function App() {
               <nav className="flex space-x-1">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
+                  if (tab.id === 'cv') {
+                    return (
+                      <a
+                        key={tab.id}
+                        href={pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-secondary`}
+                      >
+                        <span>{tab.label}</span>
+                      </a>
+                    );
+                  }
+
                   return (
                     <button
                       key={tab.id}
@@ -47,20 +66,11 @@ export default function App() {
                           : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                       }`}
                     >
-                      {/* <Icon size={18} /> */}
                       <span>{tab.label}</span>
                     </button>
                   );
                 })}
               </nav>
-
-              {/* <button
-                onClick={() => setIsDark(!isDark)}
-                className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                aria-label="Toggle dark mode"
-              >
-                {isDark ? <Sun size={20} /> : <Moon size={20} />}
-              </button> */}
             </div>
           </div>
         </div>
@@ -72,10 +82,8 @@ export default function App() {
         {activeTab === 'cv' && <CVTab />}
         {activeTab === 'blog' && <BlogTab />}
       </main>
-
-      {/* <footer className="border-t border-border py-6 text-center text-muted-foreground">
-        <p></p>
-      </footer> */}
     </div>
   );
+    // UNTIL COMMENT
+  
 }

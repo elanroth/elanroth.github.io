@@ -11,7 +11,7 @@ const currentProjects = [
   {
     title: "Formalizing Turing Degrees in Lean 4",
     description:
-      "We are contributing to mathlib libary by formally defining these computable theoretic notions",
+      "We are contributing to the mathlib libary by formally defining partial computable functions",
   },
   // {
   //   title: "Measuring Moduli Fibonacci Cycles",

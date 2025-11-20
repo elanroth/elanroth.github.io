@@ -1,5 +1,6 @@
 import { Card } from '../ui/card';
 import { Calendar } from 'lucide-react';
+import MathBlock from '../ui/MathBlock';
 
 const blogPosts = [
   {
@@ -60,6 +61,21 @@ export function BlogTab() {
       </div>
 
       <div className="space-y-6">
+        {/* Example math-enabled post snippet */}
+        <Card className="p-6 bg-card hover:border-primary/30 transition-colors">
+          <div className="flex items-center space-x-2 text-muted-foreground mb-3">
+            <Calendar size={16} />
+            <span>Example</span>
+          </div>
+          <h3 className="mb-3">Writing Math Nicely</h3>
+          <p className="text-muted-foreground mb-4">You can write LaTeX blocks and place them left, center, or right. Toggle draggable to move them around.</p>
+          <div className="space-y-4">
+            <MathBlock latex={"\\displaystyle \\sum_{n=0}^{\\infty} x^n = \\frac{1}{1-x}"} displayMode={true} align="center" />
+            <MathBlock latex={"e^{i\\pi} + 1 = 0"} displayMode={false} align="left" />
+            <MathBlock latex={"\\int_0^1 x^2 \\;dx = \\frac{1}{3}"} displayMode={true} align="right" />
+          </div>
+        </Card>
+
         {blogPosts.map((post, index) => (
           <Card key={index} className="p-6 bg-card hover:border-primary/30 transition-colors cursor-pointer">
             <div className="flex items-center space-x-2 text-muted-foreground mb-3">
