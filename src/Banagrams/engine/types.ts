@@ -108,6 +108,8 @@ export type Action =
 
   | { type: "CENTER_BOARD" }
   | { type: "DUMP_SELECTED" }
+  | { type: "DUMP_TILE"; tileId: TileId }
+
 
   | { type: "REQUEST_TILE"; want: string; offer?: string }
   | { type: "REQUEST_RESOLVE"; requestId: RequestId; accept: boolean }

@@ -52,6 +52,8 @@ export default function App() {
 
   const pdfUrl = '/Elan%20Roth%20CV.pdf';
 
+  console.log("projectId:", import.meta.env.VITE_FIREBASE_PROJECT_ID);
+
   return <Banangrams />;
 
   // return (

@@ -197,53 +197,64 @@ function drawTiles(state: GameState, count: number): GameState {
 }
 
 // ---------- Dumping (skeleton) ----------
-export function dumpSelected(state: GameState): GameState {
-  const selectedIds = Object.keys(state.selection);
-  if (selectedIds.length === 0) return state;
+// ---------- Dumping ----------
+function dumpTiles(state: GameState, tileIds: readonly TileId[]): GameState {
+  if (tileIds.length === 0) return state;
 
-  for (const id of selectedIds) {
+  // must all be in rack and owned by self
+  for (const id of tileIds) {
     const t = state.tiles[id];
     if (!t || t.location !== "rack" || t.owner !== state.selfId) return state;
   }
 
+  // Remove dumped tiles from rack + tiles
   const nextTiles: TilesById = { ...state.tiles };
   const nextRack: TileId[] = [];
   for (const id of state.rack) {
-    if (state.selection[id]) {
+    if (tileIds.includes(id)) {
       delete nextTiles[id];
     } else {
       nextRack.push(id);
     }
   }
 
-  const bag: string[] = state.bag.slice();
-  for (const id of selectedIds) {
+  // Return letters to bag
+  const bag = state.bag.slice();
+  for (const id of tileIds) {
     bag.push(state.tiles[id].letter);
   }
 
-  const drawCount = Math.min(selectedIds.length, bag.length);
-  const drawn: string[] = [];
-  for (let i = 0; i < drawCount; i++) {
+  // Draw replacements equal to number dumped (if possible), random from bag
+  const drawCount = Math.min(tileIds.length, bag.length);
+  for (let i = 0; i < 3 * drawCount; i++) {
     const pick = Math.floor(Math.random() * bag.length);
-    drawn.push(bag[pick]);
+    const letter = bag[pick];
     bag[pick] = bag[bag.length - 1];
     bag.pop();
-  }
 
-  for (const letter of drawn) {
-    const id = `t_${letter}_${Math.random().toString(36).slice(2)}`;
-    nextTiles[id] = {
-      id,
+    const newId = `t_${letter}_${Math.random().toString(36).slice(2)}`;
+    nextTiles[newId] = {
+      id: newId,
       letter,
       pos: { x: 0, y: 0 },
       location: "rack",
       owner: state.selfId,
     };
-    nextRack.push(id);
+    nextRack.push(newId);
   }
 
-  return { ...state, tiles: nextTiles, rack: nextRack, bag, selection: {} };
+  // Clear selection if any dumped tiles were selected
+  const nextSelection = { ...state.selection };
+  for (const id of tileIds) delete nextSelection[id];
+
+  return { ...state, tiles: nextTiles, rack: nextRack, bag, selection: nextSelection };
 }
+
+export function dumpSelected(state: GameState): GameState {
+  const selectedIds = Object.keys(state.selection);
+  return dumpTiles(state, selectedIds);
+}
+
 
 // ---------- Reducer skeleton using helpers ----------
 export function reducer(state: GameState, action: Action): GameState {
@@ -284,11 +295,16 @@ export function reducer(state: GameState, action: Action): GameState {
     case "CENTER_BOARD":
       return centerBoard(state);
 
+    case "DUMP_TILE":
+      return dumpTiles(state, [action.tileId]);
+
     case "DUMP_SELECTED":
       return dumpSelected(state);
 
+
     default:
       return state;
+
   }
 }
 

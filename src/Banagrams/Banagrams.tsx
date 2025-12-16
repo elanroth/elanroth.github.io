@@ -6,19 +6,6 @@ function uid(letter: string) {
   return `${letter}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function Tile({ tile }: { tile: TileType }) {
-  return (
-    <div
-      draggable
-      onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ ids: [tile.id], source: 'queue' }))}
-      className="inline-flex items-center justify-center tile bg-white border rounded shadow select-none mr-2"
-      style={{ fontSize: 18, fontWeight: 700 }}
-      title={`Tile ${tile.letter}`}
-    >
-      {tile.letter}
-    </div>
-  );
-}
 
 export default function Banagrams() {
   // Create and shuffle bag once
