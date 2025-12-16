@@ -1,10 +1,10 @@
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
+import App from "./App";
 import "./index.css";
 // KaTeX stylesheet for math rendering (install katex via npm first)
 try {
 	// eslint-disable-next-line @typescript-eslint/no-var-requires
-	require('katex/dist/katex.min.css');
+	// require('katex/dist/katex.min.css');
 } catch (e) {
 	// ignore if katex isn't installed yet
 }
