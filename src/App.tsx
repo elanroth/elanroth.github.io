@@ -4,7 +4,30 @@ import { Home } from './components/tabs/Home';
 import { Bookshelf } from './components/tabs/Bookshelf';
 import { CVTab } from './components/tabs/CVTab';
 import { BlogTab } from './components/tabs/BlogTab';
-import Banangrams from './Banagrams/Banagrams';
+// import Banangrams from './Banagrams/Banagrams';
+import Banangrams from './Banagrams/engine/Game';
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCpi-hIbnIgI2iafVUlYJa4Q1FR-3qzmMw",
+  authDomain: "banagrams-66c81.firebaseapp.com",
+  projectId: "banagrams-66c81",
+  storageBucket: "banagrams-66c81.firebasestorage.app",
+  messagingSenderId: "1055429995560",
+  appId: "1:1055429995560:web:4c4fcf5277891aaf20991d",
+  measurementId: "G-LS20CN36T5"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
 type Tab = 'home' | 'bookshelf' | 'cv' | 'blog';
 
@@ -22,68 +45,68 @@ export default function App() {
 
   const tabs = [
     { id: 'home' as Tab, label: 'Home', icon: HomeIcon },
-    { id: 'blog' as Tab, label: 'Fun Thoughts', icon: PenLine },
+    // { id: 'blog' as Tab, label: 'Fun Thoughts', icon: PenLine },
     { id : 'cv' as Tab, label: 'CV', icon: HomeIcon }
     // { id: 'bookshelf' as Tab, label: 'Bookshelf', icon: BookOpen },
   ];
 
   const pdfUrl = '/Elan%20Roth%20CV.pdf';
 
-  // return <Banangrams />;
+  return <Banangrams />;
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-border bg-card/70 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <h1>Elan Roth</h1>
+  // return (
+  //   <div className="min-h-screen flex flex-col">
+  //     <header className="border-b border-border bg-card/70 backdrop-blur-md sticky top-0 z-50">
+  //       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+  //         <div className="flex items-center justify-between py-4">
+  //           <h1>Elan Roth</h1>
             
-            <div className="flex items-center space-x-4">
-              <nav className="flex space-x-1">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  if (tab.id === 'cv') {
-                    return (
-                      <a
-                        key={tab.id}
-                        href={pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-secondary`}
-                      >
-                        <span>{tab.label}</span>
-                      </a>
-                    );
-                  }
+  //           <div className="flex items-center space-x-4">
+  //             <nav className="flex space-x-1">
+  //               {tabs.map((tab) => {
+  //                 const Icon = tab.icon;
+  //                 if (tab.id === 'cv') {
+  //                   return (
+  //                     <a
+  //                       key={tab.id}
+  //                       href={pdfUrl}
+  //                       target="_blank"
+  //                       rel="noopener noreferrer"
+  //                       className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-secondary`}
+  //                     >
+  //                       <span>{tab.label}</span>
+  //                     </a>
+  //                   );
+  //                 }
 
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                        activeTab === tab.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-                      }`}
-                    >
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        </div>
-      </header>
+  //                 return (
+  //                   <button
+  //                     key={tab.id}
+  //                     onClick={() => setActiveTab(tab.id)}
+  //                     className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+  //                       activeTab === tab.id
+  //                         ? 'bg-primary text-primary-foreground'
+  //                         : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+  //                     }`}
+  //                   >
+  //                     <span>{tab.label}</span>
+  //                   </button>
+  //                 );
+  //               })}
+  //             </nav>
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </header>
 
-      <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8">
-        {activeTab === 'home' && <Home />}
-        {activeTab === 'bookshelf' && <Bookshelf />}
-        {activeTab === 'cv' && <CVTab />}
-        {activeTab === 'blog' && <BlogTab />}
-      </main>
-    </div>
-  );
+  //     <main className="flex-1 py-12 px-4 sm:px-6 lg:px-8">
+  //       {activeTab === 'home' && <Home />}
+  //       {activeTab === 'bookshelf' && <Bookshelf />}
+  //       {activeTab === 'cv' && <CVTab />}
+  //       {activeTab === 'blog' && <BlogTab />}
+  //     </main>
+  //   </div>
+  // );
     // UNTIL COMMENT
   
 }
