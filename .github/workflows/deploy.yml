@@ -19,17 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
+        with: { node-version: 20, cache: npm }
       - run: npm ci
 
       - name: Build
+        run: npm run build
         env:
-          # if you need env at build time, keep them here
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
@@ -37,31 +33,27 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FB_DATABASE_URL: ${{ secrets.VITE_FB_DATABASE_URL }}
-        run: npm run build
 
-      # SPA niceties
       - run: touch build/.nojekyll
       - run: cp build/index.html build/404.html
 
-      # Sanity check: ensure we’re not uploading a dev index.html
-      - name: Show first lines of built index.html
+      # Sanity check: built index must NOT reference /src/main.tsx
+      - name: Verify built index.html
         run: |
-          sed -n '1,40p' build/index.html
-          echo "---- grep src/main.tsx (should be empty) ----"
+          sed -n '1,60p' build/index.html
           ! grep -q "/src/main.tsx" build/index.html
 
       - uses: actions/configure-pages@v4
-
       - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build
+        with: { path: build }
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deploy
+      - id: deployment
         uses: actions/deploy-pages@v4
+
