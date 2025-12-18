@@ -75,25 +75,46 @@ function boardTileStyle(tileSize: number): React.CSSProperties {
 export default function Game() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
 
-  const gameId = "demo-game-1";    // TODO: route/param later
-  const userId = state.selfId;     // or auth UID
-  useBoardSync(gameId, userId, state, dispatch);
+  // derive ids once from URL; persist user for convenience
+const [ids] = useState(() => {
+  const qs = new URLSearchParams(window.location.search);
+  const gameId = qs.get("game") || "demo-game-1";
+  const urlUser = (qs.get("user") || "").trim();
+  const persisted = localStorage.getItem("banagrams_userId") || "";
+  const chosenUser = urlUser || persisted || `guest-${Math.random().toString(36).slice(2, 7)}`;
+  localStorage.setItem("banagrams_userId", chosenUser);
+  return { gameId, chosenUser };
+});
 
+// ensure state.selfId matches chosenUser (effect, not render)
+useEffect(() => {
+  if (state.selfId !== ids.chosenUser) {
+    dispatch({ type: "STATE_REPLACE", next: { ...state, selfId: ids.chosenUser } });
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [ids.chosenUser]);
 
-  // draw initial 10 tiles
-  useEffect(() => {
+// IMPORTANT: write to RTDB using the stable URL-derived userId
+useBoardSync(ids.gameId, ids.chosenUser, state, dispatch);
+
+// draw initial 10 AFTER userId is known to avoid writing under "local"
+useEffect(() => {
+  if (state.rack.length === 0 && state.bag.length > 0) {
     dispatch({ type: "DRAW", count: 10 });
-  }, []);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [ids.chosenUser]);
 
-  // Layout constants
+
+  // Layout constants...
   const HEADER_H = 72;
   const RACK_MIN_H = 120;
   const RACK_MAX_H = 240;
 
-  // Grid/tile sizing
   const GAP = 6;
   const [tileSize, setTileSize] = useState(52);
   const cell = tileSize + GAP;
+  // ...
 
   // Board measurement
   const boardRef = useRef<HTMLDivElement | null>(null);
