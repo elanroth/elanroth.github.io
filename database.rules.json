@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "games": {
+      "$gameId": {
+        "boards": {
+          "$userId": {
+            ".read": true,    
+            ".write": true    
+          }
+        }
+      }
+    }
+  }
+}

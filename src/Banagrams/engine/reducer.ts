@@ -1,4 +1,5 @@
 // src/engine/functions.ts
+import { Truck } from "lucide-react";
 import type {
   Action,
   Coord,
@@ -60,20 +61,6 @@ export function translateBoardTiles(tiles: TilesById, delta: Coord): TilesById {
   return next;
 }
 
-export function centerBoard(state: GameState): GameState {
-  const bounds = boardBounds(state.tiles);
-  if (!bounds) return state;
-
-  const center = {
-    x: (bounds.min.x + bounds.max.x) / 2,
-    y: (bounds.min.y + bounds.max.y) / 2,
-  };
-
-  // translate so center goes to (0,0)
-  const delta = { x: -center.x, y: -center.y };
-  return { ...state, tiles: translateBoardTiles(state.tiles, delta) };
-}
-
 // ---------- Snapping ----------
 export function snapCoord(pos: Coord): Coord {
   return { x: Math.round(pos.x), y: Math.round(pos.y) };
@@ -87,6 +74,46 @@ export function snapTiles(tiles: TilesById, tileIds: readonly TileId[]): TilesBy
     next[id] = { ...t, pos: snapCoord(t.pos) };
   }
   return next;
+}
+
+// Helper: get ids for all board tiles
+export function boardTileIds(tiles: TilesById): TileId[] {
+  const ids: TileId[] = [];
+  for (const t of Object.values(tiles)) if (t.location === "board") ids.push(t.id);
+  return ids;
+}
+
+// Snap a specific set of tile ids (unchanged behavior, just explicit name)
+export function snapTilesByIds(tiles: TilesById, tileIds: readonly TileId[]): TilesById {
+  const next: TilesById = { ...tiles };
+  for (const id of tileIds) {
+    const t = next[id];
+    if (!t) continue;
+    next[id] = { ...t, pos: snapCoord(t.pos) };
+  }
+  return next;
+}
+
+// Snap all board tiles (fix for centerBoard)
+export function snapAllBoardTiles(tiles: TilesById): TilesById {
+  return snapTilesByIds(tiles, boardTileIds(tiles));
+}
+
+
+export function centerBoard(state: GameState): GameState {
+  const bounds = boardBounds(state.tiles);
+  if (!bounds) return state;
+
+  const center = {
+    x: (bounds.min.x + bounds.max.x) / 2,
+    y: (bounds.min.y + bounds.max.y) / 2,
+  };
+  // translate so center goes to (0,0)
+  const delta = { x: -center.x, y: -center.y };
+
+  const moved = translateBoardTiles(state.tiles, delta);
+  const snapped = snapAllBoardTiles(moved);
+  return { ...state, tiles: snapped };
 }
 
 // ---------- Marquee selection helpers ----------
@@ -201,6 +228,9 @@ function drawTiles(state: GameState, count: number): GameState {
 function dumpTiles(state: GameState, tileIds: readonly TileId[]): GameState {
   if (tileIds.length === 0) return state;
 
+  const bag = state.bag.slice();
+  if (bag.length < 3) return state;
+
   // must all be in rack and owned by self
   for (const id of tileIds) {
     const t = state.tiles[id];
@@ -219,12 +249,11 @@ function dumpTiles(state: GameState, tileIds: readonly TileId[]): GameState {
   }
 
   // Return letters to bag
-  const bag = state.bag.slice();
   for (const id of tileIds) {
     bag.push(state.tiles[id].letter);
   }
 
-  // Draw replacements equal to number dumped (if possible), random from bag
+  // Draw replacements 3 times the number dumped (if possible), random from bag
   const drawCount = Math.min(tileIds.length, bag.length);
   for (let i = 0; i < 3 * drawCount; i++) {
     const pick = Math.floor(Math.random() * bag.length);
@@ -255,6 +284,37 @@ export function dumpSelected(state: GameState): GameState {
   return dumpTiles(state, selectedIds);
 }
 
+export function printCoord(coord: Coord) {
+  console.log("("+ coord.x+","+coord.y+")")
+}
+
+export function equalsCoord(coord1: Coord, coord2: Coord): boolean {
+  return coord1.x === coord2.x && coord1.y === coord2.y
+}
+
+export function isOccupied(state: GameState, pos: Coord): boolean {
+  return Object.values(state.tiles).some(
+    (t) => t.location === "board" && equalsCoord(t.pos, pos)
+  );
+}
+
+export function placeTile(state: GameState, tileId: string, pos: Coord): GameState {
+  const t = state.tiles[tileId];
+  if (!t) return state;
+  if (isOccupied(state, snapCoord(pos))) return state;
+  const nextTiles: TilesById = { ...state.tiles, [tileId]: { ...t, location: "board", pos: snapCoord(pos) } };
+  const nextRack = state.rack.filter((id) => id !== tileId);
+  return { ...state, tiles: nextTiles, rack: nextRack }; 
+}
+
+export function moveTile(state: GameState, tileId: string, pos: Coord): GameState {
+  const t = state.tiles[tileId];
+  if (!t || t.location !== "board") return state;
+  if (isOccupied(state, snapCoord(pos))) return state;
+  const nextTiles: TilesById = { ...state.tiles, [tileId]: { ...t, pos: snapCoord(pos) } };
+  return { ...state, tiles: nextTiles };
+}
+
 
 // ---------- Reducer skeleton using helpers ----------
 export function reducer(state: GameState, action: Action): GameState {
@@ -265,6 +325,7 @@ export function reducer(state: GameState, action: Action): GameState {
       return clearSelection(state);
 
     case "DRAG_BEGIN":
+      console.log("drag begin")
       return beginDrag(state, action.tileIds, action.mouse);
 
     case "DRAG_UPDATE":
@@ -272,24 +333,20 @@ export function reducer(state: GameState, action: Action): GameState {
       return dragUpdate(state, action.mouse, (dxPx, dyPx) => ({ x: dxPx, y: dyPx }));
 
     case "DRAG_END":
+      console.log("drag end")
       return endDrag(state);
 
     case "DRAW":
       return drawTiles(state, action.count);
 
     case "PLACE_TILE": {
-      const t = state.tiles[action.tileId];
-      if (!t) return state;
-      const nextTiles: TilesById = { ...state.tiles, [action.tileId]: { ...t, location: "board", pos: snapCoord(action.pos) } };
-      const nextRack = state.rack.filter((id) => id !== action.tileId);
-      return { ...state, tiles: nextTiles, rack: nextRack };
+      console.log("placed")
+      return placeTile(state, action.tileId, action.pos)
     }
 
     case "MOVE_TILE": {
-      const t = state.tiles[action.tileId];
-      if (!t || t.location !== "board") return state;
-      const nextTiles: TilesById = { ...state.tiles, [action.tileId]: { ...t, pos: snapCoord(action.pos) } };
-      return { ...state, tiles: nextTiles };
+      console.log("moved")
+      return moveTile(state, action.tileId, action.pos)
     }
 
     case "CENTER_BOARD":

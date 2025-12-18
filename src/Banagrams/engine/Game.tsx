@@ -1,7 +1,8 @@
+// path: src/Banagrams/engine_2/Game.tsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DISTRIBUTION } from "../_distribution";
+import { DISTRIBUTION } from "./distribution"; // uses your provided file
 import { reducer } from "./reducer";
-import type { GameState, TileId, TileState } from "./types";
+import type { GameState, TileId, TileState, TilesById } from "./types";
 
 // ---------- Utilities ----------
 function shuffleArray<T>(arr: T[]): T[] {
@@ -24,7 +25,7 @@ function createBag(): string[] {
 function initialState(): GameState {
   return {
     selfId: "local",
-    tiles: {},
+    tiles: {} as TilesById,
     rack: [],
     selection: {},
     drag: { kind: "none" },
@@ -35,6 +36,7 @@ function initialState(): GameState {
   };
 }
 
+// ---------- Styling helpers ----------
 function rackTileStyle(tileSize: number): React.CSSProperties {
   return {
     width: tileSize,
@@ -48,7 +50,7 @@ function rackTileStyle(tileSize: number): React.CSSProperties {
     boxShadow: "inset 0 -6px 0 rgba(0,0,0,0.06), 0 6px 14px rgba(0,0,0,0.12)",
     color: "#2b2b2b",
     userSelect: "none",
-    flex: "0 0 auto", // never shrink
+    flex: "0 0 auto",
   };
 }
 
@@ -68,7 +70,7 @@ function boardTileStyle(tileSize: number): React.CSSProperties {
   };
 }
 
-// ---------- UI Component ----------
+// ---------- Component ----------
 export default function Game() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
 
@@ -85,37 +87,31 @@ export default function Game() {
   // Grid/tile sizing
   const GAP = 6;
   const [tileSize, setTileSize] = useState(52);
+  const cell = tileSize + GAP;
 
-  // Board measurement (so grid background origin matches tile origin)
+  // Board measurement
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [boardSize, setBoardSize] = useState({ w: 0, h: 0 });
-
   useEffect(() => {
     const el = boardRef.current;
     if (!el) return;
-
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
       setBoardSize({ w: r.width, h: r.height });
     });
-
     ro.observe(el);
     const r = el.getBoundingClientRect();
     setBoardSize({ w: r.width, h: r.height });
-
     return () => ro.disconnect();
   }, []);
 
-  // Tile size compute: based on available viewport, but *not* squished by rack overflow
+  // Responsive tile size
   useEffect(() => {
     function compute() {
       const availableW = window.innerWidth - 24;
       const availableH = window.innerHeight - HEADER_H - RACK_MIN_H - 24;
-
-      // heuristics: keep tiles reasonably sized
       const sizeByW = Math.floor(availableW / 14);
       const sizeByH = Math.floor(availableH / 12);
-
       setTileSize(Math.max(30, Math.min(68, Math.min(sizeByW, sizeByH))));
     }
     compute();
@@ -123,25 +119,22 @@ export default function Game() {
     return () => window.removeEventListener("resize", compute);
   }, []);
 
-  const cell = tileSize + GAP;
-
+  // Derived sets
   const boardTiles = useMemo(
     () => Object.values(state.tiles).filter((t) => t.location === "board"),
     [state.tiles]
   );
-
   const rackTiles = useMemo(
     () => state.rack.map((id) => state.tiles[id]).filter(Boolean) as TileState[],
     [state.rack, state.tiles]
   );
 
-  // Grid background: lines extend to edges and are aligned so a grid intersection is at board center.
+  // Grid background aligned so origin is board center
   const gridBg = useMemo(() => {
     const line = "rgba(0,0,0,0.12)";
     const bg = "#f6e1b3";
     const cx = Math.round(boardSize.w / 2);
     const cy = Math.round(boardSize.h / 2);
-
     return {
       backgroundColor: bg,
       backgroundImage: `
@@ -149,11 +142,11 @@ export default function Game() {
         linear-gradient(to bottom, ${line} 1px, transparent 1px)
       `,
       backgroundSize: `${cell}px ${cell}px`,
-      backgroundPosition: `${cx}px ${cy}px`, // critical: match tile origin
+      backgroundPosition: `${cx}px ${cy}px`,
     } as React.CSSProperties;
   }, [cell, boardSize.w, boardSize.h]);
 
-  // Convert world tile coords -> pixels (tile centers sit in the middle of the squares)
+  // world -> px (tile centers on cell centers)
   function worldToPx(pos: { x: number; y: number }) {
     const cx = boardSize.w / 2;
     const cy = boardSize.h / 2;
@@ -163,23 +156,16 @@ export default function Game() {
     };
   }
 
-  // Convert drop position -> world tile coords by snapping to the square under the cursor.
+  // Pointer drop -> world coords (snap to square under cursor)
   function dropEventToWorld(e: React.DragEvent<HTMLDivElement>) {
     const rect = boardRef.current?.getBoundingClientRect();
     if (!rect) return null;
-
     const cx = rect.width / 2;
     const cy = rect.height / 2;
-
     const xPx = e.clientX - rect.left;
     const yPx = e.clientY - rect.top;
-
-    // IMPORTANT:
-    // Grid lines are at cx + k*cell. The square immediately right of center is k=0.
-    // So floor((x-cx)/cell) maps that square to worldX=0.
     const wx = Math.floor((xPx - cx) / cell);
     const wy = Math.floor((yPx - cy) / cell);
-
     return { x: wx, y: wy };
   }
 
@@ -240,7 +226,7 @@ export default function Game() {
         </div>
       </header>
 
-      {/* Board (fills remaining space) */}
+      {/* Board */}
       <div
         ref={boardRef}
         style={{
@@ -253,19 +239,18 @@ export default function Game() {
         onDrop={(e) => {
           const id = e.dataTransfer.getData("application/tile-id") as TileId;
           if (!id) return;
-
           const from = e.dataTransfer.getData("application/from");
           const pos = dropEventToWorld(e);
           if (!pos) return;
-
-          if (from === "board") dispatch({ type: "MOVE_TILE", tileId: id, pos });
-          else dispatch({ type: "PLACE_TILE", tileId: id, pos });
+          if (from === "board") {
+            dispatch({ type: "MOVE_TILE", tileId: id, pos });
+          } else {
+            dispatch({ type: "PLACE_TILE", tileId: id, pos });
+          }
         }}
       >
-        {/* Render board tiles */}
         {boardTiles.map((t) => {
           const { left, top } = worldToPx(t.pos);
-
           return (
             <div
               key={t.id}
@@ -293,7 +278,7 @@ export default function Game() {
         })}
       </div>
 
-      {/* Rack (wraps; grows taller up to max; tiles never shrink) */}
+      {/* Rack */}
       <div
         className="border-t border-gray-200 bg-slate-100/80 dark:bg-slate-800/80"
         style={{
@@ -314,22 +299,9 @@ export default function Game() {
             alignItems: "stretch",
           }}
         >
-          {/* tiles area */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              paddingRight: 6,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 8,
-                alignContent: "flex-start",
-              }}
-            >
+          {/* tiles */}
+          <div style={{ flex: 1, overflowY: "auto", paddingRight: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignContent: "flex-start" }}>
               {rackTiles.length === 0 ? (
                 <div className="text-muted-foreground">No tiles.</div>
               ) : (
@@ -361,7 +333,7 @@ export default function Game() {
             <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
 
             <div
-              className="w-20 h-20 bg-red-200 border border-red-400 rounded flex items-center justify-center text-sm"
+              className="w-35 h-20 bg-red-200 border border-red-400 rounded flex items-center justify-center text-sm"
               style={{ minWidth: 80 }}
               title="Drop a rack tile here to dump it and draw replacement(s)"
               onDragOver={(e) => e.preventDefault()}
@@ -372,7 +344,7 @@ export default function Game() {
                 dispatch({ type: "DUMP_TILE", tileId: id });
               }}
             >
-              Dump
+              Dumperooni
             </div>
           </div>
         </div>

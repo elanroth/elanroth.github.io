@@ -1,4 +1,4 @@
-import { DISTRIBUTION } from '../_distribution';
+import { DISTRIBUTION } from './_distribution';
 
 // Fisher-Yates shuffle
 export function shuffleArray<T>(arr: T[]): T[] {
