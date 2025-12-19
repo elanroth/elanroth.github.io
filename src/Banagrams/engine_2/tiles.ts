@@ -1,5 +1,5 @@
 import type { Coord, GameState, TileId, TileState, TilesById } from "./types";
-import { snapCoord } from "./coords";
+import { snapCoord, add } from "./coords";
 import { isOccupied } from "./board";
 
 export function makeTile(letter: string, owner: string): TileState {
@@ -68,5 +68,39 @@ export function moveTile(state: GameState, tileId: string, pos: Coord): GameStat
   const t = state.tiles[tileId]; if (!t || t.location !== "board") return state;
   const p = snapCoord(pos); if (isOccupied(state.tiles, p)) return state;
   const nextTiles: TilesById = { ...state.tiles, [tileId]: { ...t, pos: p } };
+  return { ...state, tiles: nextTiles };
+}
+
+export function moveTiles(state: GameState, tileIds: readonly TileId[], delta: Coord): GameState {
+  if (tileIds.length === 0) return state;
+  const nextTiles: TilesById = { ...state.tiles };
+  const targets: Record<TileId, Coord> = {};
+
+  for (const id of tileIds) {
+    const t = state.tiles[id];
+    if (!t || t.location !== "board") return state;
+    targets[id] = snapCoord(add(t.pos, delta));
+  }
+
+  // detect collisions with non-moved tiles
+  for (const [id, target] of Object.entries(targets)) {
+    const occupied = Object.values(state.tiles).some((t) => {
+      if (t.location !== "board") return false;
+      if (tileIds.includes(t.id)) return false;
+      return t.pos.x === target.x && t.pos.y === target.y;
+    });
+    if (occupied) return state;
+    // prevent collisions among targets
+    for (const [otherId, otherTarget] of Object.entries(targets)) {
+      if (otherId === id) continue;
+      if (otherTarget.x === target.x && otherTarget.y === target.y) return state;
+    }
+  }
+
+  for (const [id, target] of Object.entries(targets)) {
+    const t = nextTiles[id];
+    if (t) nextTiles[id] = { ...t, pos: target };
+  }
+
   return { ...state, tiles: nextTiles };
 }

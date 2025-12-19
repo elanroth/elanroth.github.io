@@ -2,6 +2,20 @@ import type { Coord, GameState, TileId, TilesById } from "./types";
 import { add } from "./coords";
 import { snapTilesByIds } from "./board";
 
+export function beginMarquee(state: GameState, startMouse: Coord): GameState {
+  return { ...state, drag: { kind: "marquee", startMouse, currentMouse: startMouse } };
+}
+
+export function updateMarquee(state: GameState, mouse: Coord): GameState {
+  if (state.drag.kind !== "marquee") return state;
+  return { ...state, drag: { ...state.drag, currentMouse: mouse } };
+}
+
+export function endMarquee(state: GameState): GameState {
+  if (state.drag.kind !== "marquee") return state;
+  return { ...state, drag: { kind: "none" } };
+}
+
 export function beginDrag(state: GameState, tileIds: readonly TileId[], startMouse: Coord): GameState {
   const startPositions: Record<TileId, Coord> = {};
   for (const id of tileIds) {

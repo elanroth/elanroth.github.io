@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { DISTRIBUTION } from "./_distribution"; // uses your provided file
 import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
-import type { GameState, TileId, TileState, TilesById } from "./types";
+import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
+import { tilesInWorldRect } from "./board";
 
 // ---------- Utilities ----------
 function shuffleArray<T>(arr: T[]): T[] {
@@ -31,6 +32,7 @@ function initialState(): GameState {
     selection: {},
     drag: { kind: "none" },
     bag: createBag(),
+    options: { minLength: 3 } as GameOptions,
     dictionary: { status: "unloaded", words: null },
     requests: {},
     remoteBoards: {},
@@ -121,7 +123,7 @@ export default function Game() {
           .filter(Boolean)
           .forEach((w) => {
             const cleaned = w.replace(/[^A-Za-z]/g, "").toUpperCase();
-            if (cleaned.length >= 2) words.add(cleaned);
+            if (cleaned.length >= state.options.minLength) words.add(cleaned);
           });
         setDictionary(words);
         setDictStatus("ready");
@@ -182,6 +184,32 @@ export default function Game() {
     () => state.rack.map((id) => state.tiles[id]).filter(Boolean) as TileState[],
     [state.rack, state.tiles]
   );
+
+  const marqueeStyle = useMemo(() => {
+    if (state.drag.kind !== "marquee") return null;
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const { startMouse, currentMouse } = state.drag;
+    const x1 = Math.min(startMouse.x, currentMouse.x) - rect.left;
+    const x2 = Math.max(startMouse.x, currentMouse.x) - rect.left;
+    const y1 = Math.min(startMouse.y, currentMouse.y) - rect.top;
+    const y2 = Math.max(startMouse.y, currentMouse.y) - rect.top;
+    const left = Math.max(0, x1);
+    const top = Math.max(0, y1);
+    const right = Math.min(rect.width, x2);
+    const bottom = Math.min(rect.height, y2);
+    return {
+      position: "absolute" as const,
+      left,
+      top,
+      width: Math.max(0, right - left),
+      height: Math.max(0, bottom - top),
+      border: "1px dashed rgba(37,99,235,0.8)",
+      background: "rgba(37,99,235,0.12)",
+      pointerEvents: "none" as const,
+      zIndex: 10,
+    };
+  }, [state.drag]);
 
   // Determine valid/invalid tiles (horizontal and vertical contiguous runs, length>=2) when dictionary is ready
   const validity = useMemo(() => {
@@ -278,6 +306,33 @@ export default function Game() {
     return { x: wx, y: wy };
   }
 
+  function screenToWorld(client: { x: number; y: number }) {
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const localX = client.x - rect.left;
+    const localY = client.y - rect.top;
+    return {
+      x: localX / cell - cx / cell - 0.5,
+      y: localY / cell - cy / cell - 0.5,
+    };
+  }
+
+  function finalizeMarqueeSelection(endClient: { x: number; y: number }) {
+    if (state.drag.kind !== "marquee") return;
+    const a = screenToWorld(state.drag.startMouse);
+    const b = screenToWorld(endClient);
+    if (!a || !b) return;
+    const rect = {
+      min: { x: Math.floor(Math.min(a.x, b.x)), y: Math.floor(Math.min(a.y, b.y)) },
+      max: { x: Math.floor(Math.max(a.x, b.x)), y: Math.floor(Math.max(a.y, b.y)) },
+    };
+    const ids = tilesInWorldRect(state.tiles, rect, { location: "board" });
+    dispatch({ type: "SELECT_SET", tileIds: ids });
+    dispatch({ type: "MARQUEE_END" });
+  }
+
   return (
     <div
       className="min-h-screen"
@@ -344,6 +399,23 @@ export default function Game() {
           overflow: "hidden",
           ...gridBg,
         }}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          const target = e.target as HTMLElement | null;
+          if (target && target.closest("[data-tile]") ) return; // let tile drag handle it
+          e.preventDefault();
+          dispatch({ type: "MARQUEE_BEGIN", mouse: { x: e.clientX, y: e.clientY } });
+        }}
+        onMouseMove={(e) => {
+          if (state.drag.kind === "marquee") {
+            dispatch({ type: "MARQUEE_UPDATE", mouse: { x: e.clientX, y: e.clientY } });
+          }
+        }}
+        onMouseUp={(e) => {
+          if (state.drag.kind === "marquee") {
+            finalizeMarqueeSelection({ x: e.clientX, y: e.clientY });
+          }
+        }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           const id = e.dataTransfer.getData("application/tile-id") as TileId;
@@ -352,12 +424,17 @@ export default function Game() {
           const pos = dropEventToWorld(e);
           if (!pos) return;
           if (from === "board") {
-            dispatch({ type: "MOVE_TILE", tileId: id, pos });
+            const selectedIds = state.selection[id] ? Object.keys(state.selection) : [id];
+            const source = state.tiles[id];
+            if (!source) return;
+            const delta = { x: pos.x - source.pos.x, y: pos.y - source.pos.y };
+            dispatch({ type: "MOVE_TILES", tileIds: selectedIds, delta });
           } else {
             dispatch({ type: "PLACE_TILE", tileId: id, pos });
           }
         }}
       >
+        {marqueeStyle && <div style={marqueeStyle} />}
         {boardTiles.map((t) => {
           const { left, top } = worldToPx(t.pos);
           const color = validity && dictionary
@@ -371,6 +448,7 @@ export default function Game() {
             <div
               key={t.id}
               draggable
+              data-tile="1"
               onDragStart={(e) => {
                 e.dataTransfer.setData("application/tile-id", t.id);
                 e.dataTransfer.setData("application/from", "board");

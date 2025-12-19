@@ -63,10 +63,10 @@ export type RemoteBoard = {
 };
 
 // Game options
-// export type GameOptions = {
-//   minLength: number;
-//   timed: boolean;
-// }
+export type GameOptions = {
+  minLength: number;
+  timed: boolean;
+}
 
 // ---------- Game state ----------
 export type GameState = {
@@ -79,6 +79,8 @@ export type GameState = {
   drag: DragState;
 
   bag: string[];
+
+  options: GameOptions;
 
   dictionary: DictionaryState;
 
@@ -104,6 +106,7 @@ export type Action =
   // board placement/moves
   | { type: "PLACE_TILE"; tileId: TileId; pos: Coord }
   | { type: "MOVE_TILE"; tileId: TileId; pos: Coord }
+  | { type: "MOVE_TILES"; tileIds: TileId[]; delta: Coord }
 
   // dragging
   | { type: "DRAG_BEGIN"; tileIds: TileId[]; mouse: Coord }

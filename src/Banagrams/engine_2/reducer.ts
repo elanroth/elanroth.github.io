@@ -1,7 +1,7 @@
 import type { Action, GameState } from "./types";
 import { setSelection, clearSelection } from "./selection";
-import { beginDrag, dragUpdate, endDrag } from "./drag";
-import { drawTiles, dumpTiles, moveTile, placeTile } from "./tiles";
+import { beginDrag, dragUpdate, endDrag, beginMarquee, updateMarquee, endMarquee } from "./drag";
+import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles } from "./tiles";
 import { centerBoard } from "./center";
 
 export function reducer(state: GameState, action: Action): GameState {
@@ -17,9 +17,13 @@ export function reducer(state: GameState, action: Action): GameState {
     case "DRAG_BEGIN":     return beginDrag(state, action.tileIds, action.mouse);
     case "DRAG_UPDATE":    return dragUpdate(state, action.mouse, (dxPx, dyPx) => ({ x: dxPx, y: dyPx }));
     case "DRAG_END":       return endDrag(state);
+    case "MARQUEE_BEGIN":  return beginMarquee(state, action.mouse);
+    case "MARQUEE_UPDATE": return updateMarquee(state, action.mouse);
+    case "MARQUEE_END":    return endMarquee(state);
     case "DRAW":           return drawTiles(state, action.count);
     case "PLACE_TILE":     return placeTile(state, action.tileId, action.pos);
     case "MOVE_TILE":      return moveTile(state, action.tileId, action.pos);
+    case "MOVE_TILES":     return moveTiles(state, action.tileIds, action.delta);
     case "CENTER_BOARD":   return centerBoard(state);
     case "DUMP_TILE":      return dumpTiles(state, [action.tileId]);
     case "DUMP_SELECTED":  return dumpTiles(state, Object.keys(state.selection));
