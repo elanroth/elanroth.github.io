@@ -74,36 +74,63 @@ function boardTileStyle(tileSize: number): React.CSSProperties {
 // ---------- Component ----------
 export default function Game() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const [dictionary, setDictionary] = useState<Set<string> | null>(null);
+  const [dictStatus, setDictStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
   // derive ids once from URL; persist user for convenience
-const [ids] = useState(() => {
-  const qs = new URLSearchParams(window.location.search);
-  const gameId = qs.get("game") || "demo-game-1";
-  const urlUser = (qs.get("user") || "").trim();
-  const persisted = localStorage.getItem("banagrams_userId") || "";
-  const chosenUser = urlUser || persisted || `guest-${Math.random().toString(36).slice(2, 7)}`;
-  localStorage.setItem("banagrams_userId", chosenUser);
-  return { gameId, chosenUser };
-});
+  const [ids] = useState(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const gameId = qs.get("game") || "demo-game-1";
+    const urlUser = (qs.get("user") || "").trim();
+    const persisted = localStorage.getItem("banagrams_userId") || "";
+    const chosenUser = urlUser || persisted || `guest-${Math.random().toString(36).slice(2, 7)}`;
+    localStorage.setItem("banagrams_userId", chosenUser);
+    return { gameId, chosenUser };
+  });
 
-// ensure state.selfId matches chosenUser (effect, not render)
-useEffect(() => {
-  if (state.selfId !== ids.chosenUser) {
-    dispatch({ type: "STATE_REPLACE", next: { ...state, selfId: ids.chosenUser } });
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [ids.chosenUser]);
+  // ensure state.selfId matches chosenUser (effect, not render)
+  useEffect(() => {
+    if (state.selfId !== ids.chosenUser) {
+      dispatch({ type: "STATE_REPLACE", next: { ...state, selfId: ids.chosenUser } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.chosenUser]);
 
-// IMPORTANT: write to RTDB using the stable URL-derived userId
-useBoardSync(ids.gameId, ids.chosenUser, state, dispatch);
+  // IMPORTANT: write to RTDB using the stable URL-derived userId
+  useBoardSync(ids.gameId, ids.chosenUser, state, dispatch);
 
-// draw initial 10 AFTER userId is known to avoid writing under "local"
-useEffect(() => {
-  if (state.rack.length === 0 && state.bag.length > 0) {
-    dispatch({ type: "DRAW", count: 10 });
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [ids.chosenUser]);
+  // draw initial 10 AFTER userId is known to avoid writing under "local"
+  useEffect(() => {
+    if (state.rack.length === 0 && state.bag.length > 0) {
+      dispatch({ type: "DRAW", count: 10 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.chosenUser]);
+
+  // Load dictionary from English Words.txt once
+  useEffect(() => {
+    if (dictStatus === "loading" || dictStatus === "ready") return;
+    setDictStatus("loading");
+    (async () => {
+      try {
+        const url = new URL("../dictionary.txt", import.meta.url).toString();
+        const txt = await (await fetch(url)).text();
+        const words = new Set<string>();
+        txt.split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .forEach((w) => {
+            const cleaned = w.replace(/[^A-Za-z]/g, "").toUpperCase();
+            if (cleaned.length >= 2) words.add(cleaned);
+          });
+        setDictionary(words);
+        setDictStatus("ready");
+      } catch (err) {
+        console.warn("Failed to load dictionary", err);
+        setDictStatus("error");
+      }
+    })();
+  }, [dictStatus]);
 
 
   // Layout constants...
@@ -155,6 +182,61 @@ useEffect(() => {
     () => state.rack.map((id) => state.tiles[id]).filter(Boolean) as TileState[],
     [state.rack, state.tiles]
   );
+
+  // Determine valid/invalid tiles (horizontal and vertical contiguous runs, length>=2) when dictionary is ready
+  const validity = useMemo(() => {
+    if (!dictionary) return null;
+    const boardOnly = boardTiles.filter((t) => Number.isInteger(t.pos.x) && Number.isInteger(t.pos.y));
+    if (boardOnly.length === 0) return { valid: new Set<TileId>(), invalid: new Set<TileId>() };
+
+    const byRow: Record<number, TileState[]> = {};
+    const byCol: Record<number, TileState[]> = {};
+    for (const t of boardOnly) {
+      (byRow[t.pos.y] ||= []).push(t);
+      (byCol[t.pos.x] ||= []).push(t);
+    }
+
+    const valid = new Set<TileId>();
+    const invalid = new Set<TileId>();
+    const singletons: TileState[] = [];
+
+    function process(group: TileState[], axis: "row" | "col") {
+      if (!dictionary) return
+      const sorted = group.slice().sort((a, b) => (axis === "row" ? a.pos.x - b.pos.x : a.pos.y - b.pos.y));
+      let run: TileState[] = [];
+      for (let i = 0; i <= sorted.length; i++) {
+        const curr = sorted[i];
+        const prev = sorted[i - 1];
+        const isBreak =
+          i === sorted.length ||
+          (prev && curr && (axis === "row" ? curr.pos.x - prev.pos.x > 1 : curr.pos.y - prev.pos.y > 1));
+        if (isBreak) {
+          if (run.length === 1) {
+            singletons.push(run[0]);
+          } else if (run.length >= 2) {
+            const word = run.map((t) => t.letter).join("").toUpperCase();
+            const isValid = dictionary.has(word);
+            for (const t of run) (isValid ? valid : invalid).add(t.id);
+          }
+          run = [];
+        }
+        if (i < sorted.length) run.push(curr!);
+      }
+    }
+
+    Object.values(byRow).forEach((row) => process(row, "row"));
+    Object.values(byCol).forEach((col) => process(col, "col"));
+
+    for (const t of singletons) {
+      if (!valid.has(t.id)) invalid.add(t.id);
+    }
+
+    for (const t of boardOnly) {
+      if (!valid.has(t.id) && !invalid.has(t.id)) invalid.add(t.id);
+    }
+
+    return { valid, invalid };
+  }, [boardTiles, dictionary]);
 
   // Grid background aligned so origin is board center
   const gridBg = useMemo(() => {
@@ -278,6 +360,13 @@ useEffect(() => {
       >
         {boardTiles.map((t) => {
           const { left, top } = worldToPx(t.pos);
+          const color = validity && dictionary
+            ? validity.invalid.has(t.id)
+              ? "#b3261e" // any invalid run takes precedence
+              : validity.valid.has(t.id)
+                ? "#1a7f37" // only valid, no invalid overlap
+                : "#b3261e" // unclassified defaults to red
+            : "#2b2b2b";
           return (
             <div
               key={t.id}
@@ -295,6 +384,7 @@ useEffect(() => {
                 top,
                 ...boardTileStyle(tileSize),
                 paddingBottom: Math.max(6, tileSize * 0.32),
+                color,
               }}
             >
               <span style={{ fontSize: Math.max(18, tileSize * 0.5), lineHeight: 1 }}>

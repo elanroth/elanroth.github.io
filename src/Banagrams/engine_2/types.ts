@@ -62,6 +62,12 @@ export type RemoteBoard = {
   updatedAt: number;
 };
 
+// Game options
+// export type GameOptions = {
+//   minLength: number;
+//   timed: boolean;
+// }
+
 // ---------- Game state ----------
 export type GameState = {
   selfId: PlayerId;
