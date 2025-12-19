@@ -76,6 +76,12 @@ function boardTileStyle(tileSize: number): React.CSSProperties {
 // ---------- Component ----------
 export default function Game() {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const [dragVisual, setDragVisual] = useState<{
+    active: boolean;
+    ids: TileId[];
+    start: { x: number; y: number };
+    current: { x: number; y: number };
+  }>({ active: false, ids: [], start: { x: 0, y: 0 }, current: { x: 0, y: 0 } });
   const [dictionary, setDictionary] = useState<Set<string> | null>(null);
   const [dictStatus, setDictStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
@@ -428,7 +434,9 @@ export default function Game() {
             const source = state.tiles[id];
             if (!source) return;
             const delta = { x: pos.x - source.pos.x, y: pos.y - source.pos.y };
-            dispatch({ type: "MOVE_TILES", tileIds: selectedIds, delta });
+                  dispatch({ type: "MOVE_TILES", tileIds: selectedIds, delta });
+                  dispatch({ type: "SELECT_CLEAR" });
+                  setDragVisual({ active: false, ids: [], start: { x: 0, y: 0 }, current: { x: 0, y: 0 } });
           } else {
             dispatch({ type: "PLACE_TILE", tileId: id, pos });
           }
@@ -444,6 +452,10 @@ export default function Game() {
                 ? "#1a7f37" // only valid, no invalid overlap
                 : "#b3261e" // unclassified defaults to red
             : "#2b2b2b";
+          const isSelected = !!state.selection[t.id];
+          const isDragging = dragVisual.active && dragVisual.ids.includes(t.id);
+          const dx = isDragging ? dragVisual.current.x - dragVisual.start.x : 0;
+          const dy = isDragging ? dragVisual.current.y - dragVisual.start.y : 0;
           return (
             <div
               key={t.id}
@@ -452,9 +464,18 @@ export default function Game() {
               onDragStart={(e) => {
                 e.dataTransfer.setData("application/tile-id", t.id);
                 e.dataTransfer.setData("application/from", "board");
+                const ids = state.selection[t.id] ? Object.keys(state.selection) : [t.id];
+                setDragVisual({ active: true, ids, start: { x: e.clientX, y: e.clientY }, current: { x: e.clientX, y: e.clientY } });
                 try {
                   e.dataTransfer.effectAllowed = "move";
                 } catch {}
+              }}
+              onDrag={(e) => {
+                if (!dragVisual.active) return;
+                setDragVisual((prev) => ({ ...prev, current: { x: e.clientX, y: e.clientY } }));
+              }}
+              onDragEnd={() => {
+                setDragVisual({ active: false, ids: [], start: { x: 0, y: 0 }, current: { x: 0, y: 0 } });
               }}
               style={{
                 position: "absolute",
@@ -463,6 +484,9 @@ export default function Game() {
                 ...boardTileStyle(tileSize),
                 paddingBottom: Math.max(6, tileSize * 0.32),
                 color,
+                background: isSelected ? "linear-gradient(180deg,#e7f0ff,#c7d7ff)" : boardTileStyle(tileSize).background,
+                transform: isDragging ? `translate(${dx}px, ${dy}px)` : undefined,
+                opacity: isDragging ? 0.9 : 1,
               }}
             >
               <span style={{ fontSize: Math.max(18, tileSize * 0.5), lineHeight: 1 }}>
