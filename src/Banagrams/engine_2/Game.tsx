@@ -1,10 +1,10 @@
 // path: src/Banagrams/engine_2/Game.tsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DISTRIBUTION } from "./_distribution"; // uses your provided file
+import { DISTRIBUTION } from "./_distribution";
 import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
-import { tilesInWorldRect } from "./board";
+import { getValidWords, tilesInWorldRect } from "./board";
 
 // ---------- Utilities ----------
 function shuffleArray<T>(arr: T[]): T[] {
@@ -32,7 +32,7 @@ function initialState(): GameState {
     selection: {},
     drag: { kind: "none" },
     bag: createBag(),
-    options: { minLength: 3 } as GameOptions,
+    options: { minLength: 2 } as GameOptions,
     dictionary: { status: "unloaded", words: null },
     requests: {},
     remoteBoards: {},
@@ -82,8 +82,8 @@ export default function Game() {
     start: { x: number; y: number };
     current: { x: number; y: number };
   }>({ active: false, ids: [], start: { x: 0, y: 0 }, current: { x: 0, y: 0 } });
-  const [dictionary, setDictionary] = useState<Set<string> | null>(null);
-  const [dictStatus, setDictStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [flash, setFlash] = useState<string | null>(null);
+  const dictFetchedRef = useRef(false);
 
   // derive ids once from URL; persist user for convenience
   const [ids] = useState(() => {
@@ -110,35 +110,48 @@ export default function Game() {
   // draw initial 10 AFTER userId is known to avoid writing under "local"
   useEffect(() => {
     if (state.rack.length === 0 && state.bag.length > 0) {
-      dispatch({ type: "DRAW", count: 10 });
+      console.log("ayo")
+      dispatch({ type: "DRAW", count: -1 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids.chosenUser]);
 
+  // auto-hide flash
+  useEffect(() => {
+    if (!flash) return;
+    const id = setTimeout(() => setFlash(null), 1200);
+    return () => clearTimeout(id);
+  }, [flash]);
+
   // Load dictionary from English Words.txt once
   useEffect(() => {
-    if (dictStatus === "loading" || dictStatus === "ready") return;
-    setDictStatus("loading");
+    if (dictFetchedRef.current || state.dictionary.status === "ready") return;
+    dictFetchedRef.current = true;
+    if (state.dictionary.status === "unloaded") dispatch({ type: "DICT_LOADING" });
+
     (async () => {
       try {
         const url = new URL("../dictionary.txt", import.meta.url).toString();
-        const txt = await (await fetch(url)).text();
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const txt = await resp.text();
         const words = new Set<string>();
-        txt.split(/\r?\n/)
+        txt
+          .split(/\r?\n/)
           .map((l) => l.trim())
           .filter(Boolean)
           .forEach((w) => {
             const cleaned = w.replace(/[^A-Za-z]/g, "").toUpperCase();
             if (cleaned.length >= state.options.minLength) words.add(cleaned);
           });
-        setDictionary(words);
-        setDictStatus("ready");
+        dispatch({ type: "DICT_READY", words });
       } catch (err) {
-        console.warn("Failed to load dictionary", err);
-        setDictStatus("error");
+        const error = err instanceof Error ? err.message : "Unknown error";
+        dispatch({ type: "DICT_ERROR", error });
+        setFlash("Dictionary failed to load");
       }
     })();
-  }, [dictStatus]);
+  }, [dispatch, state.dictionary.status, state.options.minLength]);
 
 
   // Layout constants...
@@ -191,6 +204,8 @@ export default function Game() {
     [state.rack, state.tiles]
   );
 
+  const dictWords = state.dictionary.status === "ready" ? state.dictionary.words : null;
+
   const marqueeStyle = useMemo(() => {
     if (state.drag.kind !== "marquee") return null;
     const rect = boardRef.current?.getBoundingClientRect();
@@ -217,60 +232,27 @@ export default function Game() {
     };
   }, [state.drag]);
 
-  // Determine valid/invalid tiles (horizontal and vertical contiguous runs, length>=2) when dictionary is ready
+  // Determine valid/invalid tiles using shared board validator when dictionary is ready
   const validity = useMemo(() => {
-    if (!dictionary) return null;
-    const boardOnly = boardTiles.filter((t) => Number.isInteger(t.pos.x) && Number.isInteger(t.pos.y));
-    if (boardOnly.length === 0) return { valid: new Set<TileId>(), invalid: new Set<TileId>() };
+    if (!dictWords) return null;
+    return getValidWords(state.tiles, dictWords);
+  }, [state.tiles, dictWords]);
 
-    const byRow: Record<number, TileState[]> = {};
-    const byCol: Record<number, TileState[]> = {};
-    for (const t of boardOnly) {
-      (byRow[t.pos.y] ||= []).push(t);
-      (byCol[t.pos.x] ||= []).push(t);
+  function handlePeel() {
+    if (!dictWords) {
+      setFlash("Dictionary not ready yet");
+      return;
     }
-
-    const valid = new Set<TileId>();
-    const invalid = new Set<TileId>();
-    const singletons: TileState[] = [];
-
-    function process(group: TileState[], axis: "row" | "col") {
-      if (!dictionary) return
-      const sorted = group.slice().sort((a, b) => (axis === "row" ? a.pos.x - b.pos.x : a.pos.y - b.pos.y));
-      let run: TileState[] = [];
-      for (let i = 0; i <= sorted.length; i++) {
-        const curr = sorted[i];
-        const prev = sorted[i - 1];
-        const isBreak =
-          i === sorted.length ||
-          (prev && curr && (axis === "row" ? curr.pos.x - prev.pos.x > 1 : curr.pos.y - prev.pos.y > 1));
-        if (isBreak) {
-          if (run.length === 1) {
-            singletons.push(run[0]);
-          } else if (run.length >= 2) {
-            const word = run.map((t) => t.letter).join("").toUpperCase();
-            const isValid = dictionary.has(word);
-            for (const t of run) (isValid ? valid : invalid).add(t.id);
-          }
-          run = [];
-        }
-        if (i < sorted.length) run.push(curr!);
-      }
+    if (state.rack.length > 0) {
+      setFlash("Place tiles before peeling");
+      return;
     }
-
-    Object.values(byRow).forEach((row) => process(row, "row"));
-    Object.values(byCol).forEach((col) => process(col, "col"));
-
-    for (const t of singletons) {
-      if (!valid.has(t.id)) invalid.add(t.id);
+    if (!validity || !validity.validBoard) {
+      setFlash("Invalid board!");
+      return;
     }
-
-    for (const t of boardOnly) {
-      if (!valid.has(t.id) && !invalid.has(t.id)) invalid.add(t.id);
-    }
-
-    return { valid, invalid };
-  }, [boardTiles, dictionary]);
+    dispatch({ type: "PEEL" });
+  }
 
   // Grid background aligned so origin is board center
   const gridBg = useMemo(() => {
@@ -348,8 +330,27 @@ export default function Game() {
         height: "100vh",
         display: "flex",
         flexDirection: "column",
+        position: "relative",
       }}
     >
+      {flash && (
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            background: "#b3261e",
+            color: "white",
+            padding: "8px 12px",
+            borderRadius: 10,
+            boxShadow: "0 6px 14px rgba(0,0,0,0.12)",
+            fontWeight: 700,
+            zIndex: 200,
+          }}
+        >
+          {flash}
+        </div>
+      )}
       {/* Header */}
       <header
         style={{
@@ -366,7 +367,7 @@ export default function Game() {
       >
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <button
-            onClick={() => dispatch({ type: "DRAW", count: 1 })}
+            onClick={handlePeel}
             disabled={state.bag.length === 0}
             style={{
               padding: "10px 14px",
@@ -445,12 +446,12 @@ export default function Game() {
         {marqueeStyle && <div style={marqueeStyle} />}
         {boardTiles.map((t) => {
           const { left, top } = worldToPx(t.pos);
-          const color = validity && dictionary
+          const color = validity
             ? validity.invalid.has(t.id)
               ? "#b3261e" // any invalid run takes precedence
               : validity.valid.has(t.id)
                 ? "#1a7f37" // only valid, no invalid overlap
-                : "#b3261e" // unclassified defaults to red
+                : "#2b2b2b"
             : "#2b2b2b";
           const isSelected = !!state.selection[t.id];
           const isDragging = dragVisual.active && dragVisual.ids.includes(t.id);

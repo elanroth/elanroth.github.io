@@ -10,7 +10,8 @@ export function centerBoard(state: GameState): GameState {
     y: (bounds.min.y + bounds.max.y) / 2,
   };
 
-  const moved = translateBoardTiles(state.tiles, { x: -center.x, y: -center.y });
+  // Not sure why the -1 constant works
+  const moved = translateBoardTiles(state.tiles, { x: -center.x - 1, y: -center.y - 1 });
   const snapped = snapAllBoardTiles(moved);
   return { ...state, tiles: snapped };
 }

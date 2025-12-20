@@ -1,4 +1,4 @@
-import type { Coord, TileId, TilesById } from "./types";
+import type { Coord, TileId, TilesById, TileState } from "./types";
 import { add, equalsCoord, snapCoord } from "./coords";
 
 export function boardBounds(tiles: TilesById): { min: Coord; max: Coord } | null {
@@ -44,6 +44,77 @@ export function snapAllBoardTiles(tiles: TilesById): TilesById {
 export function isOccupied(tiles: TilesById, pos: Coord): boolean {
   const p = snapCoord(pos);
   return Object.values(tiles).some(t => t.location === "board" && equalsCoord(t.pos, p));
+}
+
+export function getValidWords(tiles: TilesById, dictionary: Set<string>): {
+    valid: Set<string>;
+    invalid: Set<string>;
+    validBoard: boolean;
+} | null {
+
+  if (!dictionary) return null;
+  const boardOnly = Object.values(tiles).filter((t) => t.location === "board" && 
+                                                       Number.isInteger(t.pos.x) && 
+                                                       Number.isInteger(t.pos.y))
+
+  if (boardOnly.length === 0) return { valid: new Set<TileId>(), invalid: new Set<TileId>(), validBoard: true };
+
+  const byRow: Record<number, TileState[]> = {};
+  const byCol: Record<number, TileState[]> = {};
+  for (const t of boardOnly) {
+    (byRow[t.pos.y] ||= []).push(t);
+    (byCol[t.pos.x] ||= []).push(t);
+  }
+
+  const valid = new Set<TileId>();
+  const invalid = new Set<TileId>();
+  const singletons: TileState[] = [];
+
+  function process(group: TileState[], axis: "row" | "col") {
+    if (!dictionary) return
+    const sorted = group.slice().sort((a, b) => (axis === "row" ? a.pos.x - b.pos.x : a.pos.y - b.pos.y));
+    let run: TileState[] = [];
+    for (let i = 0; i <= sorted.length; i++) {
+      const curr = sorted[i];
+      const prev = sorted[i - 1];
+      const isBreak =
+        i === sorted.length ||
+        (prev && curr && (axis === "row" ? curr.pos.x - prev.pos.x > 1 : curr.pos.y - prev.pos.y > 1));
+      if (isBreak) {
+        if (run.length === 1) {
+          singletons.push(run[0]);
+        } else if (run.length >= 2) {
+          const word = run.map((t) => t.letter).join("").toUpperCase();
+          const isValid = dictionary.has(word);
+          for (const t of run) (isValid ? valid : invalid).add(t.id);
+        }
+        run = [];
+      }
+      if (i < sorted.length) run.push(curr!);
+    }
+  }
+
+  Object.values(byRow).forEach((row) => process(row, "row"));
+  Object.values(byCol).forEach((col) => process(col, "col"));
+
+  var validBoard = true
+
+  for (const t of singletons) {
+    if (!valid.has(t.id)) invalid.add(t.id);
+  }
+
+  for (const t of boardOnly) {
+    if (!valid.has(t.id)) validBoard = false
+    if (!valid.has(t.id) && !invalid.has(t.id)) invalid.add(t.id);
+  }
+
+  return { valid, invalid, validBoard }
+}
+
+export function validateBoard(tiles: TilesById, dictionary: Set<string>): boolean {
+  const validation = getValidWords(tiles, dictionary)
+  if (validation == null) return false
+  return validation.validBoard
 }
 
 export function tilesInWorldRect(

@@ -4,7 +4,6 @@ Valid words courteous of https://gist.github.com/deostroll/7693b6f3d48b44a89ee5f
 
 Plan
 - Login page (remember always)
-- Center board (shift one or two over)
 - See others' boards
     - The button
     - Pick who's board to see
@@ -15,3 +14,7 @@ Plan
     - Dump in front of someone
 - Save all words used
     - Save by user for stats
+
+Completed
+* Center board (shift one or two over)
+* Peel logic

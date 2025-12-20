@@ -102,6 +102,7 @@ export type Action =
 
   // draw / bag
   | { type: "DRAW"; count: number }
+  | { type: "PEEL" }
 
   // board placement/moves
   | { type: "PLACE_TILE"; tileId: TileId; pos: Coord }
@@ -128,5 +129,6 @@ export type Action =
   | { type: "REQUEST_RESOLVE"; requestId: RequestId; accept: boolean }
 
   // dictionary
+  | { type: "DICT_LOADING" }
   | { type: "DICT_READY"; words: Set<string> }
   | { type: "DICT_ERROR"; error: string };
