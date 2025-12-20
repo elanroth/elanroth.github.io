@@ -34,6 +34,10 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
 
+      - name: Stamp build
+        run: echo "<!-- build $(date -u +%s) -->" >> build/index.html
+
+
       - run: touch build/.nojekyll
       - run: cp build/index.html build/404.html
 
