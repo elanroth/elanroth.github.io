@@ -462,6 +462,7 @@ export default function Game() {
               key={t.id}
               draggable
               data-tile="1"
+              onDoubleClick={() => dispatch({ type: "RETURN_TO_RACK", tileId: t.id })}
               onDragStart={(e) => {
                 e.dataTransfer.setData("application/tile-id", t.id);
                 e.dataTransfer.setData("application/from", "board");

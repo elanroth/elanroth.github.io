@@ -132,3 +132,16 @@ export function moveTiles(state: GameState, tileIds: readonly TileId[], delta: C
 
   return { ...state, tiles: nextTiles };
 }
+
+export function returnTileToRack(state: GameState, tileId: TileId): GameState {
+  const tile = state.tiles[tileId];
+  if (!tile || tile.location !== "board") return state;
+  if (tile.owner !== state.selfId) return state;
+
+  const nextTiles: TilesById = { ...state.tiles, [tileId]: { ...tile, location: "rack", pos: { x: 0, y: 0 } } };
+  const nextRack = [...state.rack.filter((id) => id !== tileId), tileId];
+  const nextSelection = { ...state.selection };
+  delete nextSelection[tileId];
+
+  return { ...state, tiles: nextTiles, rack: nextRack, selection: nextSelection };
+}
