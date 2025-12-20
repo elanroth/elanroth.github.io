@@ -70,6 +70,34 @@ export function getValidWords(tiles: TilesById, dictionary: Set<string>): {
   const invalid = new Set<TileId>();
   const singletons: TileState[] = [];
 
+  function isContiguous(nodes: TileState[]): boolean {
+    if (nodes.length <= 1) return true;
+    const key = (c: Coord) => `${c.x},${c.y}`;
+    const all = new Set(nodes.map((t) => key(t.pos)));
+    const visited = new Set<string>();
+    const queue: TileState[] = [nodes[0]];
+    while (queue.length) {
+      const current = queue.pop()!;
+      const k = key(current.pos);
+      if (visited.has(k)) continue;
+      visited.add(k);
+      const neighbors = [
+        { x: current.pos.x + 1, y: current.pos.y },
+        { x: current.pos.x - 1, y: current.pos.y },
+        { x: current.pos.x, y: current.pos.y + 1 },
+        { x: current.pos.x, y: current.pos.y - 1 },
+      ];
+      for (const n of neighbors) {
+        const nk = key(n);
+        if (all.has(nk) && !visited.has(nk)) {
+          const next = nodes.find((t) => t.pos.x === n.x && t.pos.y === n.y);
+          if (next) queue.push(next);
+        }
+      }
+    }
+    return visited.size === nodes.length;
+  }
+
   function process(group: TileState[], axis: "row" | "col") {
     if (!dictionary) return
     const sorted = group.slice().sort((a, b) => (axis === "row" ? a.pos.x - b.pos.x : a.pos.y - b.pos.y));
@@ -107,6 +135,9 @@ export function getValidWords(tiles: TilesById, dictionary: Set<string>): {
     if (!valid.has(t.id)) validBoard = false
     if (!valid.has(t.id) && !invalid.has(t.id)) invalid.add(t.id);
   }
+
+  // enforce contiguity (orthogonal adjacency only)
+  if (!isContiguous(boardOnly)) validBoard = false;
 
   return { valid, invalid, validBoard }
 }

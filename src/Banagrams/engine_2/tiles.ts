@@ -20,7 +20,7 @@ export function giveLetters(state: GameState, letters: string[]): GameState {
 
 export function drawTiles(state: GameState, count: number): GameState {
   if (count === -1) {
-    return giveLetters(state, ['A', 'B', 'C'])
+    return giveLetters(state, 'DOTO'.split(""))
   }
   if (count <= 0 || state.bag.length === 0) return state;
   const take = Math.min(count, state.bag.length);
