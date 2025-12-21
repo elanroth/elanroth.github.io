@@ -394,6 +394,7 @@ export default function Game() {
           >
             Center Board
           </button>
+          <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
         </div>
       </header>
 
@@ -551,8 +552,6 @@ export default function Game() {
 
           {/* right controls */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
-            <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
-
             <div
               className="w-35 h-20 bg-red-200 border border-red-400 rounded flex items-center justify-center text-sm"
               style={{ minWidth: 80 }}
@@ -565,7 +564,7 @@ export default function Game() {
                 dispatch({ type: "DUMP_TILE", tileId: id });
               }}
             >
-              Dumperooni
+              Dump
             </div>
           </div>
         </div>
