@@ -561,7 +561,7 @@ export default function Game() {
               onDrop={(e) => {
                 const id = e.dataTransfer.getData("application/tile-id") as TileId;
                 const from = e.dataTransfer.getData("application/from");
-                if (!id || from !== "rack") return;
+                if (!id) return;
                 dispatch({ type: "DUMP_TILE", tileId: id });
               }}
             >

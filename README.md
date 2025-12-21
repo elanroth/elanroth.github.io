@@ -9,12 +9,13 @@ Plan
     - Pick who's board to see
     - Steal a letter
 - Trade/gift letter
-- Marquee select and move
 - Dump logic
     - Dump in front of someone
+    - Current issue: dumping a selection does not give enough new tiles
 - Save all words used
     - Save by user for stats
 
 Completed
 * Center board (shift one or two over)
 * Peel logic
+* Marquee select and move

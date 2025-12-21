@@ -56,7 +56,10 @@ export function dumpTiles(state: GameState, tileIds: readonly TileId[]): GameSta
 
   for (const id of tileIds) {
     const t = state.tiles[id];
-    if (!t || t.location !== "rack" || t.owner !== state.selfId) return state;
+    if (!t || t.owner !== state.selfId) return state;
+    if (t.location == "board") {
+      state = returnTileToRack(state, id)
+    }
   }
 
   const nextTiles: TilesById = { ...state.tiles };
@@ -66,10 +69,10 @@ export function dumpTiles(state: GameState, tileIds: readonly TileId[]): GameSta
     else nextRack.push(id);
   }
 
-  for (const id of tileIds) bag.push(state.tiles[id].letter);
+  for (const id of tileIds) bag.push(state.tiles[id].letter)
 
-  const drawCount = Math.min(tileIds.length, bag.length);
-  for (let i = 0; i < 3 * drawCount; i++) {
+  const drawCount = Math.min(3 * tileIds.length, 3 * bag.length);
+  for (let i = 0; i < drawCount; i++) {
     const pick = Math.floor(Math.random() * bag.length);
     const letter = bag[pick];
     bag[pick] = bag[bag.length - 1]; bag.pop();
