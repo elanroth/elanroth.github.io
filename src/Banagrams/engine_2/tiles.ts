@@ -2,7 +2,7 @@ import type { Coord, GameState, TileId, TileState, TilesById } from "./types";
 import { snapCoord, add } from "./coords";
 import { isOccupied, validateBoard } from "./board";
 
-const startingLetters = "to"
+const startingLetters = "at"
 
 export function makeTile(letter: string, owner: string): TileState {
   const id = `t_${letter}_${Math.random().toString(36).slice(2)}`;

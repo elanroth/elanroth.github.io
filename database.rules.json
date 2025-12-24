@@ -2,13 +2,19 @@
   "rules": {
     "games": {
       "$gameId": {
+        ".read": true,
+        ".write": true,
         "boards": {
           "$userId": {
-            ".read": true,    
-            ".write": true    
+            ".read": true,
+            ".write": true
           }
         }
       }
+    },
+    "gamesMeta": {
+      ".read": true,
+      ".write": true
     }
   }
 }

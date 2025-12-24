@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { GameState, TilesById } from "../types";
-import { readBoards, saveMyTiles, subscribeBoards } from "../firebase/rtdb";
+import { consumeGrants, saveMyTiles, subscribeGame } from "../firebase/rtdb";
 
 function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
   let t: number | undefined;
@@ -23,8 +23,20 @@ export function useBoardSync(
 
   // pull remote boards
   useEffect(() => {
-    readBoards(gameId).then(b => dispatch({ type: "REMOTE_BOARDS_MERGE", boards: b }));
-    const unsub = subscribeBoards(gameId, b => dispatch({ type: "REMOTE_BOARDS_MERGE", boards: b }));
+    const unsub = subscribeGame(gameId, (snapshot) => {
+      dispatch({ type: "REMOTE_BOARDS_MERGE", boards: snapshot.boards });
+      dispatch({ type: "BAG_SET", bag: snapshot.bag || [] });
+      dispatch({ type: "PLAYERS_MERGE", players: snapshot.players || {} });
+      dispatch({ type: "STATUS_SET", status: snapshot.status || { phase: "active" } });
+
+      const grantsForMe = snapshot.grants?.[userId];
+      if (grantsForMe && Object.keys(grantsForMe).length > 0) {
+        const letters = Object.values(grantsForMe);
+        const ids = Object.keys(grantsForMe);
+        dispatch({ type: "ADD_LETTERS", letters });
+        consumeGrants(gameId, userId, ids).catch(() => {});
+      }
+    });
     return unsub;
   }, [gameId, dispatch]);
 }

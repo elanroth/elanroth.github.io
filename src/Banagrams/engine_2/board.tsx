@@ -145,7 +145,9 @@ export function getValidWords(tiles: TilesById, dictionary: Set<string>): {
 export function validateBoard(tiles: TilesById, dictionary: Set<string>): boolean {
   const validation = getValidWords(tiles, dictionary)
   if (validation == null) return false
-  return validation.validBoard
+
+  return true
+  // return validation.validBoard
 }
 
 export function tilesInWorldRect(

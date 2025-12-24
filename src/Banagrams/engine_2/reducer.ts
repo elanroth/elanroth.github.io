@@ -1,7 +1,7 @@
 import type { Action, GameState } from "./types";
 import { setSelection, clearSelection } from "./selection";
 import { beginDrag, dragUpdate, endDrag, beginMarquee, updateMarquee, endMarquee } from "./drag";
-import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles, peel, returnTileToRack } from "./tiles";
+import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles, peel, returnTileToRack, giveLetters } from "./tiles";
 import { centerBoard } from "./center";
 
 export function reducer(state: GameState, action: Action): GameState {
@@ -12,6 +12,10 @@ export function reducer(state: GameState, action: Action): GameState {
       if (state.selfId in merged) delete merged[state.selfId];
       return { ...state, remoteBoards: merged };
     }
+    case "PLAYERS_MERGE":  return { ...state, players: { ...state.players, ...action.players } };
+    case "BAG_SET":        return { ...state, bag: action.bag };
+    case "STATUS_SET":     return { ...state, status: action.status };
+    case "ADD_LETTERS":    return giveLetters(state, action.letters);
     case "DICT_LOADING":   return { ...state, dictionary: { status: "loading", words: null } };
     case "DICT_READY":     return { ...state, dictionary: { status: "ready", words: action.words } };
     case "DICT_ERROR":     return { ...state, dictionary: { status: "error", words: null, error: action.error } };

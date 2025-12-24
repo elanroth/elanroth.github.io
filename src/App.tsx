@@ -1,38 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Home as HomeIcon, BookOpen, FileText, PenLine, Moon, Sun } from 'lucide-react';
-import { Home } from './components/tabs/Home';
-import { Bookshelf } from './components/tabs/Bookshelf';
-import { CVTab } from './components/tabs/CVTab';
-import { BlogTab } from './components/tabs/BlogTab';
-// import Banangrams from './Banagrams/Banagrams';
-import Banangrams from './Banagrams/engine_2/Game';
-
-type Tab = 'home' | 'bookshelf' | 'cv' | 'blog';
+import { useState } from 'react';
+import Game from './Banagrams/engine_2/Game';
+import { LobbyGate, type LobbyChoice } from './Banagrams/engine_2/LobbyGate';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('home');
-  const [isDark, setIsDark] = useState(false);
+  const [choice, setChoice] = useState<LobbyChoice | null>(null);
 
-  useEffect(() => {
-    if (isDark) {
-      document.body.classList.add('dark');
-    } else {
-      document.body.classList.remove('dark');
-    }
-  }, [isDark]);
+  if (!choice) {
+    return <LobbyGate onEnter={setChoice} />;
+  }
 
-  const tabs = [
-    { id: 'home' as Tab, label: 'Home', icon: HomeIcon },
-    // { id: 'blog' as Tab, label: 'Fun Thoughts', icon: PenLine },
-    { id : 'cv' as Tab, label: 'CV', icon: HomeIcon }
-    // { id: 'bookshelf' as Tab, label: 'Bookshelf', icon: BookOpen },
-  ];
-
-  const pdfUrl = '/Elan%20Roth%20CV.pdf';
-
-  console.log("projectId:", import.meta.env.VITE_FIREBASE_PROJECT_ID);
-
-  return <Banangrams />;
+  return <Game gameId={choice.gameId} playerId={choice.playerId} nickname={choice.nickname} />;
 
   // return (
   //   <div className="min-h-screen flex flex-col">

@@ -8,6 +8,19 @@ export type TileId = string;
 export type PlayerId = string;
 export type RequestId = string;
 
+// ---------- Players / game metadata ----------
+export type PlayerInfo = {
+  nickname: string;
+  joinedAt: number;
+  lastSeen: number;
+};
+
+export type GameStatus = {
+  phase: "active" | "banana-split";
+  winnerId?: PlayerId;
+  updatedAt?: number;
+};
+
 // ---------- Tiles ----------
 export type TileLocation = "board" | "rack";
 
@@ -71,6 +84,7 @@ export type GameOptions = {
 // ---------- Game state ----------
 export type GameState = {
   selfId: PlayerId;
+  gameId: string;
 
   tiles: TilesById;
 
@@ -79,6 +93,9 @@ export type GameState = {
   drag: DragState;
 
   bag: string[];
+
+  players: Record<PlayerId, PlayerInfo>;
+  status: GameStatus;
 
   options: GameOptions;
 
@@ -95,6 +112,10 @@ export type Action =
   // state/sync
   | { type: "STATE_REPLACE"; next: GameState }
   | { type: "REMOTE_BOARDS_MERGE"; boards: Record<PlayerId, TilesById> }
+  | { type: "PLAYERS_MERGE"; players: Record<PlayerId, PlayerInfo> }
+  | { type: "BAG_SET"; bag: string[] }
+  | { type: "STATUS_SET"; status: GameStatus }
+  | { type: "ADD_LETTERS"; letters: string[] }
 
   // selection
   | { type: "SELECT_SET"; tileIds: TileId[] }

@@ -1,38 +1,24 @@
 // path: src/Banagrams/engine_2/Game.tsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { DISTRIBUTION } from "./_distribution";
 import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { getValidWords, tilesInWorldRect } from "./board";
+import { takeFromBag, setGameStatus, pushGrants } from "./firebase/rtdb";
 
-// ---------- Utilities ----------
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function createBag(): string[] {
-  const bag: string[] = [];
-  for (const [letter, count] of Object.entries(DISTRIBUTION)) {
-    for (let i = 0; i < count; i++) bag.push(letter);
-  }
-  return shuffleArray(bag);
-}
-
-function initialState(): GameState {
+// ---------- Initial state ----------
+function initialState(gameId: string, selfId: string): GameState {
   return {
-    selfId: "local",
+    selfId,
+    gameId,
     tiles: {} as TilesById,
     rack: [],
     selection: {},
     drag: { kind: "none" },
-    bag: createBag(),
-    options: { minLength: 2 } as GameOptions,
+    bag: [],
+    players: {},
+    status: { phase: "active" },
+    options: { minLength: 2, timed: false } as GameOptions,
     dictionary: { status: "unloaded", words: null },
     requests: {},
     remoteBoards: {},
@@ -74,8 +60,10 @@ function boardTileStyle(tileSize: number): React.CSSProperties {
 }
 
 // ---------- Component ----------
-export default function Game() {
-  const [state, dispatch] = useReducer(reducer, undefined, initialState);
+type GameProps = { gameId: string; playerId: string; nickname: string };
+
+export default function Game({ gameId, playerId, nickname: _nickname }: GameProps) {
+  const [state, dispatch] = useReducer(reducer, undefined, () => initialState(gameId, playerId));
   const [dragVisual, setDragVisual] = useState<{
     active: boolean;
     ids: TileId[];
@@ -84,37 +72,32 @@ export default function Game() {
   }>({ active: false, ids: [], start: { x: 0, y: 0 }, current: { x: 0, y: 0 } });
   const [flash, setFlash] = useState<string | null>(null);
   const dictFetchedRef = useRef(false);
+  const initialDrawRef = useRef(false);
 
-  // derive ids once from URL; persist user for convenience
-  const [ids] = useState(() => {
-    const qs = new URLSearchParams(window.location.search);
-    const gameId = qs.get("game") || "demo-game-1";
-    const urlUser = (qs.get("user") || "").trim();
-    const persisted = localStorage.getItem("banagrams_userId") || "";
-    const chosenUser = urlUser || persisted || `guest-${Math.random().toString(36).slice(2, 7)}`;
-    localStorage.setItem("banagrams_userId", chosenUser);
-    return { gameId, chosenUser };
-  });
+  // Sync boards/bag/status/players
+  useBoardSync(gameId, playerId, state, dispatch);
 
-  // ensure state.selfId matches chosenUser (effect, not render)
+  // Draw starting hand once bag is available
   useEffect(() => {
-    if (state.selfId !== ids.chosenUser) {
-      dispatch({ type: "STATE_REPLACE", next: { ...state, selfId: ids.chosenUser } });
+    async function drawInitial() {
+      if (initialDrawRef.current) return;
+      if (state.rack.length > 0) return;
+      if (state.bag.length === 0) return;
+      initialDrawRef.current = true;
+      try {
+        const { letters } = await takeFromBag(gameId, 3);
+        if (letters.length === 0) {
+          initialDrawRef.current = false;
+          return;
+        }
+        dispatch({ type: "ADD_LETTERS", letters });
+      } catch (err) {
+        console.warn("initial draw failed", err);
+        initialDrawRef.current = false;
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ids.chosenUser]);
-
-  // IMPORTANT: write to RTDB using the stable URL-derived userId
-  useBoardSync(ids.gameId, ids.chosenUser, state, dispatch);
-
-  // draw initial 10 AFTER userId is known to avoid writing under "local"
-  useEffect(() => {
-    if (state.rack.length === 0 && state.bag.length > 0) {
-      console.log("ayo")
-      dispatch({ type: "DRAW", count: -1 });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ids.chosenUser]);
+    drawInitial();
+  }, [gameId, state.rack.length, state.bag.length, dispatch]);
 
   // auto-hide flash
   useEffect(() => {
@@ -205,6 +188,9 @@ export default function Game() {
   );
 
   const dictWords = state.dictionary.status === "ready" ? state.dictionary.words : null;
+  const playerCount = Math.max(1, Object.keys(state.players || {}).length || 1);
+  const isBananaSplit = state.bag.length < playerCount;
+  const peelLabel = isBananaSplit ? "Banana Split" : "Peel";
 
   const marqueeStyle = useMemo(() => {
     if (state.drag.kind !== "marquee") return null;
@@ -251,7 +237,56 @@ export default function Game() {
       setFlash("Invalid board!");
       return;
     }
-    dispatch({ type: "PEEL" });
+    if (state.status.phase === "banana-split") {
+      setFlash("Game already ended");
+      return;
+    }
+
+    if (isBananaSplit) {
+      setFlash("Banana Split! You win.");
+      setGameStatus(gameId, { phase: "banana-split", winnerId: state.selfId, updatedAt: Date.now() }).catch(() => {});
+      return;
+    }
+
+    if (state.bag.length === 0) {
+      setFlash("No tiles left to peel");
+      return;
+    }
+
+    const knownPlayers = new Set<string>();
+    knownPlayers.add(state.selfId);
+    Object.keys(state.players || {}).forEach((p) => knownPlayers.add(p));
+    Object.keys(state.remoteBoards || {}).forEach((p) => knownPlayers.add(p));
+    const recipients = Array.from(knownPlayers);
+
+    takeFromBag(gameId, recipients.length)
+      .then(async ({ letters }) => {
+        if (letters.length === 0) {
+          setFlash("No tiles left");
+          return;
+        }
+
+        const assignments: Record<string, string[]> = {};
+        recipients.forEach((pid, idx) => {
+          const letter = letters[idx];
+          if (!letter) return;
+          assignments[pid] = assignments[pid] || [];
+          assignments[pid].push(letter);
+        });
+
+        const mine = assignments[state.selfId] || [];
+        if (mine.length) dispatch({ type: "ADD_LETTERS", letters: mine });
+
+        const others: Record<string, string[]> = {};
+        for (const [pid, arr] of Object.entries(assignments)) {
+          if (pid === state.selfId) continue;
+          others[pid] = arr;
+        }
+        if (Object.keys(others).length) {
+          await pushGrants(gameId, others);
+        }
+      })
+      .catch(() => setFlash("Peel failed"));
   }
 
   // Grid background aligned so origin is board center
@@ -368,7 +403,7 @@ export default function Game() {
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <button
             onClick={handlePeel}
-            disabled={state.bag.length === 0}
+            disabled={state.status.phase === "banana-split" || (!isBananaSplit && state.bag.length === 0)}
             style={{
               padding: "10px 14px",
               background: "#ffd54f",
@@ -378,7 +413,7 @@ export default function Game() {
               fontWeight: 800,
             }}
           >
-            Peel
+            {peelLabel}
           </button>
 
           <button
