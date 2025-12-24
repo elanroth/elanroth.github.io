@@ -8,7 +8,7 @@ export const DISTRIBUTION: Record<string, number> = {
   // R: 1,
   // E: 1
 
-  A: 10
+  A: 8
 
   // A: 13,
   // B: 3,

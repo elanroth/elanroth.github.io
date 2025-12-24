@@ -3,6 +3,8 @@ dist
 dist-ssr
 *.local
 .env.local
+database-debug.log
+firebase-debug.log
 
 # Editor directories and files
 .vscode/*

@@ -112,8 +112,13 @@ export function LobbyGate({ onEnter }: Props) {
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>Nickname</label>
+          <label htmlFor="nickname-input" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+            Nickname
+          </label>
           <input
+            id="nickname-input"
+            name="nickname"
+            autoComplete="nickname"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Your name"

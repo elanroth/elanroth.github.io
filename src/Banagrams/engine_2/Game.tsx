@@ -1,5 +1,6 @@
 // path: src/Banagrams/engine_2/Game.tsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
@@ -71,8 +72,28 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     current: { x: number; y: number };
   }>({ active: false, ids: [], start: { x: 0, y: 0 }, current: { x: 0, y: 0 } });
   const [flash, setFlash] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
+  const [celebrateCollapsed, setCelebrateCollapsed] = useState(false);
   const dictFetchedRef = useRef(false);
   const initialDrawRef = useRef(false);
+
+  // Turn on celebration whenever game status reaches banana-split
+  useEffect(() => {
+    if (state.status.phase === "banana-split" && !celebrate) {
+      console.log("[celebrate] status entered banana-split", state.status);
+      setCelebrate(true);
+    }
+  }, [state.status, celebrate]);
+
+  // Collapse celebration badge after a moment so board is visible
+  useEffect(() => {
+    if (!celebrate) {
+      setCelebrateCollapsed(false);
+      return;
+    }
+    const t = window.setTimeout(() => setCelebrateCollapsed(true), 2000);
+    return () => window.clearTimeout(t);
+  }, [celebrate]);
 
   // Sync boards/bag/status/players
   useBoardSync(gameId, playerId, state, dispatch);
@@ -190,8 +211,9 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const dictWords = state.dictionary.status === "ready" ? state.dictionary.words : null;
   const playerCount = Math.max(1, Object.keys(state.players || {}).length || 1);
   const isBananaSplit = state.bag.length < playerCount;
-  const peelLabel = "Bananas!";
+  const peelLabel = isBananaSplit ? "Bananas!" : "Peel";
   const winnerNick = state.status.winnerId && state.players[state.status.winnerId]?.nickname;
+  const isWinner = state.status.phase === "banana-split" && state.status.winnerId === state.selfId;
 
   const marqueeStyle = useMemo(() => {
     if (state.drag.kind !== "marquee") return null;
@@ -244,7 +266,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     }
 
     if (isBananaSplit) {
-      setFlash("Bananas! You win.");
+      setCelebrate(true);
+      console.log("[celebrate] winner self", state.selfId);
       setGameStatus(gameId, { phase: "banana-split", winnerId: state.selfId, updatedAt: Date.now() }).catch(() => {});
       return;
     }
@@ -362,6 +385,23 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     dispatch({ type: "MARQUEE_END" });
   }
 
+  // Spacebar shortcut for peel/bananas (ignores when typing in inputs)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
+      if (e.code !== "Space") return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active) {
+        const tag = active.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select" || active.isContentEditable) return;
+      }
+      e.preventDefault();
+      handlePeel();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handlePeel]);
+
   return (
     <div
       className="min-h-screen"
@@ -380,7 +420,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
             position: "absolute",
             top: 12,
             right: 12,
-            background: "#b3261e",
+            background: "#0f172a",
             color: "white",
             padding: "8px 12px",
             borderRadius: 10,
@@ -391,6 +431,66 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
         >
           {flash}
         </div>
+      )}
+      {celebrate && createPortal(
+        <>
+          <style>{`
+            @keyframes banana-fall {
+              0% { transform: translate3d(0, -200px, 0) rotate(-12deg); opacity: 1; }
+              60% { transform: translate3d(12px, 55vh, 0) rotate(6deg); opacity: 1; }
+              100% { transform: translate3d(-8px, 120vh, 0) rotate(18deg); opacity: 0; }
+            }
+            @keyframes heartbeat { 0%, 100% { transform: scale(1); } 20% { transform: scale(1.12); } 40% { transform: scale(0.94); } 60% { transform: scale(1.1); } 80% { transform: scale(0.98); } }
+          `}</style>
+          <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 99999, overflow: "hidden" }}>
+            {Array.from({ length: 64 }).map((_, i) => {
+              const left = Math.random() * 100;
+              const delay = Math.random() * 1.4;
+              const duration = 3.4 + Math.random() * 1.4;
+              const size = 34 + Math.random() * 18;
+              return (
+                <div
+                  key={`banana-${i}`}
+                  style={{
+                    position: "absolute",
+                    left: `${left}%`,
+                    top: -40,
+                    fontSize: size,
+                    filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.28))",
+                    textShadow: "0 3px 6px rgba(0,0,0,0.25)",
+                    animation: `banana-fall ${duration}s linear ${delay}s forwards`,
+                    willChange: "transform, opacity",
+                  }}
+                >
+                  🍌
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 100000 }}>
+            <div
+              style={{
+                padding: celebrateCollapsed ? "10px 12px" : "20px 28px",
+                background: "#fffef3",
+                borderRadius: 16,
+                boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
+                border: "3px solid #ffd54f",
+                fontWeight: 900,
+                fontSize: celebrateCollapsed ? 16 : 28,
+                color: isWinner ? "#c58a00" : "#b3261e",
+                position: "fixed",
+                transition: "all 0.6s ease",
+                animation: celebrateCollapsed ? undefined : "heartbeat 1.6s ease-in-out 0s 3",
+                right: celebrateCollapsed ? 16 : "50%",
+                top: celebrateCollapsed ? 16 : "50%",
+                transform: celebrateCollapsed ? "translate(0,0)" : "translate(50%,-50%)",
+              }}
+            >
+              {isWinner ? "Winner!" : "Loser!"}
+            </div>
+          </div>
+        </>,
+        document.body
       )}
       {/* Header */}
       <header
@@ -424,6 +524,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
 
           <button
             onClick={() => dispatch({ type: "CENTER_BOARD" })}
+            disabled={state.status.phase === "banana-split"}
             style={{
               padding: "10px 14px",
               background: "rgba(255,255,255,0.92)",
