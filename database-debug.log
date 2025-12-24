@@ -7,3 +7,4 @@ namespace demo-bananagrams, but the emulator is configured for undefined-default
 opt-out of single project mode add/set the singleProjectMode: false property in 
 the firebase.json emulators config. 
 06:49:28.227 [NamespaceSystem-akka.actor.default-dispatcher-8] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 1ms, init: 0ms
+06:58:34.584 [NamespaceSystem-blocking-namespace-operation-dispatcher-65] INFO com.firebase.core.namespace.StateManager - Namespace undefined-default-rtdb status Active to Active
