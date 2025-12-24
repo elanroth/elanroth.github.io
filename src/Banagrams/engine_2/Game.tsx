@@ -106,7 +106,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
       if (state.bag.length === 0) return;
       initialDrawRef.current = true;
       try {
-        const { letters } = await takeFromBag(gameId, 3);
+        const { letters } = await takeFromBag(gameId, 15);
         if (letters.length === 0) {
           initialDrawRef.current = false;
           return;
