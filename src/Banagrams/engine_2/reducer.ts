@@ -1,7 +1,7 @@
 import type { Action, GameState } from "./types";
 import { setSelection, clearSelection } from "./selection";
 import { beginDrag, dragUpdate, endDrag, beginMarquee, updateMarquee, endMarquee } from "./drag";
-import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles, peel, returnTileToRack, giveLetters } from "./tiles";
+import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles, peel, returnTileToRack, giveLetters, applyDump } from "./tiles";
 import { centerBoard } from "./center";
 
 export function reducer(state: GameState, action: Action): GameState {
@@ -34,8 +34,18 @@ export function reducer(state: GameState, action: Action): GameState {
     case "MOVE_TILES":     return moveTiles(state, action.tileIds, action.delta);
     case "RETURN_TO_RACK": return returnTileToRack(state, action.tileId);
     case "CENTER_BOARD":   return centerBoard(state);
-    case "DUMP_TILE":      return dumpTiles(state, [action.tileId]);
-    case "DUMP_SELECTED":  return dumpTiles(state, Object.keys(state.selection));
+    case "DUMP_TILE": {
+      if (state.bag.length < 3) return state;
+      return dumpTiles(state, [action.tileId]);
+    }
+    case "DUMP_SELECTED": {
+      if (state.bag.length < 3) return state;
+      return dumpTiles(state, Object.keys(state.selection));
+    }
+    case "APPLY_DUMP": {
+      if (state.bag.length < 3) return state;
+      return applyDump(state, action.tileIds, action.newLetters);
+    }
     default:               return state;
   }
 }

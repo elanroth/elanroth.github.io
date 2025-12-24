@@ -109,6 +109,20 @@ export async function takeFromBag(gameId: string, count: number): Promise<{ lett
   return { letters: drawn, bag };
 }
 
+export async function dumpAndDraw(gameId: string, letters: string[]): Promise<string[]> {
+  if (letters.length === 0) return [];
+  let drawn: string[] = [];
+  await runTransaction(ref(db, bagPath(gameId)), (curr) => {
+    const bag: string[] = Array.isArray(curr) ? [...curr] : [];
+    bag.push(...letters);
+    shuffleArray(bag);
+    const take = Math.min(letters.length * 3, bag.length);
+    drawn = bag.slice(0, take);
+    return bag.slice(take);
+  }, { applyLocally: false });
+  return drawn;
+}
+
 export async function setGameStatus(gameId: string, status: GameStatus): Promise<void> {
   await set(ref(db, statusPath(gameId)), status);
   await update(ref(db, metaPath(gameId)), { status: status.phase });

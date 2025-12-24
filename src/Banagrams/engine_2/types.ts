@@ -145,6 +145,7 @@ export type Action =
   | { type: "CENTER_BOARD" }
   | { type: "DUMP_SELECTED" }
   | { type: "DUMP_TILE"; tileId: TileId }
+  | { type: "APPLY_DUMP"; tileIds: TileId[]; newLetters: string[] }
 
   // requests
   | { type: "REQUEST_TILE"; want: string; offer?: string }

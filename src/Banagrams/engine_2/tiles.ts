@@ -82,6 +82,38 @@ export function dumpTiles(state: GameState, tileIds: readonly TileId[]): GameSta
   return { ...state, tiles: nextTiles, rack: nextRack, bag, selection: nextSelection };
 }
 
+export function applyDump(state: GameState, tileIds: readonly TileId[], newLetters: string[]): GameState {
+  if (tileIds.length === 0) return state;
+
+  const nextTiles: TilesById = { ...state.tiles };
+  const nextRack: TileId[] = [];
+
+  // Remove dumped tiles (rack or board) owned by self
+  for (const id of tileIds) {
+    const t = nextTiles[id];
+    if (!t || t.owner !== state.selfId) continue;
+    delete nextTiles[id];
+  }
+
+  // Rebuild rack without dumped ids
+  for (const id of state.rack) {
+    if (!tileIds.includes(id)) nextRack.push(id);
+  }
+
+  // Add new tiles for drawn letters
+  for (const letter of newLetters) {
+    const t = makeTile(letter, state.selfId);
+    nextTiles[t.id] = t;
+    nextRack.push(t.id);
+  }
+
+  // Clear selection of dumped tiles
+  const nextSelection = { ...state.selection };
+  for (const id of tileIds) delete nextSelection[id];
+
+  return { ...state, tiles: nextTiles, rack: nextRack, selection: nextSelection };
+}
+
 export function placeTile(state: GameState, tileId: string, pos: Coord): GameState {
   const t = state.tiles[tileId]; if (!t) return state;
   const p = snapCoord(pos); if (isOccupied(state.tiles, p)) return state;

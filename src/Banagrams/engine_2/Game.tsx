@@ -5,7 +5,7 @@ import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { getValidWords, tilesInWorldRect } from "./board";
-import { takeFromBag, setGameStatus, pushGrants } from "./firebase/rtdb";
+import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw } from "./firebase/rtdb";
 
 // ---------- Initial state ----------
 function initialState(gameId: string, selfId: string): GameState {
@@ -704,11 +704,21 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
               style={{ minWidth: 80 }}
               title="Drop a rack tile here to dump it and draw replacement(s)"
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
+              onDrop={async (e) => {
                 const id = e.dataTransfer.getData("application/tile-id") as TileId;
-                const from = e.dataTransfer.getData("application/from");
                 if (!id) return;
-                dispatch({ type: "DUMP_TILE", tileId: id });
+                const tile = state.tiles[id];
+                if (!tile || tile.owner !== state.selfId) return;
+                try {
+                  const drawn = await dumpAndDraw(gameId, [tile.letter]);
+                  if (drawn.length === 0) {
+                    setFlash("No tiles to draw");
+                    return;
+                  }
+                  dispatch({ type: "APPLY_DUMP", tileIds: [id], newLetters: drawn });
+                } catch (err) {
+                  setFlash("Dump failed");
+                }
               }}
             >
               Dump
