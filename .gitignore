@@ -3,6 +3,7 @@ dist
 dist-ssr
 *.local
 .env.local
+.env.local.example
 database-debug.log
 firebase-debug.log
 
