@@ -190,7 +190,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const dictWords = state.dictionary.status === "ready" ? state.dictionary.words : null;
   const playerCount = Math.max(1, Object.keys(state.players || {}).length || 1);
   const isBananaSplit = state.bag.length < playerCount;
-  const peelLabel = isBananaSplit ? "Banana Split" : "Peel";
+  const peelLabel = "Bananas!";
+  const winnerNick = state.status.winnerId && state.players[state.status.winnerId]?.nickname;
 
   const marqueeStyle = useMemo(() => {
     if (state.drag.kind !== "marquee") return null;
@@ -243,7 +244,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     }
 
     if (isBananaSplit) {
-      setFlash("Banana Split! You win.");
+      setFlash("Bananas! You win.");
       setGameStatus(gameId, { phase: "banana-split", winnerId: state.selfId, updatedAt: Date.now() }).catch(() => {});
       return;
     }
@@ -258,6 +259,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     Object.keys(state.players || {}).forEach((p) => knownPlayers.add(p));
     Object.keys(state.remoteBoards || {}).forEach((p) => knownPlayers.add(p));
     const recipients = Array.from(knownPlayers);
+
+    console.log("[peel] recipients", recipients, "bag", state.bag.length);
 
     takeFromBag(gameId, recipients.length)
       .then(async ({ letters }) => {
@@ -274,6 +277,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           assignments[pid].push(letter);
         });
 
+        console.log("[peel] drawn", letters, "assignments", assignments);
+
         const mine = assignments[state.selfId] || [];
         if (mine.length) dispatch({ type: "ADD_LETTERS", letters: mine });
 
@@ -283,6 +288,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           others[pid] = arr;
         }
         if (Object.keys(others).length) {
+          console.log("[peel] pushing grants", others);
           await pushGrants(gameId, others);
         }
       })
@@ -430,6 +436,11 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
             Center Board
           </button>
           <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
+          {state.status.phase === "banana-split" && (
+            <div className="text-sm font-bold" style={{ color: "#0f5132", background: "#d1e7dd", padding: "6px 10px", borderRadius: 10 }}>
+              Bananas! Winner: {winnerNick || state.status.winnerId || "Unknown"}
+            </div>
+          )}
         </div>
       </header>
 

@@ -33,6 +33,7 @@ export function useBoardSync(
       if (grantsForMe && Object.keys(grantsForMe).length > 0) {
         const letters = Object.values(grantsForMe);
         const ids = Object.keys(grantsForMe);
+        console.log("[grants] applying", { letters, ids });
         dispatch({ type: "ADD_LETTERS", letters });
         consumeGrants(gameId, userId, ids).catch(() => {});
       }

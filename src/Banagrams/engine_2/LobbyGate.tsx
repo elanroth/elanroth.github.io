@@ -8,11 +8,26 @@ type Props = {
 };
 
 function getOrCreatePlayerId(): string {
-  const key = "banagrams_userId";
-  const existing = localStorage.getItem(key);
-  if (existing) return existing;
-  const id = `guest-${Math.random().toString(36).slice(2, 7)}`;
-  localStorage.setItem(key, id);
+  const qs = new URLSearchParams(window.location.search);
+  const fromQuery = qs.get("user");
+  if (fromQuery) {
+    sessionStorage.setItem("banagrams_userId_session", fromQuery);
+    return fromQuery;
+  }
+
+  const session = sessionStorage.getItem("banagrams_userId_session");
+  if (session) return session;
+
+  // Base persisted id for convenience (per device), but make it unique per tab/session
+  const baseKey = "banagrams_userId_base";
+  let base = localStorage.getItem(baseKey);
+  if (!base) {
+    base = `guest-${Math.random().toString(36).slice(2, 7)}`;
+    localStorage.setItem(baseKey, base);
+  }
+
+  const id = `${base}-${Math.random().toString(36).slice(2, 5)}`;
+  sessionStorage.setItem("banagrams_userId_session", id);
   return id;
 }
 
