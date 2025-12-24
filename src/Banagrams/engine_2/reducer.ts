@@ -12,9 +12,9 @@ export function reducer(state: GameState, action: Action): GameState {
       if (state.selfId in merged) delete merged[state.selfId];
       return { ...state, remoteBoards: merged };
     }
-    case "DICT_LOADING":  return { ...state, dictionary: { status: "loading", words: null } };
-    case "DICT_READY":    return { ...state, dictionary: { status: "ready", words: action.words } };
-    case "DICT_ERROR":    return { ...state, dictionary: { status: "error", words: null, error: action.error } };
+    case "DICT_LOADING":   return { ...state, dictionary: { status: "loading", words: null } };
+    case "DICT_READY":     return { ...state, dictionary: { status: "ready", words: action.words } };
+    case "DICT_ERROR":     return { ...state, dictionary: { status: "error", words: null, error: action.error } };
     case "SELECT_SET":     return setSelection(state, action.tileIds);
     case "SELECT_CLEAR":   return clearSelection(state);
     case "DRAG_BEGIN":     return beginDrag(state, action.tileIds, action.mouse);

@@ -2,6 +2,8 @@ import type { Coord, GameState, TileId, TileState, TilesById } from "./types";
 import { snapCoord, add } from "./coords";
 import { isOccupied, validateBoard } from "./board";
 
+const startingLetters = "to"
+
 export function makeTile(letter: string, owner: string): TileState {
   const id = `t_${letter}_${Math.random().toString(36).slice(2)}`;
   return { id, letter, pos: { x: 0, y: 0 }, location: "rack", owner };
@@ -20,7 +22,7 @@ export function giveLetters(state: GameState, letters: string[]): GameState {
 
 export function drawTiles(state: GameState, count: number): GameState {
   if (count === -1) {
-    return giveLetters(state, 'DOTO'.split(""))
+    return giveLetters(state, startingLetters.toUpperCase().split(""))
   }
   if (count <= 0 || state.bag.length === 0) return state;
   const take = Math.min(count, state.bag.length);
@@ -42,13 +44,6 @@ export function peel(state: GameState): GameState {
   if (!validateBoard(state.tiles, words)) return state;
   return drawTiles(state, 1)
 }
-
-// export function peel(state: GameState): { endState: GameState, success: boolean } {
-//   const words = state.dictionary.words
-//   if (!words) return { endState: state, success: false }
-//   if (!validateBoard(state.tiles, state.dictionary.words)) return { endState: state, success: false }
-//   return { endState: drawTiles(state, 1), success: true }
-// }
 
 export function dumpTiles(state: GameState, tileIds: readonly TileId[]): GameState {
   if (tileIds.length === 0) return state;
