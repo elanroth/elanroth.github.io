@@ -77,6 +77,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const [celebrateCollapsed, setCelebrateCollapsed] = useState(false);
   const fullDictRef = useRef<Set<string> | null>(null);
   const initialDrawRef = useRef(false);
+  const [spectateId, setSpectateId] = useState<string | null>(null);
+  const [selectedOther, setSelectedOther] = useState<string | null>(null);
 
   // Turn on celebration whenever game status reaches banana-split
   useEffect(() => {
@@ -97,7 +99,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   }, [celebrate]);
 
   // Sync boards/bag/status/players
-  useBoardSync(gameId, playerId, state, dispatch);
+  useBoardSync(gameId, playerId, _nickname, state, dispatch);
 
   // Draw starting hand once bag is available, honoring chosen hand size
   useEffect(() => {
@@ -215,14 +217,52 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   }, []);
 
   // Derived sets
+  const nicknameFor = (pid: string) => state.players[pid]?.nickname ?? pid;
+
+  const otherPlayers = useMemo(() => {
+    const ids = new Set<string>();
+    Object.keys(state.players || {}).forEach((pid) => { if (pid !== state.selfId) ids.add(pid); });
+    Object.keys(state.remoteBoards || {}).forEach((pid) => { if (pid !== state.selfId) ids.add(pid); });
+    const list = Array.from(ids).map((pid) => [pid, state.players[pid]] as const);
+    console.log("[spectate] candidates", {
+      self: state.selfId,
+      players: state.players,
+      remoteBoards: Object.keys(state.remoteBoards || {}),
+      list: list.map(([pid, info]) => ({ pid, nick: info?.nickname })),
+    });
+    return list;
+  }, [state.players, state.remoteBoards, state.selfId]);
+
+  useEffect(() => {
+    if (otherPlayers.length === 0) {
+      setSelectedOther(null);
+      if (spectateId) setSpectateId(null);
+      return;
+    }
+    const first = otherPlayers[0][0];
+    if (!selectedOther || !otherPlayers.some(([pid]) => pid === selectedOther)) {
+      setSelectedOther(first);
+    }
+  }, [otherPlayers, selectedOther, spectateId]);
+
+  const viewingPlayerId = spectateId ?? state.selfId;
+  const viewingRemote = spectateId ? state.remoteBoards[spectateId] : null;
+  const viewingTiles = spectateId ? (viewingRemote?.tiles ?? {}) : state.tiles;
+  const viewingRackOrder = spectateId ? (viewingRemote?.rack ?? []) : state.rack;
+  const isSpectating = spectateId !== null;
+
   const boardTiles = useMemo(
-    () => Object.values(state.tiles).filter((t) => t.location === "board"),
-    [state.tiles]
+    () => Object.values(viewingTiles).filter((t) => t.location === "board"),
+    [viewingTiles]
   );
-  const rackTiles = useMemo(
-    () => state.rack.map((id) => state.tiles[id]).filter(Boolean) as TileState[],
-    [state.rack, state.tiles]
-  );
+
+  const rackTiles = useMemo(() => {
+    const ordered = viewingRackOrder.map((id) => viewingTiles[id]).filter(Boolean) as TileState[];
+    if (ordered.length > 0 || viewingRackOrder.length > 0) return ordered;
+    return Object.values(viewingTiles).filter((t) => t.location === "rack") as TileState[];
+  }, [viewingRackOrder, viewingTiles]);
+
+  const selection = isSpectating ? {} : state.selection;
 
   const dictWords = state.dictionary.status === "ready" ? state.dictionary.words : null;
   const playerCount = Math.max(1, Object.keys(state.players || {}).length || 1);
@@ -525,7 +565,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <button
             onClick={handlePeel}
-            disabled={state.status.phase === "banana-split" || (!isBananaSplit && state.bag.length === 0)}
+            disabled={isSpectating || state.status.phase === "banana-split" || (!isBananaSplit && state.bag.length === 0)}
             style={{
               padding: "10px 14px",
               background: "#ffd54f",
@@ -540,7 +580,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
 
           <button
             onClick={() => dispatch({ type: "CENTER_BOARD" })}
-            disabled={state.status.phase === "banana-split"}
+            disabled={isSpectating || state.status.phase === "banana-split"}
             style={{
               padding: "10px 14px",
               background: "rgba(255,255,255,0.92)",
@@ -552,7 +592,73 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           >
             Center Board
           </button>
+
+          {!spectateId && (
+            <select
+              value={selectedOther ?? ""}
+              onChange={(e) => setSelectedOther(e.target.value || null)}
+              disabled={false}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+                fontWeight: 700,
+                background: "white",
+              }}
+            >
+              {otherPlayers.length === 0 ? (
+                <option value="" disabled>
+                  No other boards yet
+                </option>
+              ) : (
+                <>
+                  <option value="" disabled>
+                    Pick a player
+                  </option>
+                  {otherPlayers.map(([pid, info]) => (
+                    <option key={pid} value={pid}>
+                      {info?.nickname || nicknameFor(pid)}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          )}
+
+          <button
+            onClick={() => {
+              if (spectateId) {
+                setSpectateId(null);
+                return;
+              }
+              if (selectedOther) {
+                console.log("[spectate] selecting explicit", selectedOther);
+                setSpectateId(selectedOther);
+                return;
+              }
+              if (otherPlayers.length > 0) {
+                console.log("[spectate] selecting first available", otherPlayers[0][0]);
+                setSpectateId(otherPlayers[0][0]);
+                return;
+              }
+              setFlash("No other boards yet");
+            }}
+            disabled={false}
+            style={{
+              padding: "10px 14px",
+              background: spectateId ? "#2563eb" : "rgba(255,255,255,0.92)",
+              color: spectateId ? "white" : "#111",
+              borderRadius: 12,
+              border: "none",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+              fontWeight: 800,
+            }}
+          >
+            {spectateId ? "Return to Your Board" : "See Other Board"}
+          </button>
           <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
+          <div className="text-sm text-muted-foreground">Players: {Object.keys(state.players || {}).length}</div>
           {state.status.phase === "banana-split" && (
             <div className="text-sm font-bold" style={{ color: "#0f5132", background: "#d1e7dd", padding: "6px 10px", borderRadius: 10 }}>
               Winner Winner Chicken Dinner: {winnerNick || state.status.winnerId || "Unknown"}
@@ -560,6 +666,25 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           )}
         </div>
       </header>
+
+      {isSpectating && (
+        <div
+          style={{
+            position: "absolute",
+            top: HEADER_H + 8,
+            left: 12,
+            background: "rgba(37,99,235,0.12)",
+            color: "#1d4ed8",
+            padding: "8px 12px",
+            borderRadius: 12,
+            border: "1px solid rgba(37,99,235,0.3)",
+            fontWeight: 800,
+            zIndex: 55,
+          }}
+        >
+          Looking at {nicknameFor(viewingPlayerId)}'s board
+        </div>
+      )}
 
       {/* Board */}
       <div
@@ -571,6 +696,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           ...gridBg,
         }}
         onMouseDown={(e) => {
+          if (isSpectating) return;
           if (e.button !== 0) return;
           const target = e.target as HTMLElement | null;
           if (target && target.closest("[data-tile]") ) return; // let tile drag handle it
@@ -578,24 +704,27 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           dispatch({ type: "MARQUEE_BEGIN", mouse: { x: e.clientX, y: e.clientY } });
         }}
         onMouseMove={(e) => {
+          if (isSpectating) return;
           if (state.drag.kind === "marquee") {
             dispatch({ type: "MARQUEE_UPDATE", mouse: { x: e.clientX, y: e.clientY } });
           }
         }}
         onMouseUp={(e) => {
+          if (isSpectating) return;
           if (state.drag.kind === "marquee") {
             finalizeMarqueeSelection({ x: e.clientX, y: e.clientY });
           }
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
+          if (isSpectating) return;
           const id = e.dataTransfer.getData("application/tile-id") as TileId;
           if (!id) return;
           const from = e.dataTransfer.getData("application/from");
           const pos = dropEventToWorld(e);
           if (!pos) return;
           if (from === "board") {
-            const selectedIds = state.selection[id] ? Object.keys(state.selection) : [id];
+            const selectedIds = selection[id] ? Object.keys(selection) : [id];
             const source = state.tiles[id];
             if (!source) return;
             const delta = { x: pos.x - source.pos.x, y: pos.y - source.pos.y };
@@ -617,7 +746,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
                 ? "#1a7f37" // only valid, no invalid overlap
                 : "#2b2b2b"
             : "#2b2b2b";
-          const isSelected = !!state.selection[t.id];
+          const isSelected = !!selection[t.id];
           const isDragging = dragVisual.active && dragVisual.ids.includes(t.id);
           const dx = isDragging ? dragVisual.current.x - dragVisual.start.x : 0;
           const dy = isDragging ? dragVisual.current.y - dragVisual.start.y : 0;
@@ -626,18 +755,19 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
               key={t.id}
               draggable
               data-tile="1"
-              onDoubleClick={() => dispatch({ type: "RETURN_TO_RACK", tileId: t.id })}
+              onDoubleClick={() => { if (!isSpectating) dispatch({ type: "RETURN_TO_RACK", tileId: t.id }); }}
               onDragStart={(e) => {
+                if (isSpectating) return;
                 e.dataTransfer.setData("application/tile-id", t.id);
                 e.dataTransfer.setData("application/from", "board");
-                const ids = state.selection[t.id] ? Object.keys(state.selection) : [t.id];
+                const ids = selection[t.id] ? Object.keys(selection) : [t.id];
                 setDragVisual({ active: true, ids, start: { x: e.clientX, y: e.clientY }, current: { x: e.clientX, y: e.clientY } });
                 try {
                   e.dataTransfer.effectAllowed = "move";
                 } catch {}
               }}
               onDrag={(e) => {
-                if (!dragVisual.active) return;
+                if (isSpectating || !dragVisual.active) return;
                 setDragVisual((prev) => ({ ...prev, current: { x: e.clientX, y: e.clientY } }));
               }}
               onDragEnd={() => {
@@ -695,6 +825,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
                     key={t.id}
                     draggable
                     onDragStart={(e) => {
+                      if (isSpectating) return;
                       e.dataTransfer.setData("application/tile-id", t.id);
                       e.dataTransfer.setData("application/from", "rack");
                       try {
@@ -721,6 +852,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
               title="Drop a rack tile here to dump it and draw replacement(s)"
               onDragOver={(e) => e.preventDefault()}
               onDrop={async (e) => {
+                if (isSpectating) return;
                 const id = e.dataTransfer.getData("application/tile-id") as TileId;
                 if (!id) return;
                 const tile = state.tiles[id];

@@ -1,5 +1,5 @@
 import { child, get, onValue, ref, runTransaction, set, update } from "firebase/database";
-import type { GameStatus, PlayerId, PlayerInfo, TilesById, GameOptions } from "../types";
+import type { GameStatus, PlayerId, PlayerInfo, TilesById, GameOptions, RemoteBoard, TileId } from "../types";
 import { createBag, shuffleArray, DEFAULT_OPTIONS } from "../utils";
 import { db } from "./firebase";
 
@@ -21,7 +21,7 @@ export type LobbyMeta = {
 };
 
 export type GameSnapshot = {
-  boards: Record<string, TilesById>;
+  boards: Record<string, RemoteBoard>;
   bag: string[];
   players: Record<string, PlayerInfo>;
   status: GameStatus;
@@ -70,20 +70,37 @@ export async function joinLobby(gameId: string, userId: string, nickname: string
   await runTransaction(ref(db, `${metaPath(gameId)}/playerCount`), (curr) => (typeof curr === "number" ? curr : 0) + 1);
 }
 
+/**
+ * Idempotent presence write for a player (does not bump meta playerCount).
+ */
+export async function ensurePlayer(gameId: string, userId: string, nickname: string): Promise<void> {
+  const now = Date.now();
+  await update(ref(db, `${playersPath(gameId)}/${userId}`), {
+    nickname,
+    joinedAt: now,
+    lastSeen: now,
+  });
+}
+
 export async function updateLastSeen(gameId: string, userId: string): Promise<void> {
   await update(ref(db, `${playersPath(gameId)}/${userId}`), { lastSeen: Date.now() });
 }
 
-export async function saveMyTiles(gameId: string, userId: string, tiles: TilesById): Promise<void> {
-  await set(ref(db, `${boardPath(gameId, userId)}/tiles`), tiles);
+export async function saveMyTiles(gameId: string, userId: string, tiles: TilesById, rack: TileId[]): Promise<void> {
+  await set(ref(db, boardPath(gameId, userId)), { tiles, rack });
 }
 
 export function subscribeGame(gameId: string, cb: (snapshot: GameSnapshot) => void): () => void {
   return onValue(ref(db, gamePath(gameId)), (snap) => {
     const raw = (snap.val() ?? {}) as any;
-    const boardsRaw = (raw.boards ?? {}) as Record<string, { tiles?: TilesById }>;
-    const boards: Record<string, TilesById> = {};
-    for (const [uid, v] of Object.entries(boardsRaw)) boards[uid] = (v?.tiles ?? {}) as TilesById;
+    const boardsRaw = (raw.boards ?? {}) as Record<string, { tiles?: TilesById; rack?: TileId[] }>;
+    const boards: Record<string, RemoteBoard> = {};
+    for (const [uid, v] of Object.entries(boardsRaw)) {
+      boards[uid] = {
+        tiles: (v?.tiles ?? {}) as TilesById,
+        rack: Array.isArray(v?.rack) ? (v?.rack as TileId[]) : [],
+      };
+    }
 
     const bag = Array.isArray(raw.bag) ? raw.bag : [];
     const players = (raw.players ?? {}) as Record<string, PlayerInfo>;

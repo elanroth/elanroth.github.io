@@ -70,9 +70,8 @@ export type TileRequest = {
 
 // (Kept for future if you later want richer remote-board metadata. Not used by default sync.)
 export type RemoteBoard = {
-  playerId: PlayerId;
-  tiles: Array<{ id: TileId; letter: string; pos: Coord }>;
-  updatedAt: number;
+  tiles: TilesById;
+  rack: TileId[];
 };
 
 // Game options
@@ -106,14 +105,14 @@ export type GameState = {
   requests: Record<RequestId, TileRequest>;
 
   // IMPORTANT: Make this match the RTDB sync (TilesById per player)
-  remoteBoards: Record<PlayerId, TilesById>;
+  remoteBoards: Record<PlayerId, RemoteBoard>;
 };
 
 // ---------- Actions ----------
 export type Action =
   // state/sync
   | { type: "STATE_REPLACE"; next: GameState }
-  | { type: "REMOTE_BOARDS_MERGE"; boards: Record<PlayerId, TilesById> }
+  | { type: "REMOTE_BOARDS_MERGE"; boards: Record<PlayerId, RemoteBoard> }
   | { type: "PLAYERS_MERGE"; players: Record<PlayerId, PlayerInfo> }
   | { type: "BAG_SET"; bag: string[] }
   | { type: "STATUS_SET"; status: GameStatus }

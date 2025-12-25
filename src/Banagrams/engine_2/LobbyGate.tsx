@@ -8,16 +8,26 @@ type Props = {
   onEnter: (choice: LobbyChoice) => void;
 };
 
+function setUserParam(id: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("user", id);
+  window.history.replaceState({}, "", url.toString());
+}
+
 function getOrCreatePlayerId(): string {
   const qs = new URLSearchParams(window.location.search);
   const fromQuery = qs.get("user");
   if (fromQuery) {
     sessionStorage.setItem("banagrams_userId_session", fromQuery);
+    setUserParam(fromQuery);
     return fromQuery;
   }
 
   const session = sessionStorage.getItem("banagrams_userId_session");
-  if (session) return session;
+  if (session) {
+    setUserParam(session);
+    return session;
+  }
 
   // Base persisted id for convenience (per device), but make it unique per tab/session
   const baseKey = "banagrams_userId_base";
@@ -29,6 +39,7 @@ function getOrCreatePlayerId(): string {
 
   const id = `${base}-${Math.random().toString(36).slice(2, 5)}`;
   sessionStorage.setItem("banagrams_userId_session", id);
+  setUserParam(id);
   return id;
 }
 

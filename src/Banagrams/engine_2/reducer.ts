@@ -1,4 +1,4 @@
-import type { Action, GameState } from "./types";
+import type { Action, GameState, RemoteBoard } from "./types";
 import { setSelection, clearSelection } from "./selection";
 import { beginDrag, dragUpdate, endDrag, beginMarquee, updateMarquee, endMarquee } from "./drag";
 import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles, peel, returnTileToRack, giveLetters, applyDump } from "./tiles";
@@ -9,7 +9,8 @@ export function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "STATE_REPLACE":  return action.next;
     case "REMOTE_BOARDS_MERGE": {
-      const merged = { ...action.boards };
+      console.log("[reducer] REMOTE_BOARDS_MERGE", Object.keys(action.boards || {}));
+      const merged: Record<string, RemoteBoard> = { ...action.boards };
       if (state.selfId in merged) delete merged[state.selfId];
       return { ...state, remoteBoards: merged };
     }
