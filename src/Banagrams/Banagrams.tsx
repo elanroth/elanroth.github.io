@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { createBag, shuffleArray, drawFromBag } from './engine_2/utils';
-import type { TileState as TileType, Coord } from './engine_2/types';
-import { db } from "./engine_2/firebase/firebase"; // adjust relative path
+import { createBag, shuffleArray, drawFromBag } from './engine/utils';
+import type { TileState as TileType, Coord } from './engine/types';
+import { db } from "./engine/firebase/firebase"; // adjust relative path
 
 function uid(letter: string) {
   return `${letter}_${Math.random().toString(36).slice(2, 9)}`;

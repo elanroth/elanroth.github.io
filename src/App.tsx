@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import Game from './Banagrams/engine_2/Game';
-import { LobbyGate, type LobbyChoice } from './Banagrams/engine_2/LobbyGate';
+import Game from './Banagrams/engine/Game';
+import { LobbyGate, type LobbyChoice } from './Banagrams/engine/LobbyGate';
 
 export default function App() {
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
