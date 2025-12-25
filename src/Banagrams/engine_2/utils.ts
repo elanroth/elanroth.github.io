@@ -1,4 +1,5 @@
-import { DISTRIBUTION } from './_distribution';
+import { DISTRIBUTIONS } from './_distribution';
+import type { GameOptions } from './types';
 
 // Fisher-Yates shuffle
 export function shuffleArray<T>(arr: T[]): T[] {
@@ -10,9 +11,18 @@ export function shuffleArray<T>(arr: T[]): T[] {
   return a;
 }
 
-export function createBag(): string[] {
+export const DEFAULT_OPTIONS: GameOptions = {
+  minLength: 3,
+  bagSize: 60,
+  startingHand: 20,
+  timed: false,
+};
+
+export function createBag(options?: Partial<GameOptions>): string[] {
+  const size = (options?.bagSize ?? DEFAULT_OPTIONS.bagSize) as 40 | 60 | 100 | 144;
+  const dist = DISTRIBUTIONS[size] ?? DISTRIBUTIONS[DEFAULT_OPTIONS.bagSize];
   const bag: string[] = [];
-  for (const [letter, count] of Object.entries(DISTRIBUTION)) {
+  for (const [letter, count] of Object.entries(dist)) {
     for (let i = 0; i < count; i++) bag.push(letter);
   }
   return bag;

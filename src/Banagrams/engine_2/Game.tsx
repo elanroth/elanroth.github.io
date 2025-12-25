@@ -6,6 +6,7 @@ import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { getValidWords, tilesInWorldRect } from "./board";
 import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw } from "./firebase/rtdb";
+import { DEFAULT_OPTIONS } from "./utils";
 
 // ---------- Initial state ----------
 function initialState(gameId: string, selfId: string): GameState {
@@ -19,7 +20,7 @@ function initialState(gameId: string, selfId: string): GameState {
     bag: [],
     players: {},
     status: { phase: "active" },
-    options: { minLength: 2, timed: false } as GameOptions,
+    options: { ...DEFAULT_OPTIONS },
     dictionary: { status: "unloaded", words: null },
     requests: {},
     remoteBoards: {},
@@ -74,7 +75,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const [flash, setFlash] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [celebrateCollapsed, setCelebrateCollapsed] = useState(false);
-  const dictFetchedRef = useRef(false);
+  const fullDictRef = useRef<Set<string> | null>(null);
   const initialDrawRef = useRef(false);
 
   // Turn on celebration whenever game status reaches banana-split
@@ -98,15 +99,17 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   // Sync boards/bag/status/players
   useBoardSync(gameId, playerId, state, dispatch);
 
-  // Draw starting hand once bag is available
+  // Draw starting hand once bag is available, honoring chosen hand size
   useEffect(() => {
     async function drawInitial() {
       if (initialDrawRef.current) return;
       if (state.rack.length > 0) return;
       if (state.bag.length === 0) return;
       initialDrawRef.current = true;
+      const desired = Math.max(1, Math.min(30, Math.round(state.options.startingHand ?? DEFAULT_OPTIONS.startingHand)));
+      const drawCount = Math.min(desired, state.bag.length);
       try {
-        const { letters } = await takeFromBag(gameId, 15);
+        const { letters } = await takeFromBag(gameId, drawCount);
         if (letters.length === 0) {
           initialDrawRef.current = false;
           return;
@@ -118,7 +121,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
       }
     }
     drawInitial();
-  }, [gameId, state.rack.length, state.bag.length, dispatch]);
+  }, [gameId, state.options.startingHand, state.rack.length, state.bag.length, dispatch]);
 
   // auto-hide flash
   useEffect(() => {
@@ -127,35 +130,48 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     return () => clearTimeout(id);
   }, [flash]);
 
-  // Load dictionary from English Words.txt once
+  // Load dictionary once, then re-filter when minLength changes
   useEffect(() => {
-    if (dictFetchedRef.current || state.dictionary.status === "ready") return;
-    dictFetchedRef.current = true;
-    if (state.dictionary.status === "unloaded") dispatch({ type: "DICT_LOADING" });
+    let cancelled = false;
+    const minLength = Math.max(1, Math.floor(state.options.minLength ?? DEFAULT_OPTIONS.minLength));
 
-    (async () => {
+    async function loadAndFilter() {
       try {
-        const url = new URL("../dictionary.txt", import.meta.url).toString();
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const txt = await resp.text();
-        const words = new Set<string>();
-        txt
-          .split(/\r?\n/)
-          .map((l) => l.trim())
-          .filter(Boolean)
-          .forEach((w) => {
-            const cleaned = w.replace(/[^A-Za-z]/g, "").toUpperCase();
-            if (cleaned.length >= state.options.minLength) words.add(cleaned);
-          });
-        dispatch({ type: "DICT_READY", words });
+        if (!fullDictRef.current) {
+          if (state.dictionary.status === "unloaded") dispatch({ type: "DICT_LOADING" });
+          const url = new URL("../dictionary.txt", import.meta.url).toString();
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const txt = await resp.text();
+          const all = new Set<string>();
+          txt
+            .split(/\r?\n/)
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .forEach((w) => {
+              const cleaned = w.replace(/[^A-Za-z]/g, "").toUpperCase();
+              if (cleaned.length > 0) all.add(cleaned);
+            });
+          fullDictRef.current = all;
+        }
+
+        if (fullDictRef.current) {
+          const words = new Set<string>();
+          fullDictRef.current.forEach((w) => { if (w.length >= minLength) words.add(w); });
+          if (!cancelled) dispatch({ type: "DICT_READY", words });
+        }
       } catch (err) {
         const error = err instanceof Error ? err.message : "Unknown error";
-        dispatch({ type: "DICT_ERROR", error });
-        setFlash("Dictionary failed to load");
+        if (!cancelled) {
+          dispatch({ type: "DICT_ERROR", error });
+          setFlash("Dictionary failed to load");
+        }
       }
-    })();
-  }, [dispatch, state.dictionary.status, state.options.minLength]);
+    }
+
+    loadAndFilter();
+    return () => { cancelled = true; };
+  }, [dispatch, state.options.minLength, state.dictionary.status]);
 
 
   // Layout constants...

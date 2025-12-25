@@ -77,7 +77,9 @@ export type RemoteBoard = {
 
 // Game options
 export type GameOptions = {
-  minLength: number;
+  minLength: number;           // 2/3/4
+  bagSize: 40 | 60 | 100 | 144;
+  startingHand: number;        // slider-controlled (16–30)
   timed: boolean;
 }
 
@@ -154,4 +156,5 @@ export type Action =
   // dictionary
   | { type: "DICT_LOADING" }
   | { type: "DICT_READY"; words: Set<string> }
-  | { type: "DICT_ERROR"; error: string };
+  | { type: "DICT_ERROR"; error: string }
+  | { type: "OPTIONS_SET"; options: Partial<GameOptions> };

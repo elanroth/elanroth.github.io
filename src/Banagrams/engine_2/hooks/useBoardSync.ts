@@ -28,6 +28,9 @@ export function useBoardSync(
       dispatch({ type: "BAG_SET", bag: snapshot.bag || [] });
       dispatch({ type: "PLAYERS_MERGE", players: snapshot.players || {} });
       dispatch({ type: "STATUS_SET", status: snapshot.status || { phase: "active" } });
+      if (snapshot.options) {
+        dispatch({ type: "OPTIONS_SET", options: snapshot.options });
+      }
 
       const grantsForMe = snapshot.grants?.[userId];
       if (grantsForMe && Object.keys(grantsForMe).length > 0) {

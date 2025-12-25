@@ -1,6 +1,6 @@
 import { child, get, onValue, ref, runTransaction, set, update } from "firebase/database";
-import type { GameStatus, PlayerId, PlayerInfo, TilesById } from "../types";
-import { createBag, shuffleArray } from "../utils";
+import type { GameStatus, PlayerId, PlayerInfo, TilesById, GameOptions } from "../types";
+import { createBag, shuffleArray, DEFAULT_OPTIONS } from "../utils";
 import { db } from "./firebase";
 
 const gamePath = (gameId: string) => `games/${gameId}`;
@@ -26,9 +26,10 @@ export type GameSnapshot = {
   players: Record<string, PlayerInfo>;
   status: GameStatus;
   grants: Record<string, Record<string, string>>;
+  options: GameOptions;
 };
 
-export async function createLobby(): Promise<{ gameId: string; lobbyName: string }> {
+export async function createLobby(options?: Partial<GameOptions> & { lobbyName?: string }): Promise<{ gameId: string; lobbyName: string }> {
   const totalSnap = await runTransaction(ref(db, `${metaRoot}/totalGames`), (curr) => {
     const n = typeof curr === "number" ? curr : 0;
     return n + 1;
@@ -36,13 +37,15 @@ export async function createLobby(): Promise<{ gameId: string; lobbyName: string
 
   const n = totalSnap.snapshot.val() as number;
   const gameId = `game-${n}`;
-  const lobbyName = `Lobby ${n}`;
-  const bag = shuffleArray(createBag());
+  const lobbyName = options?.lobbyName?.trim() || `Lobby ${n}`;
+  const chosenOptions: GameOptions = { ...DEFAULT_OPTIONS, ...options };
+  const bag = shuffleArray(createBag(chosenOptions));
   const createdAt = Date.now();
 
   await set(ref(db, gamePath(gameId)), {
     bag,
     status: { phase: "active", updatedAt: createdAt },
+    options: chosenOptions,
     createdAt,
     lobbyName,
     boards: {},
@@ -86,8 +89,9 @@ export function subscribeGame(gameId: string, cb: (snapshot: GameSnapshot) => vo
     const players = (raw.players ?? {}) as Record<string, PlayerInfo>;
     const status = (raw.status ?? { phase: "active" }) as GameStatus;
     const grants = (raw.grants ?? {}) as Record<string, Record<string, string>>;
+    const options = (raw.options ?? DEFAULT_OPTIONS) as GameOptions;
 
-    cb({ boards, bag, players, status, grants });
+    cb({ boards, bag, players, status, grants, options });
   });
 }
 
