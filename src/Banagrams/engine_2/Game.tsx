@@ -539,7 +539,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
           {state.status.phase === "banana-split" && (
             <div className="text-sm font-bold" style={{ color: "#0f5132", background: "#d1e7dd", padding: "6px 10px", borderRadius: 10 }}>
-              Bananas! Winner: {winnerNick || state.status.winnerId || "Unknown"}
+              Winner Winner Chicken Dinner: {winnerNick || state.status.winnerId || "Unknown"}
             </div>
           )}
         </div>
