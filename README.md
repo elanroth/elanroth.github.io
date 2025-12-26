@@ -24,3 +24,10 @@ Completed
 * Center board (shift one or two over)
 * Peel logic
 * Marquee select and move
+
+
+Edits post 5 players
+- make it big
+- add rows at the bottom for more space
+- zoom feature to see whole board
+- see full board button, include extra rows/cols on the outside
