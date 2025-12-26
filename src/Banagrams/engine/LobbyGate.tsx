@@ -30,7 +30,7 @@ function getOrCreatePlayerId(): string {
     localStorage.setItem(baseKey, base);
   }
 
-  const id = `${base}-${Math.random().toString(36).slice(2, 5)}`;
+  const id = `${base}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 4)}`;
   sessionStorage.setItem("banagrams_userId_session", id);
   return id;
 }
