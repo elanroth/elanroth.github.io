@@ -2,32 +2,25 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createLobby, joinLobby, listLobbies, subscribeLobbies, type LobbyMeta } from "./firebase/rtdb";
 import { DEFAULT_OPTIONS } from "./utils";
 
-export type LobbyChoice = { gameId: string; playerId: string; nickname: string };
+type LobbyChoice = { gameId: string; playerId: string; nickname: string };
 
 type Props = {
   onEnter: (choice: LobbyChoice) => void;
 };
 
-function setUserParam(id: string) {
-  const url = new URL(window.location.href);
-  url.searchParams.set("user", id);
-  window.history.replaceState({}, "", url.toString());
-}
-
 function getOrCreatePlayerId(): string {
-  const qs = new URLSearchParams(window.location.search);
-  const fromQuery = qs.get("user");
+  const url = new URL(window.location.href);
+  const fromQuery = url.searchParams.get("user");
   if (fromQuery) {
     sessionStorage.setItem("banagrams_userId_session", fromQuery);
-    setUserParam(fromQuery);
+    // Strip the user param so shared links don't reuse the same player id.
+    url.searchParams.delete("user");
+    window.history.replaceState({}, "", url.toString());
     return fromQuery;
   }
 
   const session = sessionStorage.getItem("banagrams_userId_session");
-  if (session) {
-    setUserParam(session);
-    return session;
-  }
+  if (session) return session;
 
   // Base persisted id for convenience (per device), but make it unique per tab/session
   const baseKey = "banagrams_userId_base";
@@ -39,7 +32,6 @@ function getOrCreatePlayerId(): string {
 
   const id = `${base}-${Math.random().toString(36).slice(2, 5)}`;
   sessionStorage.setItem("banagrams_userId_session", id);
-  setUserParam(id);
   return id;
 }
 
