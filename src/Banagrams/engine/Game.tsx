@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
-import { getValidWords, tilesInWorldRect } from "./board";
+import { boardBounds, getValidWords, tilesInWorldRect } from "./board";
 import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw } from "./firebase/rtdb";
 import { DEFAULT_OPTIONS } from "./utils";
 
@@ -82,10 +82,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
 
   // Turn on celebration whenever game status reaches banana-split
   useEffect(() => {
-    if (state.status.phase === "banana-split" && !celebrate) {
-      console.log("[celebrate] status entered banana-split", state.status);
-      setCelebrate(true);
-    }
+    if (state.status.phase === "banana-split" && !celebrate) setCelebrate(true);
   }, [state.status, celebrate]);
 
   // Collapse celebration badge after a moment so board is visible
@@ -118,7 +115,6 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
         }
         dispatch({ type: "ADD_LETTERS", letters });
       } catch (err) {
-        console.warn("initial draw failed", err);
         initialDrawRef.current = false;
       }
     }
@@ -180,11 +176,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const HEADER_H = 72;
   const RACK_MIN_H = 120;
   const RACK_MAX_H = 240;
-
+  const MIN_TILE = 24;
   const GAP = 6;
-  const [tileSize, setTileSize] = useState(52);
-  const cell = tileSize + GAP;
-  // ...
 
   // Board measurement
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -202,6 +195,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     return () => ro.disconnect();
   }, []);
 
+  const [baseTileSize, setBaseTileSize] = useState(52);
+
   // Responsive tile size
   useEffect(() => {
     function compute() {
@@ -209,7 +204,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
       const availableH = window.innerHeight - HEADER_H - RACK_MIN_H - 24;
       const sizeByW = Math.floor(availableW / 14);
       const sizeByH = Math.floor(availableH / 12);
-      setTileSize(Math.max(30, Math.min(68, Math.min(sizeByW, sizeByH))));
+      setBaseTileSize(Math.max(30, Math.min(68, Math.min(sizeByW, sizeByH))));
     }
     compute();
     window.addEventListener("resize", compute);
@@ -223,14 +218,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     const ids = new Set<string>();
     Object.keys(state.players || {}).forEach((pid) => { if (pid !== state.selfId) ids.add(pid); });
     Object.keys(state.remoteBoards || {}).forEach((pid) => { if (pid !== state.selfId) ids.add(pid); });
-    const list = Array.from(ids).map((pid) => [pid, state.players[pid]] as const);
-    console.log("[spectate] candidates", {
-      self: state.selfId,
-      players: state.players,
-      remoteBoards: Object.keys(state.remoteBoards || {}),
-      list: list.map(([pid, info]) => ({ pid, nick: info?.nickname })),
-    });
-    return list;
+    return Array.from(ids).map((pid) => [pid, state.players[pid]] as const);
   }, [state.players, state.remoteBoards, state.selfId]);
 
   useEffect(() => {
@@ -261,6 +249,25 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     if (ordered.length > 0 || viewingRackOrder.length > 0) return ordered;
     return Object.values(viewingTiles).filter((t) => t.location === "rack") as TileState[];
   }, [viewingRackOrder, viewingTiles]);
+
+  const tileSize = useMemo(() => {
+    if (!boardSize.w || !boardSize.h) return baseTileSize;
+    const bounds = boardBounds(viewingTiles);
+    if (!bounds) return baseTileSize;
+    const marginCells = 1; // minimal padding; prevents early zoom-out for small boards
+    const widthCells = bounds.max.x - bounds.min.x + 1 + marginCells * 2;
+    const heightCells = bounds.max.y - bounds.min.y + 1 + marginCells * 2;
+    const capacityW = Math.max(1, Math.floor(boardSize.w / (baseTileSize + GAP)));
+    const capacityH = Math.max(1, Math.floor(boardSize.h / (baseTileSize + GAP)));
+    // Only zoom out once we would exceed the available cell capacity at the base size.
+    if (widthCells <= capacityW && heightCells <= capacityH) return baseTileSize;
+    const sizeByW = Math.floor(boardSize.w / Math.max(widthCells, 1) - GAP);
+    const sizeByH = Math.floor(boardSize.h / Math.max(heightCells, 1) - GAP);
+    const target = Math.min(baseTileSize, sizeByW, sizeByH);
+    return Math.max(MIN_TILE, target);
+  }, [baseTileSize, boardSize.w, boardSize.h, viewingTiles]);
+
+  const cell = tileSize + GAP;
 
   const selection = isSpectating ? {} : state.selection;
 
@@ -323,7 +330,6 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
 
     if (isBananaSplit) {
       setCelebrate(true);
-      console.log("[celebrate] winner self", state.selfId);
       setGameStatus(gameId, { phase: "banana-split", winnerId: state.selfId, updatedAt: Date.now() }).catch(() => {});
       return;
     }
@@ -338,8 +344,6 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     Object.keys(state.players || {}).forEach((p) => knownPlayers.add(p));
     Object.keys(state.remoteBoards || {}).forEach((p) => knownPlayers.add(p));
     const recipients = Array.from(knownPlayers);
-
-    console.log("[peel] recipients", recipients, "bag", state.bag.length);
 
     takeFromBag(gameId, recipients.length)
       .then(async ({ letters }) => {
@@ -356,8 +360,6 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           assignments[pid].push(letter);
         });
 
-        console.log("[peel] drawn", letters, "assignments", assignments);
-
         const mine = assignments[state.selfId] || [];
         if (mine.length) dispatch({ type: "ADD_LETTERS", letters: mine });
 
@@ -366,10 +368,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           if (pid === state.selfId) continue;
           others[pid] = arr;
         }
-        if (Object.keys(others).length) {
-          console.log("[peel] pushing grants", others);
-          await pushGrants(gameId, others);
-        }
+        if (Object.keys(others).length) await pushGrants(gameId, others);
       })
       .catch(() => setFlash("Peel failed"));
   }
@@ -633,12 +632,10 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
                 return;
               }
               if (selectedOther) {
-                console.log("[spectate] selecting explicit", selectedOther);
                 setSpectateId(selectedOther);
                 return;
               }
               if (otherPlayers.length > 0) {
-                console.log("[spectate] selecting first available", otherPlayers[0][0]);
                 setSpectateId(otherPlayers[0][0]);
                 return;
               }
