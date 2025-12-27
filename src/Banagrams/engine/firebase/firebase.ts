@@ -10,12 +10,6 @@ const cfg = {
   measurementId: import.meta.env.VITE_FB_MEASUREMENT_ID ?? import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-// quick sanity log (remove after you see values)
-console.log("[FB env]", {
-  projectId: cfg.projectId,
-  hasDbUrl: !!cfg.databaseURL,
-});
-
 if (!cfg.projectId) throw new Error("[FB] Missing PROJECT_ID (set VITE_FB_PROJECT_ID or VITE_FIREBASE_PROJECT_ID)");
 if (!cfg.databaseURL && !import.meta.env.VITE_FB_USE_EMULATOR) throw new Error("[FB] Missing DATABASE_URL (set VITE_FB_DATABASE_URL or VITE_FIREBASE_DATABASE_URL)");
 

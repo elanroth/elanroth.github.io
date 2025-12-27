@@ -48,12 +48,6 @@ export function useBoardSync(
   // pull remote boards
   useEffect(() => {
     const unsub = subscribeGame(gameId, (snapshot) => {
-      console.log("[sync] snapshot", {
-        players: Object.keys(snapshot.players || {}),
-        boards: Object.keys(snapshot.boards || {}),
-        status: snapshot.status?.phase,
-        bag: snapshot.bag?.length,
-      });
       dispatch({ type: "REMOTE_BOARDS_MERGE", boards: snapshot.boards });
       dispatch({ type: "BAG_SET", bag: snapshot.bag || [] });
       dispatch({ type: "PLAYERS_MERGE", players: snapshot.players || {} });
@@ -66,7 +60,6 @@ export function useBoardSync(
       if (grantsForMe && Object.keys(grantsForMe).length > 0) {
         const letters = Object.values(grantsForMe);
         const ids = Object.keys(grantsForMe);
-        console.log("[grants] applying", { letters, ids });
         dispatch({ type: "ADD_LETTERS", letters });
         consumeGrants(gameId, userId, ids).catch(() => {});
       }
