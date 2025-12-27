@@ -44,11 +44,10 @@ export function InstructionsPage({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(180deg,#fff8e1 0%, #fff3bf 60%, #fffbe6 100%)", fontFamily: "'Fredoka', system-ui, sans-serif" }}>
-      <div style={{ width: "min(820px, 96vw)", background: "rgba(255,255,255,0.94)", padding: 24, borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ width: "min(920px, 96vw)", background: "rgba(255,255,255,0.94)", padding: 24, borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: 22 }}>How to Play</div>
-            <div style={{ color: "#6b7280", fontSize: 14 }}>Controls, rules, and flow</div>
           </div>
           <button
             onClick={onClose}
