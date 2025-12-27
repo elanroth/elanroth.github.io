@@ -79,6 +79,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const initialDrawRef = useRef(false);
   const [spectateId, setSpectateId] = useState<string | null>(null);
   const [selectedOther, setSelectedOther] = useState<string | null>(null);
+  const lastAutoCenterRef = useRef(0);
 
   // Turn on celebration whenever game status reaches banana-split
   useEffect(() => {
@@ -270,6 +271,28 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const cell = tileSize + GAP;
 
   const selection = isSpectating ? {} : state.selection;
+
+  // Auto-center when tiles approach the viewport edge (self board only).
+  useEffect(() => {
+    if (isSpectating) return;
+    if (!boardSize.w || !boardSize.h) return;
+    const bounds = boardBounds(state.tiles);
+    if (!bounds) return;
+
+    const spanX = boardSize.w / cell;
+    const spanY = boardSize.h / cell;
+    const halfX = Math.max(1, Math.floor(spanX / 2) - 1);
+    const halfY = Math.max(1, Math.floor(spanY / 2) - 1);
+    const maxAbsX = Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x));
+    const maxAbsY = Math.max(Math.abs(bounds.min.y), Math.abs(bounds.max.y));
+    const nearEdge = maxAbsX >= halfX || maxAbsY >= halfY;
+    if (!nearEdge) return;
+
+    const now = Date.now();
+    if (now - lastAutoCenterRef.current < 250) return;
+    lastAutoCenterRef.current = now;
+    dispatch({ type: "CENTER_BOARD" });
+  }, [boardSize.w, boardSize.h, cell, state.tiles, isSpectating, dispatch]);
 
   const dictWords = state.dictionary.status === "ready" ? state.dictionary.words : null;
   const playerCount = Math.max(1, Object.keys(state.players || {}).length || 1);

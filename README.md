@@ -13,15 +13,6 @@ Plan
     - Save by user for stats
     - End game
 
-In progress
-- Started adding end game logic (edited: Game, reducer, types, utils)
-- Added see board button but commented out, no logic yet, keep changes small
-
-Completed
-* Center board (shift one or two over)
-* Peel logic
-* Marquee select and move
-* Login page (remember always)
 
 
 Edits post 5 players
