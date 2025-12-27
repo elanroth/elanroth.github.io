@@ -9,7 +9,6 @@ export function reducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case "STATE_REPLACE":  return action.next;
     case "REMOTE_BOARDS_MERGE": {
-      console.log("[reducer] REMOTE_BOARDS_MERGE", Object.keys(action.boards || {}));
       const merged: Record<string, RemoteBoard> = { ...action.boards };
       if (state.selfId in merged) delete merged[state.selfId];
       return { ...state, remoteBoards: merged };
