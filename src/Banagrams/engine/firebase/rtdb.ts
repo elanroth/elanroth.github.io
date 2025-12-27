@@ -33,13 +33,14 @@ export type GameSnapshot = {
 };
 
 export async function createLobby(options: Partial<GameOptions> & { lobbyName?: string; hostId: string }): Promise<{ gameId: string; lobbyName: string }> {
-  const totalSnap = await runTransaction(ref(db, `${metaRoot}/totalGames`), (curr) => {
+  const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+  const daySnap = await runTransaction(ref(db, `${metaRoot}/dailyCounters/${todayKey}`), (curr) => {
     const n = typeof curr === "number" ? curr : 0;
     return n + 1;
   });
 
-  const n = totalSnap.snapshot.val() as number;
-  const gameId = `game-${n}`;
+  const n = daySnap.snapshot.val() as number;
+  const gameId = `game-${todayKey}-${n}`;
   const lobbyName = options?.lobbyName?.trim() || `Lobby ${n}`;
   const chosenOptions: GameOptions = { ...DEFAULT_OPTIONS, ...options };
   const bag = shuffleArray(createBag(chosenOptions));
@@ -186,7 +187,7 @@ export function subscribeLobbies(cb: (lobbies: LobbyMeta[]) => void): () => void
     const val = (snap.val() ?? {}) as Record<string, any>;
     const out: LobbyMeta[] = [];
     for (const [gid, meta] of Object.entries(val)) {
-      if (gid === "totalGames") continue;
+      if (gid === "totalGames" || gid === "dailyCounters") continue;
       out.push({
         gameId: gid,
         lobbyName: (meta as any).lobbyName ?? gid,
@@ -207,7 +208,7 @@ export async function listLobbies(): Promise<LobbyMeta[]> {
   const val = snap.val() as Record<string, any>;
   const out: LobbyMeta[] = [];
   for (const [gid, meta] of Object.entries(val)) {
-    if (gid === "totalGames") continue;
+    if (gid === "totalGames" || gid === "dailyCounters") continue;
     out.push({
       gameId: gid,
         lobbyName: (meta as any).lobbyName ?? gid,
