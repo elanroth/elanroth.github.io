@@ -480,6 +480,24 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handlePeel]);
 
+  // Keyboard shortcut to center the board
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
+      if (e.code !== "KeyC") return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active) {
+        const tag = active.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select" || active.isContentEditable) return;
+      }
+      if (isSpectating || state.status.phase === "banana-split") return;
+      e.preventDefault();
+      dispatch({ type: "CENTER_BOARD" });
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dispatch, isSpectating, state.status.phase]);
+
   return (
     <div
       className="min-h-screen"
