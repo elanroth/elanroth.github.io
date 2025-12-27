@@ -2,24 +2,13 @@ Welcome to the world of Elan
 
 Valid words courteous of https://gist.github.com/deostroll/7693b6f3d48b44a89ee5f57bf750bd32
 
-Plan
-- Login page
-    - cant see tiles until game starts
-- Request a letter
-- Dump logic
-    - Dump in front of someone
-    - Issue: dumping a selection does not give enough new tiles
-- Save all words used
-    - Save by user for stats
-    - End game
 
-
-
-Edits post 5 players
-- make it big
-- add rows at the bottom for more space
-- zoom feature to see whole board
-- see full board button, include extra rows/cols on the outside
+Features to add
+- minigame while waiting in the lobby (add a letter each time and make anagram)
+- save words for analysis
+- reset lobby names everyday
+- deump in front of enemies
+- request a letter
 
 Local Firebase RTDB emulator
 - Start the emulator: `firebase emulators:start --only database --project demo`

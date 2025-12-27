@@ -564,7 +564,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
                 transform: celebrateCollapsed ? "translate(0,0)" : "translate(50%,-50%)",
               }}
             >
-              {isWinner ? "Winner!" : "Loser!"}
+              {isWinner ? "Winner!" : "Non-Winner!"}
             </div>
           </div>
         </>,
