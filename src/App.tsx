@@ -2,19 +2,26 @@ import { useState } from 'react';
 import Game from './Banagrams/engine/Game';
 import { LobbyGate, type LobbyChoice } from './Banagrams/engine/LobbyGate';
 import { LobbyWaitingRoom } from './Banagrams/engine/LobbyWaitingRoom';
+import { InstructionsPage } from './Banagrams/engine/InstructionsPage';
 
 export default function App() {
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
   const [phase, setPhase] = useState<'waiting' | 'game'>('waiting');
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  if (showInstructions) {
+    return <InstructionsPage onClose={() => setShowInstructions(false)} />;
+  }
 
   if (!choice) {
-    return <LobbyGate onEnter={setChoice} />;
+    return <LobbyGate onEnter={setChoice} onShowInstructions={() => setShowInstructions(true)} />;
   }
 
   if (phase === 'waiting') {
     return (
       <LobbyWaitingRoom
         choice={choice}
+        onShowInstructions={() => setShowInstructions(true)}
         onReady={() => setPhase('game')}
       />
     );

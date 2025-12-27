@@ -6,9 +6,10 @@ import type { PlayerInfo, GameStatus } from "./types";
 export type LobbyWaitingRoomProps = {
   choice: LobbyChoice;
   onReady: () => void;
+  onShowInstructions?: () => void;
 };
 
-export function LobbyWaitingRoom({ choice, onReady }: LobbyWaitingRoomProps) {
+export function LobbyWaitingRoom({ choice, onReady, onShowInstructions }: LobbyWaitingRoomProps) {
   const { gameId, playerId } = choice;
   const [players, setPlayers] = useState<Record<string, PlayerInfo>>({});
   const [status, setStatus] = useState<GameStatus>({ phase: "waiting" });
@@ -59,22 +60,40 @@ export function LobbyWaitingRoom({ choice, onReady }: LobbyWaitingRoomProps) {
             </div>
           </div>
           {waiting && (
-            <button
-              onClick={startGame}
-              disabled={!isHost || busy}
-              style={{
-                padding: "10px 14px",
-                background: isHost ? "#2563eb" : "#9ca3af",
-                color: "white",
-                border: "none",
-                borderRadius: 12,
-                boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-                fontWeight: 800,
-                cursor: isHost && !busy ? "pointer" : "not-allowed",
-              }}
-            >
-              {isHost ? "Start" : "Waiting for host"}
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => onShowInstructions?.()}
+                disabled={busy}
+                style={{
+                  padding: "10px 12px",
+                  background: "#e5e7eb",
+                  border: "none",
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
+              >
+                Instructions
+              </button>
+              <button
+                type="button"
+                onClick={startGame}
+                disabled={!isHost || busy}
+                style={{
+                  padding: "10px 14px",
+                  background: isHost ? "#2563eb" : "#9ca3af",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 12,
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+                  fontWeight: 800,
+                  cursor: isHost && !busy ? "pointer" : "not-allowed",
+                }}
+              >
+                {isHost ? "Start" : "Waiting for host"}
+              </button>
+            </div>
           )}
         </div>
 

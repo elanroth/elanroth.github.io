@@ -6,6 +6,7 @@ export type LobbyChoice = { gameId: string; playerId: string; nickname: string }
 
 type Props = {
   onEnter: (choice: LobbyChoice) => void;
+  onShowInstructions: () => void;
 };
 
 function getOrCreatePlayerId(): string {
@@ -35,7 +36,7 @@ function getOrCreatePlayerId(): string {
   return id;
 }
 
-export function LobbyGate({ onEnter }: Props) {
+export function LobbyGate({ onEnter, onShowInstructions }: Props) {
   const [nickname, setNickname] = useState(() => localStorage.getItem("banagrams_nick") || "");
   const [lobbies, setLobbies] = useState<LobbyMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,21 +113,38 @@ export function LobbyGate({ onEnter }: Props) {
                 <div style={{ fontWeight: 800, fontSize: 22 }}>Banagrams</div>
                 <div style={{ color: "#6b7280", fontSize: 14 }}>Pick a nickname and join a lobby.</div>
               </div>
-              <button
-                onClick={() => setShowOptions(true)}
-                disabled={busy}
-                style={{
-                  padding: "10px 14px",
-                  background: "#ffd54f",
-                  borderRadius: 12,
-                  border: "none",
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-                  fontWeight: 800,
-                  cursor: busy ? "not-allowed" : "pointer",
-                }}
-              >
-                Start new lobby
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={onShowInstructions}
+                  style={{
+                    padding: "10px 12px",
+                    background: "#e5e7eb",
+                    borderRadius: 12,
+                    border: "none",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Instructions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowOptions(true)}
+                  disabled={busy}
+                  style={{
+                    padding: "10px 14px",
+                    background: "#ffd54f",
+                    borderRadius: 12,
+                    border: "none",
+                    boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+                    fontWeight: 800,
+                    cursor: busy ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Start new lobby
+                </button>
+              </div>
             </div>
 
             <div style={{ marginBottom: 16 }}>
