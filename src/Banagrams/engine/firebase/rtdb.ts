@@ -18,6 +18,7 @@ export type LobbyMeta = {
   createdAt: number;
   playerCount: number;
   status: GameStatus["phase"];
+  hostId?: string;
 };
 
 export type GameSnapshot = {
@@ -27,9 +28,11 @@ export type GameSnapshot = {
   status: GameStatus;
   grants: Record<string, Record<string, string>>;
   options: GameOptions;
+  hostId?: string;
+  lobbyName?: string;
 };
 
-export async function createLobby(options?: Partial<GameOptions> & { lobbyName?: string }): Promise<{ gameId: string; lobbyName: string }> {
+export async function createLobby(options: Partial<GameOptions> & { lobbyName?: string; hostId: string }): Promise<{ gameId: string; lobbyName: string }> {
   const totalSnap = await runTransaction(ref(db, `${metaRoot}/totalGames`), (curr) => {
     const n = typeof curr === "number" ? curr : 0;
     return n + 1;
@@ -44,10 +47,11 @@ export async function createLobby(options?: Partial<GameOptions> & { lobbyName?:
 
   await set(ref(db, gamePath(gameId)), {
     bag,
-    status: { phase: "active", updatedAt: createdAt },
+    status: { phase: "waiting", updatedAt: createdAt },
     options: chosenOptions,
     createdAt,
     lobbyName,
+    hostId: options.hostId,
     boards: {},
     players: {},
     grants: {},
@@ -57,7 +61,8 @@ export async function createLobby(options?: Partial<GameOptions> & { lobbyName?:
     lobbyName,
     createdAt,
     playerCount: 0,
-    status: "active",
+    status: "waiting",
+    hostId: options.hostId,
   });
 
   return { gameId, lobbyName };
@@ -104,11 +109,13 @@ export function subscribeGame(gameId: string, cb: (snapshot: GameSnapshot) => vo
 
     const bag = Array.isArray(raw.bag) ? raw.bag : [];
     const players = (raw.players ?? {}) as Record<string, PlayerInfo>;
-    const status = (raw.status ?? { phase: "active" }) as GameStatus;
+    const status = (raw.status ?? { phase: "waiting" }) as GameStatus;
     const grants = (raw.grants ?? {}) as Record<string, Record<string, string>>;
     const options = (raw.options ?? DEFAULT_OPTIONS) as GameOptions;
+    const hostId = raw.hostId as string | undefined;
+    const lobbyName = raw.lobbyName as string | undefined;
 
-    cb({ boards, bag, players, status, grants, options });
+    cb({ boards, bag, players, status, grants, options, hostId, lobbyName });
   });
 }
 
@@ -186,6 +193,7 @@ export function subscribeLobbies(cb: (lobbies: LobbyMeta[]) => void): () => void
         createdAt: (meta as any).createdAt ?? 0,
         playerCount: (meta as any).playerCount ?? 0,
         status: (meta as any).status ?? "active",
+        hostId: (meta as any).hostId,
       });
     }
     out.sort((a, b) => b.createdAt - a.createdAt);
@@ -202,10 +210,11 @@ export async function listLobbies(): Promise<LobbyMeta[]> {
     if (gid === "totalGames") continue;
     out.push({
       gameId: gid,
-      lobbyName: (meta as any).lobbyName ?? gid,
-      createdAt: (meta as any).createdAt ?? 0,
-      playerCount: (meta as any).playerCount ?? 0,
-      status: (meta as any).status ?? "active",
+        lobbyName: (meta as any).lobbyName ?? gid,
+        createdAt: (meta as any).createdAt ?? 0,
+        playerCount: (meta as any).playerCount ?? 0,
+        status: (meta as any).status ?? "active",
+        hostId: (meta as any).hostId,
     });
   }
   out.sort((a, b) => b.createdAt - a.createdAt);

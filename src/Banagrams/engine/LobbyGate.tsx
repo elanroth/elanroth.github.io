@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createLobby, joinLobby, listLobbies, subscribeLobbies, type LobbyMeta } from "./firebase/rtdb";
 import { DEFAULT_OPTIONS } from "./utils";
 
-type LobbyChoice = { gameId: string; playerId: string; nickname: string };
+export type LobbyChoice = { gameId: string; playerId: string; nickname: string };
 
 type Props = {
   onEnter: (choice: LobbyChoice) => void;
@@ -89,6 +89,7 @@ export function LobbyGate({ onEnter }: Props) {
         bagSize,
         startingHand,
         minLength,
+        hostId: playerId,
       });
       await joinLobby(gameId, playerId, nick);
       localStorage.setItem("banagrams_nick", nick);
@@ -167,7 +168,10 @@ export function LobbyGate({ onEnter }: Props) {
                 }}>
                   <div>
                     <div style={{ fontWeight: 800 }}>{lobby.lobbyName}</div>
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>{lobby.playerCount} player{lobby.playerCount === 1 ? "" : "s"} · {lobby.status === "active" ? "Active" : "Finished"}</div>
+                    <div style={{ color: "#6b7280", fontSize: 14 }}>
+                      {lobby.playerCount} player{lobby.playerCount === 1 ? "" : "s"} ·
+                      {lobby.status === "waiting" ? " Waiting" : lobby.status === "active" ? " Active" : " Finished"}
+                    </div>
                   </div>
                   <button
                     onClick={() => enter(lobby.gameId)}

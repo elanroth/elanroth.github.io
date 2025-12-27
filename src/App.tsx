@@ -1,12 +1,23 @@
 import { useState } from 'react';
 import Game from './Banagrams/engine/Game';
 import { LobbyGate, type LobbyChoice } from './Banagrams/engine/LobbyGate';
+import { LobbyWaitingRoom } from './Banagrams/engine/LobbyWaitingRoom';
 
 export default function App() {
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
+  const [phase, setPhase] = useState<'waiting' | 'game'>('waiting');
 
   if (!choice) {
     return <LobbyGate onEnter={setChoice} />;
+  }
+
+  if (phase === 'waiting') {
+    return (
+      <LobbyWaitingRoom
+        choice={choice}
+        onReady={() => setPhase('game')}
+      />
+    );
   }
 
   return <Game gameId={choice.gameId} playerId={choice.playerId} nickname={choice.nickname} />;

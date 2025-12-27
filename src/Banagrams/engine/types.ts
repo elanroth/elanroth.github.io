@@ -16,7 +16,7 @@ export type PlayerInfo = {
 };
 
 export type GameStatus = {
-  phase: "active" | "banana-split";
+  phase: "waiting" | "active" | "banana-split";
   winnerId?: PlayerId;
   updatedAt?: number;
 };
