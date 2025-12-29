@@ -5,7 +5,7 @@ import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { boardBounds, getValidWords, tilesInWorldRect } from "./board";
-import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw } from "./firebase/rtdb";
+import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis } from "./firebase/rtdb";
 import { DEFAULT_OPTIONS } from "./utils";
 
 // ---------- Initial state ----------
@@ -81,6 +81,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const [spectateId, setSpectateId] = useState<string | null>(null);
   const [selectedOther, setSelectedOther] = useState<string | null>(null);
   const lastAutoCenterRef = useRef(0);
+  const savedAnalysisRef = useRef(false);
 
   const bananaSpecs = useMemo(() => {
     if (!showBananas) return [] as Array<{ key: string; left: number; delay: number; duration: number; size: number }>;
@@ -105,6 +106,50 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     const timer = window.setTimeout(() => setShowBananas(false), 5200);
     return () => window.clearTimeout(timer);
   }, [state.status.phase]);
+
+  // Save boards to Firebase once when the game ends for post-game analysis
+  useEffect(() => {
+    if (state.status.phase !== "banana-split") return;
+    if (savedAnalysisRef.current) return;
+    savedAnalysisRef.current = true;
+
+    const winnerId = state.status.winnerId ?? null;
+
+    function compactBoard(tiles: TilesById, rackIds: TileId[]) {
+      const tilesArr = Object.values(tiles || {}).map((t) => ({ l: t.letter, x: t.pos.x, y: t.pos.y, loc: t.location, owner: t.owner }));
+      const rackLetters = rackIds.map((id) => tiles[id]?.letter).filter(Boolean) as string[];
+      return { tiles: tilesArr, rack: rackLetters };
+    }
+
+    const allBoards: Record<string, { tiles: TilesById; rack: TileId[] }> = {
+      [state.selfId]: { tiles: state.tiles, rack: state.rack },
+      ...state.remoteBoards,
+    };
+
+    const compacted = Object.entries(allBoards).map(([pid, b]) => ({
+      pid,
+      ...compactBoard(b.tiles ?? {}, b.rack ?? []),
+    }));
+
+    const winnerBoard = winnerId ? compacted.find((b) => b.pid === winnerId) : undefined;
+    const others = compacted.filter((b) => !winnerId || b.pid !== winnerId);
+
+    const payload = {
+      finishedAt: Date.now(),
+      winnerId,
+      winnerBoard: winnerBoard ?? null,
+      otherBoards: others,
+      options: state.options,
+      players: state.players,
+      bagRemaining: state.bag.length,
+    };
+
+    saveGameAnalysis(gameId, payload).catch((err) => {
+      console.error("saveGameAnalysis failed", err);
+      setFlash("Analysis save failed");
+      savedAnalysisRef.current = false; // allow retry on failure
+    });
+  }, [gameId, state.bag.length, state.options, state.players, state.rack, state.remoteBoards, state.status.phase, state.status.winnerId, state.tiles]);
 
   // Collapse celebration badge after a moment so board is visible
   useEffect(() => {

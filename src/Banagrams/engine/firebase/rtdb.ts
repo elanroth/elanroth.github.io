@@ -11,6 +11,7 @@ const statusPath = (gameId: string) => `${gamePath(gameId)}/status`;
 const grantsPath = (gameId: string) => `${gamePath(gameId)}/grants`;
 const metaRoot = `gamesMeta`;
 const metaPath = (gameId: string) => `${metaRoot}/${gameId}`;
+const analysisPath = (gameId: string) => `gameAnalyses/${gameId}`;
 
 export type LobbyMeta = {
   gameId: string;
@@ -156,6 +157,10 @@ export async function dumpAndDraw(gameId: string, letters: string[]): Promise<st
 export async function setGameStatus(gameId: string, status: GameStatus): Promise<void> {
   await set(ref(db, statusPath(gameId)), status);
   await update(ref(db, metaPath(gameId)), { status: status.phase });
+}
+
+export async function saveGameAnalysis(gameId: string, payload: Record<string, unknown>): Promise<void> {
+  await set(ref(db, analysisPath(gameId)), payload);
 }
 
 /**

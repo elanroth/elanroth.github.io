@@ -15,6 +15,10 @@
     "gamesMeta": {
       ".read": true,
       ".write": true
+    },
+    "gameAnalyses": {
+      ".read": true,
+      ".write": true
     }
   }
 }
