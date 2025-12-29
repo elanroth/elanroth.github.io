@@ -32,7 +32,7 @@ export type GameSnapshot = {
   lobbyName?: string;
 };
 
-export async function createLobby(options: Partial<GameOptions> & { lobbyName?: string; hostId: string }): Promise<{ gameId: string; lobbyName: string }> {
+export async function createLobby(options: Partial<GameOptions> & { lobbyName?: string; hostId: string; customBag?: string[] }): Promise<{ gameId: string; lobbyName: string }> {
   const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
   const daySnap = await runTransaction(ref(db, `${metaRoot}/dailyCounters/${todayKey}`), (curr) => {
     const n = typeof curr === "number" ? curr : 0;
@@ -41,9 +41,10 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
 
   const n = daySnap.snapshot.val() as number;
   const gameId = `game-${todayKey}-${n}`;
-  const lobbyName = options?.lobbyName?.trim() || `Lobby ${n}`;
-  const chosenOptions: GameOptions = { ...DEFAULT_OPTIONS, ...options };
-  const bag = shuffleArray(createBag(chosenOptions));
+  const { customBag, lobbyName: providedLobbyName, hostId, ...gameOptions } = options;
+  const lobbyName = providedLobbyName?.trim() || `Lobby ${n}`;
+  const chosenOptions: GameOptions = { ...DEFAULT_OPTIONS, ...gameOptions };
+  const bag = customBag ? [...customBag] : shuffleArray(createBag(chosenOptions));
   const createdAt = Date.now();
 
   await set(ref(db, gamePath(gameId)), {
@@ -52,7 +53,7 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
     options: chosenOptions,
     createdAt,
     lobbyName,
-    hostId: options.hostId,
+    hostId,
     boards: {},
     players: {},
     grants: {},
@@ -63,7 +64,7 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
     createdAt,
     playerCount: 0,
     status: "waiting",
-    hostId: options.hostId,
+    hostId,
   });
 
   return { gameId, lobbyName };

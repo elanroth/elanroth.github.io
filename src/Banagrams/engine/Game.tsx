@@ -75,16 +75,36 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const [flash, setFlash] = useState<string | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [celebrateCollapsed, setCelebrateCollapsed] = useState(false);
+  const [showBananas, setShowBananas] = useState(false);
   const fullDictRef = useRef<Set<string> | null>(null);
   const initialDrawRef = useRef(false);
   const [spectateId, setSpectateId] = useState<string | null>(null);
   const [selectedOther, setSelectedOther] = useState<string | null>(null);
   const lastAutoCenterRef = useRef(0);
 
+  const bananaSpecs = useMemo(() => {
+    if (!showBananas) return [] as Array<{ key: string; left: number; delay: number; duration: number; size: number }>;
+    return Array.from({ length: 50 }).map((_, i) => ({
+      key: `banana-${i}-${Math.random().toString(36).slice(2)}`,
+      left: Math.random() * 100,
+      delay: Math.random() * 1.1,
+      duration: 2.6 + Math.random() * 0.9,
+      size: 42 + Math.random() * 14,
+    }));
+  }, [showBananas]);
+
   // Turn on celebration whenever game status reaches banana-split
   useEffect(() => {
-    if (state.status.phase === "banana-split" && !celebrate) setCelebrate(true);
-  }, [state.status, celebrate]);
+    if (state.status.phase !== "banana-split") {
+      setCelebrate(false);
+      setShowBananas(false);
+      return;
+    }
+    setCelebrate(true);
+    setShowBananas(true);
+    const timer = window.setTimeout(() => setShowBananas(false), 5200);
+    return () => window.clearTimeout(timer);
+  }, [state.status.phase]);
 
   // Collapse celebration badge after a moment so board is visible
   useEffect(() => {
@@ -539,29 +559,21 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
             @keyframes heartbeat { 0%, 100% { transform: scale(1); } 20% { transform: scale(1.12); } 40% { transform: scale(0.94); } 60% { transform: scale(1.1); } 80% { transform: scale(0.98); } }
           `}</style>
           <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 99999, overflow: "hidden" }}>
-            {Array.from({ length: 64 }).map((_, i) => {
-              const left = Math.random() * 100;
-              const delay = Math.random() * 1.4;
-              const duration = 3.4 + Math.random() * 1.4;
-              const size = 34 + Math.random() * 18;
-              return (
-                <div
-                  key={`banana-${i}`}
-                  style={{
-                    position: "absolute",
-                    left: `${left}%`,
-                    top: -40,
-                    fontSize: size,
-                    filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.28))",
-                    textShadow: "0 3px 6px rgba(0,0,0,0.25)",
-                    animation: `banana-fall ${duration}s linear ${delay}s forwards`,
-                    willChange: "transform, opacity",
-                  }}
-                >
-                  🍌
-                </div>
-              );
-            })}
+            {showBananas && bananaSpecs.map((b) => (
+              <div
+                key={b.key}
+                style={{
+                  position: "absolute",
+                  left: `${b.left}%`,
+                  top: -40,
+                  fontSize: b.size,
+                  animation: `banana-fall ${b.duration}s linear ${b.delay}s forwards`,
+                  willChange: "transform, opacity",
+                }}
+              >
+                🍌
+              </div>
+            ))}
           </div>
           <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 100000 }}>
             <div

@@ -4,11 +4,14 @@ Valid words courteous of https://gist.github.com/deostroll/7693b6f3d48b44a89ee5f
 
 
 Features to add
+- laggy after game end
 - minigame while waiting in the lobby (add a letter each time and make anagram)
 - save words for analysis
-- reset lobby names everyday
+- reset lobby names (CLI script)
 - deump in front of enemies
 - request a letter
+- shuffle tiles
+- cursor, can only go down right
 
 Local Firebase RTDB emulator
 - Start the emulator: `firebase emulators:start --only database --project demo`
