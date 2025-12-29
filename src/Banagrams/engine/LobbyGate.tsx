@@ -103,6 +103,33 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
     }
   }
 
+  async function createTestGame() {
+    const nick = nickname.trim();
+    if (!nick) {
+      setError("Enter a nickname");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const { gameId } = await createLobby({
+        lobbyName: "Test game",
+        bagSize: 40,
+        startingHand: 2,
+        minLength: 2,
+        hostId: playerId,
+        customBag: ["A", "A", "A"],
+      });
+      await joinLobby(gameId, playerId, nick);
+      localStorage.setItem("banagrams_nick", nick);
+      onEnter({ gameId, playerId, nickname: nick });
+    } catch (err) {
+      setError("Could not create test lobby");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(180deg,#fff8e1 0%, #fff3bf 60%, #fffbe6 100%)", fontFamily: "'Fredoka', system-ui, sans-serif" }}>
       <div style={{ width: "min(820px, 96vw)", background: "rgba(255,255,255,0.92)", padding: 24, borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.08)" }}>
@@ -127,6 +154,22 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
                   }}
                 >
                   Instructions
+                </button>
+                <button
+                  type="button"
+                  onClick={createTestGame}
+                  disabled={busy}
+                  style={{
+                    padding: "10px 12px",
+                    background: "#d1fae5",
+                    color: "#065f46",
+                    borderRadius: 12,
+                    border: "1px solid #a7f3d0",
+                    fontWeight: 800,
+                    cursor: busy ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Test game
                 </button>
                 <button
                   type="button"
