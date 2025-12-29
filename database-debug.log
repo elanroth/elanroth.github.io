@@ -12,3 +12,4 @@ namespace demo, but the emulator is configured for demo-default-rtdb,demo-banana
 opt-out of single project mode add/set the singleProjectMode: false property in 
 the firebase.json emulators config. 
 20:31:38.559 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - demo successfully activated FBKV (SurveyIdle(0)) wait: 4ms, init: 0ms
+20:35:04.582 [NamespaceSystem-blocking-namespace-operation-dispatcher-67] INFO com.firebase.core.namespace.StateManager - Namespace demo-default-rtdb status Active to Active

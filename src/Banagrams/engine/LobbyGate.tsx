@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { createLobby, joinLobby, listLobbies, subscribeLobbies, type LobbyMeta } from "./firebase/rtdb";
+import { createLobby, joinLobby, listLobbies, subscribeLobbies, pruneOldLobbies, type LobbyMeta } from "./firebase/rtdb";
 import { DEFAULT_OPTIONS } from "./utils";
 
 export type LobbyChoice = { gameId: string; playerId: string; nickname: string };
@@ -52,7 +52,9 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    listLobbies().then(setLobbies).finally(() => setLoading(false));
+    pruneOldLobbies().finally(() => {
+      listLobbies().then(setLobbies).finally(() => setLoading(false));
+    });
     const unsub = subscribeLobbies(setLobbies);
     return unsub;
   }, []);

@@ -227,3 +227,28 @@ export async function listLobbies(): Promise<LobbyMeta[]> {
   out.sort((a, b) => b.createdAt - a.createdAt);
   return out;
 }
+
+export async function pruneOldLobbies(): Promise<number> {
+  const snap = await get(ref(db, metaRoot));
+  if (!snap.exists()) return 0;
+  const val = snap.val() as Record<string, any>;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const cutoff = startOfToday.getTime();
+
+  const updates: Record<string, null> = {};
+  let count = 0;
+  for (const [gid, meta] of Object.entries(val)) {
+    if (gid === "totalGames" || gid === "dailyCounters") continue;
+    const createdAt = (meta as any).createdAt ?? 0;
+    if (typeof createdAt === "number" && createdAt < cutoff) {
+      updates[`games/${gid}`] = null;
+      updates[`${metaRoot}/${gid}`] = null;
+      updates[`gameAnalyses/${gid}`] = null;
+      count += 1;
+    }
+  }
+  if (count === 0) return 0;
+  await update(ref(db), updates);
+  return count;
+}
