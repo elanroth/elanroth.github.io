@@ -219,7 +219,7 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {loading && <div style={{ color: "#6b7280" }}>Loading lobbies…</div>}
               {!loading && lobbies.length === 0 && <div style={{ color: "#6b7280" }}>No lobbies yet. Start one!</div>}
-              {lobbies.map((lobby) => (
+              {lobbies.filter((l) => l.createdAt >= lobbies.length - 5).map((lobby) => (
                 <div key={lobby.gameId} style={{
                   display: "flex",
                   alignItems: "center",
