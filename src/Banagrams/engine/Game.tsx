@@ -326,11 +326,15 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
 
   function clampCursorToView(pos: { x: number; y: number }) {
     if (!boardSize.w || !boardSize.h) return snapCoord(pos);
-    const halfX = Math.max(0, Math.floor(boardSize.w / cell / 2) - 1);
-    const halfY = Math.max(0, Math.floor(boardSize.h / cell / 2) - 1);
+    const spanX = Math.max(0, (boardSize.w - tileSize) / (2 * cell));
+    const spanY = Math.max(0, (boardSize.h - tileSize) / (2 * cell));
+    const maxX = Math.floor(spanX);
+    const minX = -Math.ceil(spanX);
+    const maxY = Math.floor(spanY) + 1;
+    const minY = -Math.ceil(spanY) - 1;
     return snapCoord({
-      x: Math.min(halfX, Math.max(-halfX, pos.x)),
-      y: Math.min(halfY, Math.max(-halfY, pos.y)),
+      x: Math.min(maxX, Math.max(minX, pos.x)),
+      y: Math.min(maxY, Math.max(minY, pos.y)),
     });
   }
 
