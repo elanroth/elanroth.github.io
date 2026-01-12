@@ -9,7 +9,7 @@ export type TypingModeState = {
 };
 
 export function initialTypingModeState(): TypingModeState {
-  return { enabled: false, cursor: { x: 0, y: 0 }, advanceDir: "right" };
+  return { enabled: true, cursor: { x: 0, y: 0 }, advanceDir: "right" };
 }
 
 export function moveCursor(cursor: Coord, direction: "up" | "down" | "left" | "right"): Coord {
