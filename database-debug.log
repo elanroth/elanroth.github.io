@@ -1,14 +1,9 @@
-20:31:20.602 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
-20:31:20.669 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
-20:31:20.813 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - demo-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 44ms, init: 0ms
-20:31:20.842 [NamespaceSystem-blocking-namespace-operation-dispatcher-6] INFO com.firebase.core.namespace.StateManager - Namespace demo-default-rtdb status Active to Active
-20:31:24.135 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
-namespace demo-bananagrams, but the emulator is configured for demo-default-rtdb. To 
+19:38:08.334 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
+19:38:08.405 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
+19:38:08.731 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - dem-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 45ms, init: 0ms
+19:38:08.755 [NamespaceSystem-blocking-namespace-operation-dispatcher-7] INFO com.firebase.core.namespace.StateManager - Namespace dem-default-rtdb status Active to Active
+19:38:13.290 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+namespace demo-bananagrams, but the emulator is configured for dem-default-rtdb. To 
 opt-out of single project mode add/set the singleProjectMode: false property in 
 the firebase.json emulators config. 
-20:31:24.141 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 3ms, init: 0ms
-20:31:38.553 [FirebaseWorkerPool-1-2] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
-namespace demo, but the emulator is configured for demo-default-rtdb,demo-bananagrams. To 
-opt-out of single project mode add/set the singleProjectMode: false property in 
-the firebase.json emulators config. 
-20:31:38.559 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - demo successfully activated FBKV (SurveyIdle(0)) wait: 4ms, init: 0ms
+19:38:13.293 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 2ms, init: 0ms

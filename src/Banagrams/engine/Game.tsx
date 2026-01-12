@@ -7,6 +7,8 @@ import type { GameOptions, GameState, TileId, TileState, TilesById } from "./typ
 import { boardBounds, getValidWords, tilesInWorldRect } from "./board";
 import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis } from "./firebase/rtdb";
 import { DEFAULT_OPTIONS } from "./utils";
+import { advanceCursorUntilOpen, boardTileAt, canPlaceAt, findRackTileForLetter, initialTypingModeState, moveCursor, normalizeLetterKey } from "./typingMode";
+import { snapCoord } from "./coords";
 
 // ---------- Initial state ----------
 function initialState(gameId: string, selfId: string): GameState {
@@ -82,6 +84,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const [selectedOther, setSelectedOther] = useState<string | null>(null);
   const lastAutoCenterRef = useRef(0);
   const savedAnalysisRef = useRef(false);
+  const [typingMode, setTypingMode] = useState(() => initialTypingModeState());
 
   const bananaSpecs = useMemo(() => {
     if (!showBananas) return [] as Array<{ key: string; left: number; delay: number; duration: number; size: number }>;
@@ -305,6 +308,11 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const viewingRackOrder = spectateId ? (viewingRemote?.rack ?? []) : state.rack;
   const isSpectating = spectateId !== null;
 
+  useEffect(() => {
+    if (!isSpectating) return;
+    setTypingMode((prev) => (prev.enabled ? { ...prev, enabled: false } : prev));
+  }, [isSpectating]);
+
   const boardTiles = useMemo(
     () => Object.values(viewingTiles).filter((t) => t.location === "board"),
     [viewingTiles]
@@ -315,6 +323,30 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     if (ordered.length > 0 || viewingRackOrder.length > 0) return ordered;
     return Object.values(viewingTiles).filter((t) => t.location === "rack") as TileState[];
   }, [viewingRackOrder, viewingTiles]);
+
+  function clampCursorToView(pos: { x: number; y: number }) {
+    if (!boardSize.w || !boardSize.h) return snapCoord(pos);
+    const halfX = Math.max(0, Math.floor(boardSize.w / cell / 2) - 1);
+    const halfY = Math.max(0, Math.floor(boardSize.h / cell / 2) - 1);
+    return snapCoord({
+      x: Math.min(halfX, Math.max(-halfX, pos.x)),
+      y: Math.min(halfY, Math.max(-halfY, pos.y)),
+    });
+  }
+
+  function centerBoardWithCursor() {
+    if (isSpectating) return;
+    const bounds = boardBounds(state.tiles);
+    if (!bounds) return;
+    const delta = {
+      x: -((bounds.min.x + bounds.max.x) / 2) - 1,
+      y: -((bounds.min.y + bounds.max.y) / 2) - 1,
+    };
+    if (typingMode.enabled) {
+      setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView({ x: prev.cursor.x + delta.x, y: prev.cursor.y + delta.y }) }));
+    }
+    dispatch({ type: "CENTER_BOARD" });
+  }
 
   const tileSize = useMemo(() => {
     if (!boardSize.w || !boardSize.h) return baseTileSize;
@@ -356,8 +388,8 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     const now = Date.now();
     if (now - lastAutoCenterRef.current < 250) return;
     lastAutoCenterRef.current = now;
-    dispatch({ type: "CENTER_BOARD" });
-  }, [boardSize.w, boardSize.h, cell, state.tiles, isSpectating, dispatch]);
+    centerBoardWithCursor();
+  }, [boardSize.w, boardSize.h, cell, state.tiles, isSpectating]);
 
   const dictWords = state.dictionary.status === "ready" ? state.dictionary.words : null;
   const playerCount = Math.max(1, Object.keys(state.players || {}).length || 1);
@@ -528,6 +560,104 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     dispatch({ type: "MARQUEE_END" });
   }
 
+  useEffect(() => {
+    if (!typingMode.enabled) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
+      if (isSpectating || state.status.phase === "banana-split") return;
+
+      const active = document.activeElement as HTMLElement | null;
+      if (active) {
+        const tag = active.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select" || active.isContentEditable) return;
+      }
+
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        setTypingMode((prev) => ({ ...prev, advanceDir: prev.advanceDir === "right" ? "down" : "right" }));
+        return;
+      }
+
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        const tileId = boardTileAt(state.tiles, typingMode.cursor);
+        if (!tileId) {
+          setFlash("No tile to remove");
+          return;
+        }
+        const tile = state.tiles[tileId];
+        if (!tile || tile.owner !== state.selfId) {
+          setFlash("Cannot remove that tile");
+          return;
+        }
+        dispatch({ type: "RETURN_TO_RACK", tileId });
+        return;
+      }
+
+      if (e.code === "ArrowUp" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(moveCursor(prev.cursor, "up")) }));
+        return;
+      }
+      if (e.code === "ArrowDown" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(moveCursor(prev.cursor, "down")) }));
+        return;
+      }
+      if (e.code === "ArrowLeft" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(moveCursor(prev.cursor, "left")) }));
+        return;
+      }
+      if (e.code === "ArrowRight" || e.key === "ArrowRight") {
+        e.preventDefault();
+        setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(moveCursor(prev.cursor, "right")) }));
+        return;
+      }
+
+      const letter = normalizeLetterKey(e.key);
+      if (!letter) return;
+      e.preventDefault();
+
+      const occupantId = boardTileAt(state.tiles, typingMode.cursor);
+      if (occupantId) {
+        const occupant = state.tiles[occupantId];
+        if (!occupant || occupant.owner !== state.selfId) {
+          setFlash("Cannot replace that tile");
+          return;
+        }
+        dispatch({ type: "RETURN_TO_RACK", tileId: occupantId });
+      }
+
+      const tileId = findRackTileForLetter(state.tiles, state.rack, letter);
+      if (!tileId) {
+        setFlash(`No tile '${letter}' in rack`);
+        return;
+      }
+
+      dispatch({ type: "PLACE_TILE", tileId, pos: typingMode.cursor });
+
+      const placedTile = state.tiles[tileId];
+      const previewTiles = { ...state.tiles };
+      if (occupantId && state.tiles[occupantId]) {
+        previewTiles[occupantId] = { ...state.tiles[occupantId], location: "rack", pos: { x: 0, y: 0 } };
+      }
+      if (placedTile) {
+        previewTiles[tileId] = { ...placedTile, location: "board", pos: typingMode.cursor };
+      }
+
+      const nextStart = moveCursor(typingMode.cursor, typingMode.advanceDir);
+      const nextCursor = advanceCursorUntilOpen(previewTiles, nextStart, typingMode.advanceDir);
+      setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(nextCursor) }));
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [typingMode.enabled, typingMode.cursor, typingMode.advanceDir, isSpectating, state.status.phase, state.tiles, state.rack, state.selfId, dispatch]);
+
   // Spacebar shortcut for peel/bananas (ignores when typing in inputs)
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -544,24 +674,6 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handlePeel]);
-
-  // Keyboard shortcut to center the board
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.defaultPrevented) return;
-      if (e.code !== "KeyC") return;
-      const active = document.activeElement as HTMLElement | null;
-      if (active) {
-        const tag = active.tagName.toLowerCase();
-        if (tag === "input" || tag === "textarea" || tag === "select" || active.isContentEditable) return;
-      }
-      if (isSpectating || state.status.phase === "banana-split") return;
-      e.preventDefault();
-      dispatch({ type: "CENTER_BOARD" });
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [dispatch, isSpectating, state.status.phase]);
 
   return (
     <div
@@ -659,6 +771,35 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           paddingBottom: 10,
         }}
       >
+        <div
+          style={{
+            position: "absolute",
+            right: 12,
+            top: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span style={{ fontWeight: 700, color: "#111" }}>Typing mode</span>
+          <button
+            onClick={() => setTypingMode((prev) => ({ ...prev, enabled: !prev.enabled }))}
+            disabled={isSpectating}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: typingMode.enabled ? "#2563eb" : "rgba(255,255,255,0.92)",
+              color: typingMode.enabled ? "white" : "#111",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+              fontWeight: 800,
+              cursor: isSpectating ? "not-allowed" : "pointer",
+            }}
+            title={isSpectating ? "Typing mode is disabled while spectating" : "Toggle typing input"}
+          >
+            {typingMode.enabled ? "On" : "Off"}
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <button
             onClick={handlePeel}
@@ -676,7 +817,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           </button>
 
           <button
-            onClick={() => dispatch({ type: "CENTER_BOARD" })}
+            onClick={centerBoardWithCursor}
             disabled={isSpectating || state.status.phase === "banana-split"}
             style={{
               padding: "10px 14px",
@@ -832,6 +973,39 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
         }}
       >
         {marqueeStyle && <div style={marqueeStyle} />}
+        {typingMode.enabled && !isSpectating && (
+          (() => {
+            const { left, top } = worldToPx(typingMode.cursor);
+            const arrow = typingMode.advanceDir === "right" ? "→" : "↓";
+            return (
+              <div
+                style={{
+                  position: "absolute",
+                  left,
+                  top,
+                  width: tileSize,
+                  height: tileSize,
+                  borderRadius: 10,
+                  border: "2px dashed #2563eb",
+                  background: "rgba(37,99,235,0.12)",
+                  pointerEvents: "none",
+                  zIndex: 8,
+                  boxShadow: "0 0 0 2px rgba(37,99,235,0.16)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#1d4ed8",
+                  fontWeight: 800,
+                  fontSize: Math.max(14, tileSize * 0.38),
+                  opacity: 0.9,
+                  gap: 4,
+                }}
+              >
+                <span style={{ opacity: 0.9 }}>{arrow}</span>
+              </div>
+            );
+          })()
+        )}
         {boardTiles.map((t) => {
           const { left, top } = worldToPx(t.pos);
           const color = validity
