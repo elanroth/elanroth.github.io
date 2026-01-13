@@ -662,6 +662,25 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [typingMode.enabled, typingMode.cursor, typingMode.advanceDir, isSpectating, state.status.phase, state.tiles, state.rack, state.selfId, dispatch]);
 
+  // Enter shortcut to shuffle rack (ignores when focused in inputs)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
+      if (e.key !== "Enter") return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active) {
+        const tag = active.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select" || active.isContentEditable) return;
+      }
+      if (isSpectating || rackTiles.length < 2) return;
+      e.preventDefault();
+      dispatch({ type: "SHUFFLE_RACK" });
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dispatch, isSpectating, rackTiles.length]);
+
   // Spacebar shortcut for peel/bananas (ignores when typing in inputs)
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -1119,6 +1138,23 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
 
           {/* right controls */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end" }}>
+            <button
+              onClick={() => dispatch({ type: "SHUFFLE_RACK" })}
+              disabled={isSpectating || rackTiles.length < 2}
+              style={{
+                padding: "10px 14px",
+                background: "rgba(255,255,255,0.92)",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+                fontWeight: 800,
+                cursor: isSpectating ? "not-allowed" : "pointer",
+                opacity: rackTiles.length < 2 ? 0.7 : 1,
+              }}
+              title={isSpectating ? "Cannot shuffle while spectating" : "Shuffle rack (Enter)"}
+            >
+              Shuffle (Enter)
+            </button>
             <div
               className="w-35 h-20 bg-red-200 border border-red-400 rounded flex items-center justify-center text-sm"
               style={{ minWidth: 80 }}

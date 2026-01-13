@@ -1,7 +1,7 @@
 import type { Action, GameState, RemoteBoard } from "./types";
 import { setSelection, clearSelection } from "./selection";
 import { beginDrag, dragUpdate, endDrag, beginMarquee, updateMarquee, endMarquee } from "./drag";
-import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles, peel, returnTileToRack, giveLetters, applyDump } from "./tiles";
+import { drawTiles, dumpTiles, moveTile, placeTile, moveTiles, peel, returnTileToRack, giveLetters, applyDump, shuffleRack } from "./tiles";
 import type { GameOptions } from "./types";
 import { centerBoard } from "./center";
 
@@ -38,6 +38,7 @@ export function reducer(state: GameState, action: Action): GameState {
     case "MOVE_TILE":      return moveTile(state, action.tileId, action.pos);
     case "MOVE_TILES":     return moveTiles(state, action.tileIds, action.delta);
     case "RETURN_TO_RACK": return returnTileToRack(state, action.tileId);
+    case "SHUFFLE_RACK":   return shuffleRack(state);
     case "CENTER_BOARD":   return centerBoard(state);
     case "DUMP_TILE": {
       if (state.bag.length < 3) return state;

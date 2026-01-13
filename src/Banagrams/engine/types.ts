@@ -131,6 +131,7 @@ export type Action =
   | { type: "MOVE_TILE"; tileId: TileId; pos: Coord }
   | { type: "MOVE_TILES"; tileIds: TileId[]; delta: Coord }
   | { type: "RETURN_TO_RACK"; tileId: TileId }
+  | { type: "SHUFFLE_RACK" }
 
   // dragging
   | { type: "DRAG_BEGIN"; tileIds: TileId[]; mouse: Coord }

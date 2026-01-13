@@ -175,3 +175,17 @@ export function returnTileToRack(state: GameState, tileId: TileId): GameState {
 
   return { ...state, tiles: nextTiles, rack: nextRack, selection: nextSelection };
 }
+
+export function shuffleRack(state: GameState): GameState {
+  if (state.rack.length <= 1) return state;
+
+  const nextRack = [...state.rack];
+  for (let i = nextRack.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = nextRack[i];
+    nextRack[i] = nextRack[j];
+    nextRack[j] = tmp;
+  }
+
+  return { ...state, rack: nextRack };
+}
