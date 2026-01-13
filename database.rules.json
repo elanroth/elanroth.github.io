@@ -2,14 +2,13 @@
   "rules": {
     "games": {
       "$gameId": {
-        ".read": true,
-        ".write": true,
-        "boards": {
-          "$userId": {
-            ".read": true,
-            ".write": true
-          }
-        }
+        "boards": { "$uid": { ".read": true, ".write": true } },
+        "bag": { ".read": true, ".write": true },
+        "status": { ".read": true, ".write": true },
+        "final": { "$uid": { "$ts": { ".read": true, ".write": true } } },
+        "players": { "$uid": { ".read": true, ".write": true } },
+        "grants": { "$uid": { "$grant": { ".read": true, ".write": true } } },
+        "options": { ".read": true, ".write": true }
       }
     },
     "gamesMeta": {

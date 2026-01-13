@@ -1,11 +1,11 @@
 // path: src/Banagrams/engine_2/Game.tsx
-import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { boardBounds, getValidWords, tilesInWorldRect } from "./board";
-import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis } from "./firebase/rtdb";
+import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis, saveFinalSnapshot } from "./firebase/rtdb";
 import { DEFAULT_OPTIONS } from "./utils";
 import { advanceCursorUntilOpen, boardTileAt, canPlaceAt, findRackTileForLetter, initialTypingModeState, moveCursor, normalizeLetterKey } from "./typingMode";
 import { snapCoord } from "./coords";
@@ -434,6 +434,26 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     return getValidWords(state.tiles, dictWords);
   }, [state.tiles, dictWords]);
 
+  const handleSaveFinal = useCallback(() => {
+    if (isSpectating) {
+      setFlash("Cannot save while spectating");
+      return;
+    }
+
+    const payload = {
+      tiles: state.tiles,
+      words: [],
+      stats: { bagRemaining: state.bag.length, rackCount: state.rack.length, phase: state.status.phase },
+    };
+
+    saveFinalSnapshot(gameId, state.selfId, payload)
+      .then(() => setFlash("Saved final snapshot"))
+      .catch((err) => {
+        console.error("saveFinalSnapshot failed", err);
+        setFlash("Save failed");
+      });
+  }, [gameId, isSpectating, state.bag.length, state.rack.length, state.status.phase, state.tiles, state.selfId]);
+
   function handlePeel() {
     if (!dictWords) {
       setFlash("Dictionary not ready yet");
@@ -857,6 +877,23 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
             }}
           >
             {peelLabel}
+          </button>
+
+          <button
+            onClick={handleSaveFinal}
+            disabled={isSpectating}
+            style={{
+              padding: "10px 14px",
+              background: "rgba(255,255,255,0.92)",
+              borderRadius: 12,
+              border: "none",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+              fontWeight: 700,
+              cursor: isSpectating ? "not-allowed" : "pointer",
+            }}
+            title={isSpectating ? "Cannot save while spectating" : "Save snapshot to RTDB"}
+          >
+            Save Game
           </button>
 
           <button

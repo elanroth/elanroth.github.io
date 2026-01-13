@@ -17,11 +17,16 @@ const app = getApps().length ? getApp() : initializeApp(cfg);
 export const db = getDatabase(app);
 
 // Local emulator support so you can develop without deploying
-if (import.meta.env.VITE_FB_USE_EMULATOR) {
+const useEmulator = Boolean(import.meta.env.VITE_FB_USE_EMULATOR);
+let resolvedDbUrl = cfg.databaseURL ?? "";
+if (useEmulator) {
   const host = import.meta.env.VITE_FB_EMULATOR_HOST ?? "127.0.0.1";
   const port = Number(import.meta.env.VITE_FB_EMULATOR_PORT ?? 9000);
+  resolvedDbUrl = `http://${host}:${port}`;
   connectDatabaseEmulator(db, host, port);
 }
+
+console.info(`[firebase] project=${cfg.projectId} dbUrl=${resolvedDbUrl || "<unknown>"} emulator=${useEmulator}`);
 
 if (import.meta.env.PROD && cfg.measurementId) {
   import("firebase/analytics")

@@ -15,3 +15,8 @@ Features to add
 Local Firebase RTDB emulator
 - Start the emulator: `firebase emulators:start --only database --project demo`
 - Run the app against it: `VITE_FB_USE_EMULATOR=1 VITE_FB_EMULATOR_HOST=127.0.0.1 VITE_FB_EMULATOR_PORT=9000 npm run dev`
+
+Deploy
+- Pages source must be GitHub Actions (Settings → Pages).
+- Deploy workflow builds to `build/`, adds `.nojekyll`, copies `build/index.html` to `build/404.html`, stamps `<!-- build TIMESTAMP -->`, and fails if `/src/main.tsx` appears in the built HTML.
+- If the live site ever shows `/src/main.tsx`, unpublish Pages, rerun the deploy workflow, then hard-refresh with cache disabled.

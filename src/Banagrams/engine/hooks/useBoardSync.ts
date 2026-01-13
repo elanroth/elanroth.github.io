@@ -15,6 +15,16 @@ export function useBoardSync(
   state: GameState,
   dispatch: (a: any) => void
 ) {
+  const bootLogged = useRef(false);
+
+  useEffect(() => {
+    if (!gameId || !userId) throw new Error("useBoardSync requires gameId and userId");
+    if (!bootLogged.current) {
+      console.debug(`[boardSync] init game=${gameId} user=${userId}`);
+      bootLogged.current = true;
+    }
+  }, [gameId, userId]);
+
   // Keep my player record present/updated in RTDB
   useEffect(() => {
     ensurePlayer(gameId, userId, nickname).catch(() => {});

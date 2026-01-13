@@ -3,15 +3,27 @@ import type { GameStatus, PlayerId, PlayerInfo, TilesById, GameOptions, RemoteBo
 import { createBag, shuffleArray, DEFAULT_OPTIONS } from "../utils";
 import { db } from "./firebase";
 
-const gamePath = (gameId: string) => `games/${gameId}`;
-const boardPath = (gameId: string, userId: string) => `${gamePath(gameId)}/boards/${userId}`;
+const cleanSegment = (label: string, value: string) => {
+  const trimmed = (value ?? "").toString().trim();
+  if (!trimmed) throw new Error(`[rtdb] Missing ${label}`);
+  if (trimmed.includes("/")) throw new Error(`[rtdb] Invalid ${label}: ${trimmed}`);
+  return trimmed;
+};
+
+const logWrite = (op: "set" | "update" | "tx" | "push", path: string) => {
+  console.debug(`[rtdb:${op}] ${path}`);
+};
+
+const gamePath = (gameId: string) => `games/${cleanSegment("gameId", gameId)}`;
+const boardPath = (gameId: string, userId: string) => `${gamePath(gameId)}/boards/${cleanSegment("userId", userId)}`;
 const playersPath = (gameId: string) => `${gamePath(gameId)}/players`;
 const bagPath = (gameId: string) => `${gamePath(gameId)}/bag`;
 const statusPath = (gameId: string) => `${gamePath(gameId)}/status`;
 const grantsPath = (gameId: string) => `${gamePath(gameId)}/grants`;
+const finalPath = (gameId: string, userId: string, ts: number) => `${gamePath(gameId)}/final/${cleanSegment("userId", userId)}/${ts}`;
 const metaRoot = `gamesMeta`;
-const metaPath = (gameId: string) => `${metaRoot}/${gameId}`;
-const analysisPath = (gameId: string) => `gameAnalyses/${gameId}`;
+const metaPath = (gameId: string) => `${metaRoot}/${cleanSegment("gameId", gameId)}`;
+const analysisPath = (gameId: string) => `gameAnalyses/${cleanSegment("gameId", gameId)}`;
 
 export type LobbyMeta = {
   gameId: string;
@@ -35,7 +47,9 @@ export type GameSnapshot = {
 
 export async function createLobby(options: Partial<GameOptions> & { lobbyName?: string; hostId: string; customBag?: string[] }): Promise<{ gameId: string; lobbyName: string }> {
   const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
-  const daySnap = await runTransaction(ref(db, `${metaRoot}/dailyCounters/${todayKey}`), (curr) => {
+  const dailyPath = `${metaRoot}/dailyCounters/${todayKey}`;
+  logWrite("tx", dailyPath);
+  const daySnap = await runTransaction(ref(db, dailyPath), (curr) => {
     const n = typeof curr === "number" ? curr : 0;
     return n + 1;
   });
@@ -48,7 +62,9 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
   const bag = customBag ? [...customBag] : shuffleArray(createBag(chosenOptions));
   const createdAt = Date.now();
 
-  await set(ref(db, gamePath(gameId)), {
+  const gameRoot = gamePath(gameId);
+  logWrite("set", gameRoot);
+  await set(ref(db, gameRoot), {
     bag,
     status: { phase: "waiting", updatedAt: createdAt },
     options: chosenOptions,
@@ -60,7 +76,9 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
     grants: {},
   });
 
-  await set(ref(db, metaPath(gameId)), {
+  const meta = metaPath(gameId);
+  logWrite("set", meta);
+  await set(ref(db, meta), {
     lobbyName,
     createdAt,
     playerCount: 0,
@@ -74,8 +92,12 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
 export async function joinLobby(gameId: string, userId: string, nickname: string): Promise<void> {
   const now = Date.now();
   const player: PlayerInfo = { nickname, joinedAt: now, lastSeen: now };
-  await set(ref(db, `${playersPath(gameId)}/${userId}`), player);
-  await runTransaction(ref(db, `${metaPath(gameId)}/playerCount`), (curr) => (typeof curr === "number" ? curr : 0) + 1);
+  const playerPath = `${playersPath(gameId)}/${cleanSegment("userId", userId)}`;
+  logWrite("set", playerPath);
+  await set(ref(db, playerPath), player);
+  const counterPath = `${metaPath(gameId)}/playerCount`;
+  logWrite("tx", counterPath);
+  await runTransaction(ref(db, counterPath), (curr) => (typeof curr === "number" ? curr : 0) + 1);
 }
 
 /**
@@ -83,7 +105,9 @@ export async function joinLobby(gameId: string, userId: string, nickname: string
  */
 export async function ensurePlayer(gameId: string, userId: string, nickname: string): Promise<void> {
   const now = Date.now();
-  await update(ref(db, `${playersPath(gameId)}/${userId}`), {
+  const playerPath = `${playersPath(gameId)}/${cleanSegment("userId", userId)}`;
+  logWrite("update", playerPath);
+  await update(ref(db, playerPath), {
     nickname,
     joinedAt: now,
     lastSeen: now,
@@ -91,11 +115,15 @@ export async function ensurePlayer(gameId: string, userId: string, nickname: str
 }
 
 export async function updateLastSeen(gameId: string, userId: string): Promise<void> {
-  await update(ref(db, `${playersPath(gameId)}/${userId}`), { lastSeen: Date.now() });
+  const playerPath = `${playersPath(gameId)}/${cleanSegment("userId", userId)}`;
+  logWrite("update", playerPath);
+  await update(ref(db, playerPath), { lastSeen: Date.now() });
 }
 
 export async function saveMyTiles(gameId: string, userId: string, tiles: TilesById, rack: TileId[]): Promise<void> {
-  await set(ref(db, boardPath(gameId, userId)), { tiles, rack });
+  const path = boardPath(gameId, userId);
+  logWrite("set", path);
+  await set(ref(db, path), { tiles, rack });
 }
 
 export function subscribeGame(gameId: string, cb: (snapshot: GameSnapshot) => void): () => void {
@@ -125,7 +153,9 @@ export function subscribeGame(gameId: string, cb: (snapshot: GameSnapshot) => vo
 export async function takeFromBag(gameId: string, count: number): Promise<{ letters: string[]; bag: string[] }> {
   if (count <= 0) return { letters: [], bag: [] };
   let drawn: string[] = [];
-  const tx = await runTransaction(ref(db, bagPath(gameId)), (curr) => {
+  const path = bagPath(gameId);
+  logWrite("tx", path);
+  const tx = await runTransaction(ref(db, path), (curr) => {
     const bag: string[] = Array.isArray(curr) ? curr : [];
     if (bag.length === 0) {
       drawn = [];
@@ -143,7 +173,9 @@ export async function takeFromBag(gameId: string, count: number): Promise<{ lett
 export async function dumpAndDraw(gameId: string, letters: string[]): Promise<string[]> {
   if (letters.length === 0) return [];
   let drawn: string[] = [];
-  await runTransaction(ref(db, bagPath(gameId)), (curr) => {
+  const path = bagPath(gameId);
+  logWrite("tx", path);
+  await runTransaction(ref(db, path), (curr) => {
     const bag: string[] = Array.isArray(curr) ? [...curr] : [];
     bag.push(...letters);
     shuffleArray(bag);
@@ -155,12 +187,29 @@ export async function dumpAndDraw(gameId: string, letters: string[]): Promise<st
 }
 
 export async function setGameStatus(gameId: string, status: GameStatus): Promise<void> {
-  await set(ref(db, statusPath(gameId)), status);
-  await update(ref(db, metaPath(gameId)), { status: status.phase });
+  const statusLoc = statusPath(gameId);
+  logWrite("set", statusLoc);
+  await set(ref(db, statusLoc), status);
+  const meta = metaPath(gameId);
+  logWrite("update", meta);
+  await update(ref(db, meta), { status: status.phase });
 }
 
 export async function saveGameAnalysis(gameId: string, payload: Record<string, unknown>): Promise<void> {
-  await set(ref(db, analysisPath(gameId)), payload);
+  const path = analysisPath(gameId);
+  logWrite("set", path);
+  await set(ref(db, path), payload);
+}
+
+export async function saveFinalSnapshot(
+  gameId: string,
+  userId: string,
+  payload: { tiles: TilesById; words?: string[]; stats?: Record<string, unknown> }
+): Promise<void> {
+  const ts = Date.now();
+  const path = finalPath(gameId, userId, ts);
+  logWrite("set", path);
+  await set(ref(db, path), { ...payload, savedAt: ts });
 }
 
 /**
@@ -171,11 +220,13 @@ export async function pushGrants(gameId: string, assignments: Record<PlayerId, s
   for (const [pid, letters] of Object.entries(assignments)) {
     for (const letter of letters) {
       const grantId = `g_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      updates[`${grantsPath(gameId)}/${pid}/${grantId}`] = letter;
+      updates[`grants/${cleanSegment("userId", pid)}/${grantId}`] = letter;
     }
   }
   if (Object.keys(updates).length === 0) return;
-  await update(ref(db), updates);
+  const root = gamePath(gameId);
+  logWrite("update", `${root} (grants)`);
+  await update(ref(db, root), updates);
 }
 
 /**
@@ -184,8 +235,10 @@ export async function pushGrants(gameId: string, assignments: Record<PlayerId, s
 export async function consumeGrants(gameId: string, playerId: PlayerId, grantIds: string[]): Promise<void> {
   if (grantIds.length === 0) return;
   const updates: Record<string, null> = {};
-  for (const gid of grantIds) updates[`${grantsPath(gameId)}/${playerId}/${gid}`] = null;
-  await update(ref(db), updates);
+  for (const gid of grantIds) updates[`grants/${cleanSegment("userId", playerId)}/${gid}`] = null;
+  const root = gamePath(gameId);
+  logWrite("update", `${root} (consume-grants)`);
+  await update(ref(db, root), updates);
 }
 
 export function subscribeLobbies(cb: (lobbies: LobbyMeta[]) => void): () => void {
