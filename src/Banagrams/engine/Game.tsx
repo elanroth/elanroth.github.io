@@ -587,11 +587,31 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
 
       if (e.key === "Backspace" || e.key === "Delete") {
         e.preventDefault();
-        const tileId = boardTileAt(state.tiles, typingMode.cursor);
+        let tileId = boardTileAt(state.tiles, typingMode.cursor);
+
+        // If nothing at cursor, look one space backward based on advance direction.
+        if (!tileId) {
+          const backPos = typingMode.advanceDir === "right"
+            ? { x: typingMode.cursor.x - 1, y: typingMode.cursor.y }
+            : { x: typingMode.cursor.x, y: typingMode.cursor.y - 1 };
+          tileId = boardTileAt(state.tiles, backPos);
+          if (tileId) {
+            const tile = state.tiles[tileId];
+            if (!tile || tile.owner !== state.selfId) {
+              setFlash("Cannot remove that tile");
+              return;
+            }
+            dispatch({ type: "RETURN_TO_RACK", tileId });
+            setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(backPos) }));
+            return;
+          }
+        }
+
         if (!tileId) {
           setFlash("No tile to remove");
           return;
         }
+
         const tile = state.tiles[tileId];
         if (!tile || tile.owner !== state.selfId) {
           setFlash("Cannot remove that tile");
