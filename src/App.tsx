@@ -47,6 +47,10 @@ function openBanagramsInNewTab() {
   }
 }
 
+function openCvInNewTab() {
+  window.open("/Elan%20Roth%20CV%20Jan%2026.pdf", "_blank", "noopener,noreferrer");
+}
+
 const initialNav = (() => {
   try {
     const url = new URL(window.location.href);
@@ -106,6 +110,10 @@ export default function App() {
                     openBanagramsInNewTab();
                     return;
                   }
+                  if (tab.id === "cv") {
+                    openCvInNewTab();
+                    return;
+                  }
                   setActiveTab(tab.id);
                 }}
               />
@@ -124,7 +132,7 @@ export default function App() {
               </p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <TabButton tab={{ id: "blog", label: "Blog" }} active={false} onClick={() => setActiveTab("blog")} />
-                <TabButton tab={{ id: "cv", label: "CV" }} active={false} onClick={() => setActiveTab("cv")} />
+                <TabButton tab={{ id: "cv", label: "CV" }} active={false} onClick={openCvInNewTab} />
                 <TabButton tab={{ id: "banagrams", label: "Banagrams" }} active={false} onClick={openBanagramsInNewTab} />
               </div>
             </div>
