@@ -24,6 +24,25 @@ const finalPath = (gameId: string, userId: string, ts: number) => `${gamePath(ga
 const metaRoot = `gamesMeta`;
 const metaPath = (gameId: string) => `${metaRoot}/${cleanSegment("gameId", gameId)}`;
 const analysisPath = (gameId: string) => `gameAnalyses/${cleanSegment("gameId", gameId)}`;
+const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+
+const lobbyDateKey = (meta: any, gameId: string): string | null => {
+  const createdAt = typeof meta?.createdAt === "number" ? meta.createdAt : null;
+  if (createdAt) {
+    try {
+      return new Date(createdAt).toISOString().slice(0, 10);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Fallback to parsing the game id (game-YYYY-MM-DD-N)
+  const parts = gameId.split("-");
+  if (parts.length >= 4 && parts[1] && parts[2] && parts[3]) {
+    return `${parts[1]}-${parts[2]}-${parts[3]}`;
+  }
+  return null;
+};
 
 export type LobbyMeta = {
   gameId: string;
@@ -247,6 +266,8 @@ export function subscribeLobbies(cb: (lobbies: LobbyMeta[]) => void): () => void
     const out: LobbyMeta[] = [];
     for (const [gid, meta] of Object.entries(val)) {
       if (gid === "totalGames" || gid === "dailyCounters") continue;
+      const dateKey = lobbyDateKey(meta, gid);
+      if (dateKey !== todayKey) continue;
       out.push({
         gameId: gid,
         lobbyName: (meta as any).lobbyName ?? gid,
@@ -268,6 +289,8 @@ export async function listLobbies(): Promise<LobbyMeta[]> {
   const out: LobbyMeta[] = [];
   for (const [gid, meta] of Object.entries(val)) {
     if (gid === "totalGames" || gid === "dailyCounters") continue;
+    const dateKey = lobbyDateKey(meta, gid);
+    if (dateKey !== todayKey) continue;
     out.push({
       gameId: gid,
         lobbyName: (meta as any).lobbyName ?? gid,
