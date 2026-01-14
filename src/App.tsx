@@ -3,8 +3,9 @@ import Game from "./Banagrams/engine/Game";
 import { LobbyGate, type LobbyChoice } from "./Banagrams/engine/LobbyGate";
 import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
+import { LetterTrail } from "./LetterTrail";
 
-type TabId = "home" | "blog" | "cv" | "banagrams";
+type TabId = "home" | "blog" | "cv" | "banagrams" | "lettertrail";
 
 type Tab = { id: TabId; label: string };
 
@@ -13,6 +14,7 @@ const TABS: Tab[] = [
   { id: "blog", label: "Blog" },
   { id: "cv", label: "CV" },
   { id: "banagrams", label: "Banagrams" },
+  { id: "lettertrail", label: "Letter Trail" },
 ];
 
 function TabButton({ tab, active, onClick }: { tab: Tab; active: boolean; onClick: () => void }) {
@@ -56,7 +58,7 @@ const initialNav = (() => {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("tab");
     const full = url.searchParams.get("full") === "1";
-    if (t === "home" || t === "blog" || t === "cv" || t === "banagrams") {
+    if (t === "home" || t === "blog" || t === "cv" || t === "banagrams" || t === "lettertrail") {
       return { tab: t as TabId, fullBanagrams: full && t === "banagrams" };
     }
   } catch {
@@ -133,6 +135,7 @@ export default function App() {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <TabButton tab={{ id: "blog", label: "Blog" }} active={false} onClick={() => setActiveTab("blog")} />
                 <TabButton tab={{ id: "cv", label: "CV" }} active={false} onClick={openCvInNewTab} />
+                <TabButton tab={{ id: "lettertrail", label: "Letter Trail" }} active={false} onClick={() => setActiveTab("lettertrail")} />
                 <TabButton tab={{ id: "banagrams", label: "Banagrams" }} active={false} onClick={openBanagramsInNewTab} />
               </div>
             </div>
@@ -164,6 +167,13 @@ export default function App() {
             <p style={{ color: "#4b5563", lineHeight: 1.5 }}>
               Drop a PDF link here or add bullet highlights. This keeps the site light without extra UI.
             </p>
+          </section>
+        )}
+
+        {activeTab === "lettertrail" && (
+          <section>
+            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Letter Trail</h1>
+            <LetterTrail />
           </section>
         )}
 
