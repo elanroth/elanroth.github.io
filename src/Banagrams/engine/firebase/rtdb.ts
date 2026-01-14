@@ -14,6 +14,35 @@ const logWrite = (op: "set" | "update" | "tx" | "push", path: string) => {
   console.debug(`[rtdb:${op}] ${path}`);
 };
 
+const LEADER_NAMES = [
+  "Nelson Mandela",
+  "Mahatma Gandhi",
+  "Winston Churchill",
+  "Angela Merkel",
+  "Barack Obama",
+  "Franklin D Roosevelt",
+  "Abraham Lincoln",
+  "Golda Meir",
+  "Jawaharlal Nehru",
+  "Charles de Gaulle",
+  "Lee Kuan Yew",
+  "Ellen Johnson Sirleaf",
+  "Margaret Thatcher",
+  "Indira Gandhi",
+  "Shinzo Abe",
+  "Justin Trudeau",
+  "John F Kennedy",
+  "George Washington",
+  "Cleopatra",
+  "Catherine the Great",
+];
+
+const randomLeaderName = (): string => {
+  if (!LEADER_NAMES.length) return "Lobby";
+  const idx = Math.floor(Math.random() * LEADER_NAMES.length);
+  return LEADER_NAMES[idx];
+};
+
 const gamePath = (gameId: string) => `games/${cleanSegment("gameId", gameId)}`;
 const boardPath = (gameId: string, userId: string) => `${gamePath(gameId)}/boards/${cleanSegment("userId", userId)}`;
 const playersPath = (gameId: string) => `${gamePath(gameId)}/players`;
@@ -76,7 +105,7 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
   const n = daySnap.snapshot.val() as number;
   const gameId = `game-${todayKey}-${n}`;
   const { customBag, lobbyName: providedLobbyName, hostId, ...gameOptions } = options;
-  const lobbyName = providedLobbyName?.trim() || `Lobby ${n}`;
+  const lobbyName = providedLobbyName?.trim() || randomLeaderName();
   const chosenOptions: GameOptions = { ...DEFAULT_OPTIONS, ...gameOptions };
   const bag = customBag ? [...customBag] : shuffleArray(createBag(chosenOptions));
   const createdAt = Date.now();
