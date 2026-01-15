@@ -3,9 +3,9 @@ import Game from "./Banagrams/engine/Game";
 import { LobbyGate, type LobbyChoice } from "./Banagrams/engine/LobbyGate";
 import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
-import { LetterTrail } from "./LetterTrail";
+import { SEQNC } from "./canadian/GreatWhiteNorth";
 
-type TabId = "home" | "blog" | "cv" | "banagrams" | "lettertrail";
+type TabId = "home" | "blog" | "cv" | "banagrams" | "seqnc";
 
 type Tab = { id: TabId; label: string };
 
@@ -14,7 +14,7 @@ const TABS: Tab[] = [
   { id: "blog", label: "Blog" },
   { id: "cv", label: "CV" },
   { id: "banagrams", label: "Banagrams" },
-  { id: "lettertrail", label: "Letter Trail" },
+  { id: "seqnc", label: "SEQNC" },
 ];
 
 function TabButton({ tab, active, onClick }: { tab: Tab; active: boolean; onClick: () => void }) {
@@ -53,28 +53,40 @@ function openCvInNewTab() {
   window.open("/Elan%20Roth%20CV%20Jan%2026.pdf", "_blank", "noopener,noreferrer");
 }
 
+function openSeqncInNewTab() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "seqnc");
+    url.searchParams.set("full", "1");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+  } catch {
+    window.open("?tab=seqnc&full=1", "_blank", "noopener,noreferrer");
+  }
+}
+
 const initialNav = (() => {
   try {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("tab");
     const full = url.searchParams.get("full") === "1";
-    if (t === "home" || t === "blog" || t === "cv" || t === "banagrams" || t === "lettertrail") {
-      return { tab: t as TabId, fullBanagrams: full && t === "banagrams" };
+    if (t === "home" || t === "blog" || t === "cv" || t === "banagrams" || t === "seqnc") {
+      return { tab: t as TabId, fullBanagrams: full && t === "banagrams", fullSeqnc: full && t === "seqnc" };
     }
   } catch {
     /* ignore */
   }
-  return { tab: "home" as TabId, fullBanagrams: false };
+  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false };
 })();
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>(initialNav.tab);
   const [fullBanagrams] = useState<boolean>(initialNav.fullBanagrams);
+  const [fullSeqnc] = useState<boolean>(initialNav.fullSeqnc);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
   const [showInstructions, setShowInstructions] = useState(false);
 
-  const tabTitle = useMemo(() => TABS.find((t) => t.id === activeTab)?.label ?? "" , [activeTab]);
+  const tabTitle = useMemo(() => TABS.find((t) => t.id === activeTab)?.label ?? "", [activeTab]);
 
   const banagramsView = (() => {
     if (showInstructions) return <InstructionsPage onClose={() => setShowInstructions(false)} />;
@@ -89,6 +101,14 @@ export default function App() {
     return (
       <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
         {banagramsView}
+      </div>
+    );
+  }
+
+  if (fullSeqnc && activeTab === "seqnc") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+        <SEQNC />
       </div>
     );
   }
@@ -116,6 +136,10 @@ export default function App() {
                     openCvInNewTab();
                     return;
                   }
+                  if (tab.id === "seqnc") {
+                    openSeqncInNewTab();
+                    return;
+                  }
                   setActiveTab(tab.id);
                 }}
               />
@@ -135,8 +159,8 @@ export default function App() {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <TabButton tab={{ id: "blog", label: "Blog" }} active={false} onClick={() => setActiveTab("blog")} />
                 <TabButton tab={{ id: "cv", label: "CV" }} active={false} onClick={openCvInNewTab} />
-                <TabButton tab={{ id: "lettertrail", label: "Letter Trail" }} active={false} onClick={() => setActiveTab("lettertrail")} />
                 <TabButton tab={{ id: "banagrams", label: "Banagrams" }} active={false} onClick={openBanagramsInNewTab} />
+                <TabButton tab={{ id: "seqnc", label: "SEQNC" }} active={false} onClick={openSeqncInNewTab} />
               </div>
             </div>
             <div style={{ justifySelf: "center" }}>
@@ -170,10 +194,10 @@ export default function App() {
           </section>
         )}
 
-        {activeTab === "lettertrail" && (
+        {activeTab === "seqnc" && (
           <section>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Letter Trail</h1>
-            <LetterTrail />
+            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>SEQNC</h1>
+            <SEQNC />
           </section>
         )}
 
