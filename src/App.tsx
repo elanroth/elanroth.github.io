@@ -11,7 +11,6 @@ type Tab = { id: TabId; label: string };
 
 const TABS: Tab[] = [
   { id: "home", label: "Home" },
-  { id: "blog", label: "Blog" },
   { id: "cv", label: "CV" },
   { id: "banagrams", label: "Banagrams" },
   { id: "seqnc", label: "SEQNC" },
