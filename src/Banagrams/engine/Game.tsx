@@ -82,6 +82,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const initialDrawRef = useRef(false);
   const [spectateId, setSpectateId] = useState<string | null>(null);
   const [selectedOther, setSelectedOther] = useState<string | null>(null);
+  const [showSpectatePicker, setShowSpectatePicker] = useState(false);
   const lastAutoCenterRef = useRef(0);
   const savedAnalysisRef = useRef(false);
   const [typingMode, setTypingMode] = useState(() => initialTypingModeState());
@@ -293,6 +294,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   useEffect(() => {
     if (otherPlayers.length === 0) {
       setSelectedOther(null);
+      setShowSpectatePicker(false);
       if (spectateId) setSpectateId(null);
       return;
     }
@@ -894,68 +896,85 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
             Center Board
           </button>
 
-          {!spectateId && (
-            <select
-              value={selectedOther ?? ""}
-              onChange={(e) => setSelectedOther(e.target.value || null)}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => {
+                if (spectateId) {
+                  setSpectateId(null);
+                  setShowSpectatePicker(false);
+                  return;
+                }
+                if (otherPlayers.length === 0) {
+                  setFlash("No other boards yet");
+                  setShowSpectatePicker(false);
+                  return;
+                }
+                if (!selectedOther && otherPlayers.length > 0) {
+                  setSelectedOther(otherPlayers[0][0]);
+                }
+                setShowSpectatePicker((prev) => !prev);
+              }}
               disabled={false}
               style={{
-                padding: "10px 12px",
+                padding: "10px 14px",
+                background: spectateId ? "#2563eb" : "rgba(255,255,255,0.92)",
+                color: spectateId ? "white" : "#111",
                 borderRadius: 12,
-                border: "1px solid #e5e7eb",
+                border: "none",
                 boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
-                fontWeight: 700,
-                background: "white",
+                fontWeight: 800,
               }}
             >
-              {otherPlayers.length === 0 ? (
-                <option value="" disabled>
-                  No other boards yet
-                </option>
-              ) : (
-                <>
-                  <option value="" disabled>
-                    Pick a player
-                  </option>
-                  {otherPlayers.map(([pid, info]) => (
-                    <option key={pid} value={pid}>
-                      {info?.nickname || nicknameFor(pid)}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          )}
-
-          <button
-            onClick={() => {
-              if (spectateId) {
-                setSpectateId(null);
-                return;
-              }
-              if (selectedOther) {
-                setSpectateId(selectedOther);
-                return;
-              }
-              if (otherPlayers.length > 0) {
-                setSpectateId(otherPlayers[0][0]);
-                return;
-              }
-              setFlash("No other boards yet");
-            }}
-            disabled={false}
-            style={{
-              padding: "10px 14px",
-              background: spectateId ? "#2563eb" : "rgba(255,255,255,0.92)",
-              color: spectateId ? "white" : "#111",
-              borderRadius: 12,
-              border: "none",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
-              fontWeight: 800,
-            }}
-          >
-            {spectateId ? "Return to Your Board" : "See Other Board"}
-          </button>
+              {spectateId ? "Return to Your Board" : "See Other Board"}
+            </button>
+            {!spectateId && showSpectatePicker && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "110%",
+                  left: 0,
+                  background: "white",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+                  borderRadius: 12,
+                  padding: 6,
+                  zIndex: 200,
+                  minWidth: 200,
+                  display: "grid",
+                  gap: 6,
+                }}
+              >
+                {otherPlayers.length === 0 ? (
+                  <div style={{ padding: "8px 10px", color: "#6b7280", fontWeight: 600 }}>No other boards yet</div>
+                ) : (
+                  otherPlayers.map(([pid, info]) => {
+                    const label = info?.nickname || nicknameFor(pid);
+                    return (
+                      <button
+                        key={pid}
+                        onClick={() => {
+                          setSelectedOther(pid);
+                          setSpectateId(pid);
+                          setShowSpectatePicker(false);
+                        }}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid #e5e7eb",
+                          background: selectedOther === pid ? "#e0e7ff" : "white",
+                          fontWeight: 700,
+                          textAlign: "left",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
           <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
           <div className="text-sm text-muted-foreground">Players: {Object.keys(state.players || {}).length}</div>
           {state.status.phase === "banana-split" && (
@@ -966,7 +985,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
         </div>
       </header>
 
-      {isSpectating && (
+      {spectateId && (
         <div
           style={{
             position: "absolute",
@@ -978,10 +997,26 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
             borderRadius: 12,
             border: "1px solid rgba(37,99,235,0.3)",
             fontWeight: 800,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
             zIndex: 55,
           }}
         >
-          Looking at {nicknameFor(viewingPlayerId)}'s board
+          <span>Viewing {nicknameFor(viewingPlayerId)}'s board</span>
+          <button
+            onClick={() => setSpectateId(null)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: "white",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Return to Your Board
+          </button>
         </div>
       )}
 
