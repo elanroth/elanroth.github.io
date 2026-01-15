@@ -104,7 +104,17 @@ export default function App() {
     if (phase === "waiting") {
       return <LobbyWaitingRoom choice={choice} onShowInstructions={() => setShowInstructions(true)} onReady={() => setPhase("game")} />;
     }
-    return <Game gameId={choice.gameId} playerId={choice.playerId} nickname={choice.nickname} />;
+      return (
+        <Game
+          gameId={choice.gameId}
+          playerId={choice.playerId}
+          nickname={choice.nickname}
+          onExitToLobby={(next) => {
+            setChoice({ gameId: next.gameId, playerId: next.playerId, nickname: next.nickname });
+            setPhase("waiting");
+          }}
+        />
+      );
   })();
 
   if (fullBanagrams && activeTab === "banagrams") {

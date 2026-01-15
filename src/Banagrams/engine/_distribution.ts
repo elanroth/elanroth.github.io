@@ -61,7 +61,8 @@ function scaleTo(total: number): Dist {
   return scaled;
 }
 
-export const DISTRIBUTIONS: Record<40 | 60 | 100 | 144, Dist> = {
+export const DISTRIBUTIONS: Record<8 | 40 | 60 | 100 | 144, Dist> = {
+  8: { A: 8 },
   40: scaleTo(40),
   60: scaleTo(60),
   100: scaleTo(100),

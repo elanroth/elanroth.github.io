@@ -62,6 +62,7 @@ export function useBoardSync(
       dispatch({ type: "BAG_SET", bag: snapshot.bag || [] });
       dispatch({ type: "PLAYERS_MERGE", players: snapshot.players || {} });
       dispatch({ type: "STATUS_SET", status: snapshot.status || { phase: "active" } });
+      dispatch({ type: "NEXT_LOBBY_SET", nextLobbyId: snapshot.nextLobbyId });
       if (snapshot.options) {
         dispatch({ type: "OPTIONS_SET", options: snapshot.options });
       }

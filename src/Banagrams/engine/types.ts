@@ -77,7 +77,7 @@ export type RemoteBoard = {
 // Game options
 export type GameOptions = {
   minLength: number;           // 2/3/4
-  bagSize: 40 | 60 | 100 | 144;
+  bagSize: 8 | 40 | 60 | 100 | 144;
   startingHand: number;        // slider-controlled (16–30)
   timed: boolean;
 }
@@ -97,6 +97,9 @@ export type GameState = {
 
   players: Record<PlayerId, PlayerInfo>;
   status: GameStatus;
+
+  // Rematch coordination
+  nextLobbyId?: string;
 
   options: GameOptions;
 
@@ -157,4 +160,5 @@ export type Action =
   | { type: "DICT_LOADING" }
   | { type: "DICT_READY"; words: Set<string> }
   | { type: "DICT_ERROR"; error: string }
-  | { type: "OPTIONS_SET"; options: Partial<GameOptions> };
+  | { type: "OPTIONS_SET"; options: Partial<GameOptions> }
+  | { type: "NEXT_LOBBY_SET"; nextLobbyId?: string };

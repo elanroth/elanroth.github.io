@@ -1,9 +1,9 @@
-19:38:08.334 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
-19:38:08.405 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
-19:38:08.731 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - dem-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 45ms, init: 0ms
-19:38:08.755 [NamespaceSystem-blocking-namespace-operation-dispatcher-7] INFO com.firebase.core.namespace.StateManager - Namespace dem-default-rtdb status Active to Active
-19:38:13.290 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
-namespace demo-bananagrams, but the emulator is configured for dem-default-rtdb. To 
+17:53:15.069 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
+17:53:15.137 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
+17:53:15.467 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - demo-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 47ms, init: 0ms
+17:53:15.493 [NamespaceSystem-blocking-namespace-operation-dispatcher-7] INFO com.firebase.core.namespace.StateManager - Namespace demo-default-rtdb status Active to Active
+17:53:17.788 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+namespace demo-bananagrams, but the emulator is configured for demo-default-rtdb. To 
 opt-out of single project mode add/set the singleProjectMode: false property in 
 the firebase.json emulators config. 
-19:38:13.293 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 2ms, init: 0ms
+17:53:17.792 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 2ms, init: 0ms

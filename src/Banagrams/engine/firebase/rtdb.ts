@@ -91,6 +91,7 @@ export type GameSnapshot = {
   options: GameOptions;
   hostId?: string;
   lobbyName?: string;
+  nextLobbyId?: string;
 };
 
 export async function createLobby(options: Partial<GameOptions> & { lobbyName?: string; hostId: string; customBag?: string[] }): Promise<{ gameId: string; lobbyName: string }> {
@@ -193,8 +194,9 @@ export function subscribeGame(gameId: string, cb: (snapshot: GameSnapshot) => vo
     const options = (raw.options ?? DEFAULT_OPTIONS) as GameOptions;
     const hostId = raw.hostId as string | undefined;
     const lobbyName = raw.lobbyName as string | undefined;
+    const nextLobbyId = typeof raw.nextLobbyId === "string" ? raw.nextLobbyId : undefined;
 
-    cb({ boards, bag, players, status, grants, options, hostId, lobbyName });
+    cb({ boards, bag, players, status, grants, options, hostId, lobbyName, nextLobbyId });
   });
 }
 
@@ -232,6 +234,42 @@ export async function dumpAndDraw(gameId: string, letters: string[]): Promise<st
     return bag.slice(take);
   }, { applyLocally: false });
   return drawn;
+}
+
+/** Create a fresh lobby for the next game; if another player already created one, reuse it. */
+export async function ensureNextLobby(currentGameId: string, options: GameOptions, hostId: string): Promise<string> {
+  // create a candidate rematch lobby using same options; if we lose the race the lobby may remain unused
+  const { gameId: candidateId, lobbyName } = await createLobby({ ...options, hostId, lobbyName: "Rematch" });
+
+  const nextPath = `${gamePath(currentGameId)}/nextLobbyId`;
+  let chosenId = candidateId;
+  try {
+    const tx = await runTransaction(ref(db, nextPath), (curr) => {
+      if (typeof curr === "string" && curr.length > 0) return curr; // someone already set it
+      return candidateId;
+    });
+    const val = tx.snapshot.val();
+    if (typeof val === "string" && val.length > 0) {
+      chosenId = val;
+    }
+  } catch {
+    // fall back to our candidate
+  }
+
+  // Record the rematch id so late joiners can follow; don't overwrite if another id already exists
+  if (chosenId === candidateId) {
+    try {
+      await update(ref(db, gamePath(currentGameId)), { nextLobbyId: chosenId });
+      await update(ref(db, metaPath(currentGameId)), { nextLobbyId: chosenId });
+    } catch {}
+  }
+
+  // also tag the new lobby's meta with its name if needed
+  try {
+    await update(ref(db, metaPath(chosenId)), { lobbyName: lobbyName ?? "Rematch" });
+  } catch {}
+
+  return chosenId;
 }
 
 export async function setGameStatus(gameId: string, status: GameStatus): Promise<void> {

@@ -5,7 +5,8 @@ import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { boardBounds, getValidWords, tilesInWorldRect } from "./board";
-import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis, saveFinalSnapshot } from "./firebase/rtdb";
+import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis, saveFinalSnapshot, ensureNextLobby, joinLobby } from "./firebase/rtdb";
+type GameProps = { gameId: string; playerId: string; nickname: string; onExitToLobby?: (next: { gameId: string; playerId: string; nickname: string }) => void };
 import { DEFAULT_OPTIONS } from "./utils";
 import { advanceCursorUntilOpen, boardTileAt, canPlaceAt, findRackTileForLetter, initialTypingModeState, moveCursor, normalizeLetterKey } from "./typingMode";
 import { snapCoord } from "./coords";
@@ -22,6 +23,7 @@ function initialState(gameId: string, selfId: string): GameState {
     bag: [],
     players: {},
     status: { phase: "active" },
+    nextLobbyId: undefined,
     options: { ...DEFAULT_OPTIONS },
     dictionary: { status: "unloaded", words: null },
     requests: {},
@@ -64,9 +66,8 @@ function boardTileStyle(tileSize: number): React.CSSProperties {
 }
 
 // ---------- Component ----------
-type GameProps = { gameId: string; playerId: string; nickname: string };
 
-export default function Game({ gameId, playerId, nickname: _nickname }: GameProps) {
+export default function Game({ gameId, playerId, nickname: _nickname, onExitToLobby }: GameProps) {
   const [state, dispatch] = useReducer(reducer, undefined, () => initialState(gameId, playerId));
   const [dragVisual, setDragVisual] = useState<{
     active: boolean;
@@ -78,6 +79,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const [celebrate, setCelebrate] = useState(false);
   const [celebrateCollapsed, setCelebrateCollapsed] = useState(false);
   const [showBananas, setShowBananas] = useState(false);
+  const [showExitButton, setShowExitButton] = useState(false);
   const fullDictRef = useRef<Set<string> | null>(null);
   const initialDrawRef = useRef(false);
   const [spectateId, setSpectateId] = useState<string | null>(null);
@@ -85,6 +87,7 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
   const [showSpectatePicker, setShowSpectatePicker] = useState(false);
   const lastAutoCenterRef = useRef(0);
   const savedAnalysisRef = useRef(false);
+  const gameEndedRef = useRef(false);
   const [typingMode, setTypingMode] = useState(() => initialTypingModeState());
 
   const bananaSpecs = useMemo(() => {
@@ -98,17 +101,35 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
     }));
   }, [showBananas]);
 
+  const showBackToLobby = !!onExitToLobby && showExitButton && (state.status.phase === "banana-split" || (gameEndedRef.current && state.status.phase === "waiting"));
+
   // Turn on celebration whenever game status reaches banana-split
   useEffect(() => {
-    if (state.status.phase !== "banana-split") {
-      setCelebrate(false);
-      setShowBananas(false);
-      return;
+    if (state.status.phase === "banana-split") {
+      gameEndedRef.current = true;
+      setShowExitButton(true);
+      setCelebrate(true);
+      setShowBananas(true);
+      const timer = window.setTimeout(() => setShowBananas(false), 5200);
+      return () => window.clearTimeout(timer);
     }
-    setCelebrate(true);
-    setShowBananas(true);
-    const timer = window.setTimeout(() => setShowBananas(false), 5200);
-    return () => window.clearTimeout(timer);
+
+    // Reset celebration when a new game starts
+    if (state.status.phase === "playing") {
+      gameEndedRef.current = false;
+      setShowExitButton(false);
+    }
+
+    // Keep exit button available if lobby flips back to waiting after game end
+    if (state.status.phase === "waiting" && gameEndedRef.current) {
+      setShowExitButton(true);
+    } else {
+      setShowExitButton(false);
+    }
+
+    setCelebrate(false);
+    setShowBananas(false);
+    return;
   }, [state.status.phase]);
 
   // Save boards to Firebase once when the game ends for post-game analysis
@@ -977,9 +998,42 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
           </div>
           <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
           <div className="text-sm text-muted-foreground">Players: {Object.keys(state.players || {}).length}</div>
-          {state.status.phase === "banana-split" && (
-            <div className="text-sm font-bold" style={{ color: "#0f5132", background: "#d1e7dd", padding: "6px 10px", borderRadius: 10 }}>
-              Winner Winner Chicken Dinner: {winnerNick || state.status.winnerId || "Unknown"}
+          {(state.status.phase === "banana-split" || (gameEndedRef.current && state.status.phase === "waiting")) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="text-sm font-bold" style={{ color: "#0f5132", background: "#d1e7dd", padding: "6px 10px", borderRadius: 10 }}>
+                Winner Winner Chicken Dinner: {winnerNick || state.status.winnerId || "Unknown"}
+              </div>
+              {showBackToLobby && (
+                <button
+                  onClick={async () => {
+                    const nick = state.players[state.selfId]?.nickname || _nickname || "Player";
+                    try {
+                      let nextId = state.nextLobbyId;
+                      if (!nextId) {
+                        nextId = await ensureNextLobby(gameId, state.options, playerId);
+                      }
+                      await joinLobby(nextId, playerId, nick);
+                      onExitToLobby?.({ gameId: nextId, playerId, nickname: nick });
+                      setShowExitButton(false);
+                    } catch (err) {
+                      console.error("rematch lobby failed", err);
+                      setFlash("Could not open rematch lobby");
+                    }
+                  }}
+                  style={{
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#2563eb",
+                    color: "white",
+                    fontWeight: 800,
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Back to Lobby
+                </button>
+              )}
             </div>
           )}
         </div>

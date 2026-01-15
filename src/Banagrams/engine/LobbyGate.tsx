@@ -57,18 +57,22 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
     return unsub;
   }, []);
 
-  async function enter(gameId: string) {
+  async function enter(lobby: LobbyMeta) {
     const nick = nickname.trim();
     if (!nick) {
       setError("Enter a nickname");
       return;
     }
+    if (lobby.status !== "waiting") {
+      setError("Game already in progress");
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
-      await joinLobby(gameId, playerId, nick);
+      await joinLobby(lobby.gameId, playerId, nick);
       localStorage.setItem("banagrams_nick", nick);
-      onEnter({ gameId, playerId, nickname: nick });
+      onEnter({ gameId: lobby.gameId, playerId, nickname: nick });
     } catch (err) {
       setError("Could not join lobby");
     } finally {
@@ -114,11 +118,11 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
     try {
       const { gameId } = await createLobby({
         lobbyName: "Test game",
-        bagSize: 40,
-        startingHand: 2,
+        bagSize: 8,
+        startingHand: 3,
         minLength: 2,
         hostId: playerId,
-        customBag: ["A", "A", "A"],
+        customBag: ["A", "A", "A", "A", "A", "A", "A", "A"],
       });
       await joinLobby(gameId, playerId, nick);
       localStorage.setItem("banagrams_nick", nick);
@@ -235,19 +239,19 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
                     </div>
                   </div>
                   <button
-                    onClick={() => enter(lobby.gameId)}
-                    disabled={busy}
+                    onClick={() => enter(lobby)}
+                    disabled={busy || lobby.status !== "waiting"}
                     style={{
                       padding: "8px 12px",
-                      background: "#2563eb",
-                      color: "white",
+                      background: lobby.status === "waiting" ? "#2563eb" : "#cbd5e1",
+                      color: lobby.status === "waiting" ? "white" : "#475569",
                       border: "none",
                       borderRadius: 10,
                       fontWeight: 700,
-                      cursor: busy ? "not-allowed" : "pointer",
+                      cursor: busy || lobby.status !== "waiting" ? "not-allowed" : "pointer",
                     }}
                   >
-                    Join
+                    {lobby.status === "waiting" ? "Join" : lobby.status === "banana-split" ? "Finished" : "In Progress"}
                   </button>
                 </div>
               ))}

@@ -24,6 +24,7 @@ export function reducer(state: GameState, action: Action): GameState {
       const merged: GameOptions = { ...state.options, ...action.options };
       return { ...state, options: merged };
     }
+    case "NEXT_LOBBY_SET": return { ...state, nextLobbyId: action.nextLobbyId };
     case "SELECT_SET":     return setSelection(state, action.tileIds);
     case "SELECT_CLEAR":   return clearSelection(state);
     case "DRAG_BEGIN":     return beginDrag(state, action.tileIds, action.mouse);
