@@ -17,6 +17,17 @@ const TABS: Tab[] = [
   { id: "seqnc", label: "SEQNC" },
 ];
 
+const currentProjects = [
+  {
+    title: "Optimal Scott Sentences of Reduced Abelian p-Groups",
+    description: "Working with Dr. Barbara Csima to characterize the Scott complexity of specific groups",
+  },
+  {
+    title: "Formalizing Turing Degrees in Lean 4",
+    description: "Working with Tanner Duve to contribute to the to mathlib libary by formally defining Turing reducibility",
+  },
+];
+
 function TabButton({ tab, active, onClick }: { tab: Tab; active: boolean; onClick: () => void }) {
   return (
     <button
@@ -150,27 +161,36 @@ export default function App() {
 
       <main style={{ maxWidth: 960, margin: "0 auto", padding: "18px 16px 32px" }}>
         {activeTab === "home" && (
-          <section style={{ display: "grid", gap: 16, alignItems: "center", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-            <div>
-              <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 10 }}>Elan Roth</h1>
-              <p style={{ color: "#4b5563", lineHeight: 1.6, marginBottom: 12 }}>
-                Builder, writer, and game tinkerer. This is a lightweight hub for my work and Banagrams.
-              </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <TabButton tab={{ id: "blog", label: "Blog" }} active={false} onClick={() => setActiveTab("blog")} />
-                <TabButton tab={{ id: "cv", label: "CV" }} active={false} onClick={openCvInNewTab} />
-                <TabButton tab={{ id: "banagrams", label: "Banagrams" }} active={false} onClick={openBanagramsInNewTab} />
-                <TabButton tab={{ id: "seqnc", label: "SEQNC" }} active={false} onClick={openSeqncInNewTab} />
+          <section style={{ display: "grid", gap: 24 }}>
+            <div style={{ display: "grid", gap: 16, alignItems: "center", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+              <div>
+                <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 10 }}>Elan Roth</h1>
+                <p style={{ color: "#4b5563", lineHeight: 1.6, marginBottom: 12 }}>
+                  Currently researching mathematical logic at the University of Waterloo with Dr. Barbara Csima on a Fulbright Scholarship.
+                  I am most interested in computability theory and type theory, especially working with formal proof assistants.
+                </p>
+              </div>
+              <div style={{ justifySelf: "center" }}>
+                <div style={{ width: 220, height: 220, borderRadius: "50%", overflow: "hidden", boxShadow: "0 14px 30px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb" }}>
+                  <img
+                    src="/images/Curr.JPG"
+                    alt="Elan Roth"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    loading="lazy"
+                  />
+                </div>
               </div>
             </div>
-            <div style={{ justifySelf: "center" }}>
-              <div style={{ width: 220, height: 220, borderRadius: "50%", overflow: "hidden", boxShadow: "0 14px 30px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb" }}>
-                <img
-                  src="/images/Curr.JPG"
-                  alt="Elan Roth"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  loading="lazy"
-                />
+
+            <div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Current Projects</h2>
+              <div style={{ display: "grid", gap: 12 }}>
+                {currentProjects.map((project) => (
+                  <div key={project.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{project.title}</h3>
+                    <p style={{ color: "#4b5563", lineHeight: 1.5 }}>{project.description}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </section>
