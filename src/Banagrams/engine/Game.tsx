@@ -809,9 +809,9 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
                 position: "fixed",
                 transition: "all 0.6s ease",
                 animation: celebrateCollapsed ? undefined : "heartbeat 1.6s ease-in-out 0s 3",
-                right: celebrateCollapsed ? 16 : "50%",
-                top: celebrateCollapsed ? 16 : "50%",
-                transform: celebrateCollapsed ? "translate(0,0)" : "translate(50%,-50%)",
+                left: "50%",
+                top: celebrateCollapsed ? HEADER_H + 12 : "50%",
+                transform: celebrateCollapsed ? "translate(-50%,0)" : "translate(-50%,-50%)",
               }}
             >
               {isWinner ? "Winner!" : "Non-Winner!"}
@@ -877,23 +877,6 @@ export default function Game({ gameId, playerId, nickname: _nickname }: GameProp
             }}
           >
             {peelLabel}
-          </button>
-
-          <button
-            onClick={handleSaveFinal}
-            disabled={isSpectating}
-            style={{
-              padding: "10px 14px",
-              background: "rgba(255,255,255,0.92)",
-              borderRadius: 12,
-              border: "none",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
-              fontWeight: 700,
-              cursor: isSpectating ? "not-allowed" : "pointer",
-            }}
-            title={isSpectating ? "Cannot save while spectating" : "Save snapshot to RTDB"}
-          >
-            Save Game
           </button>
 
           <button
