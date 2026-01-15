@@ -171,9 +171,9 @@ export default function App() {
                 </p>
               </div>
               <div style={{ justifySelf: "center" }}>
-                <div style={{ width: 220, height: 220, borderRadius: "50%", overflow: "hidden", boxShadow: "0 14px 30px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb" }}>
+                <div style={{ width: 260, height: 320, borderRadius: 18, overflow: "hidden", boxShadow: "0 14px 30px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb" }}>
                   <img
-                    src="/images/Curr.JPG"
+                    src="/images/WhoDunIt.jpg"
                     alt="Elan Roth"
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     loading="lazy"
