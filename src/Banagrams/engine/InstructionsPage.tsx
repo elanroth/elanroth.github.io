@@ -3,41 +3,48 @@ import React from "react";
 export function InstructionsPage({ onClose }: { onClose: () => void }) {
   const sections: { title: string; items: string[] }[] = [
     {
-      title: "Core controls",
+      title: "Core play",
       items: [
-        "Peel: Press Space when your rack is empty and your board is valid.",
-        "Dump: Select a tile (or marquee-select multiple) and tap the Dump control when the bag has 3+ tiles.",
-        "Center board: Press C (or tap the Center Board button).",
-        "Move tiles: Click-drag tiles; marquee-drag on empty space to multi-select; tap to select on mobile.",
+        "Typing is the default: move the cursor with arrows, type letters to place from your rack, Backspace/Delete to pull back.",
+        "Drag-and-drop also works: drag tiles from rack to grid; drag on empty space to marquee-select and move groups.",
+        "Double-click your own board tile to send it back to the rack; shuffle with the button or Enter (when 2+ tiles).",
       ],
     },
     {
-      title: "Board rules",
+      title: "Typing mode",
       items: [
-        "Tiles snap to the grid; words must be contiguous and valid per the dictionary and min length option.",
-        "Peel is blocked if your rack isn\'t empty or the board is invalid.",
-        "Board auto-zooms out and re-centers as you approach the edges.",
+        "Toggle Typing mode in the header. Arrow keys move the cursor; Tab flips direction (right/down).",
+        "Type letters to place matching rack tiles; Backspace/Delete pulls the tile at or just behind the cursor back to your rack.",
+        "Typing mode is disabled while spectating or after the game ends.",
       ],
     },
     {
-      title: "Lobby flow",
+      title: "Peel & win",
       items: [
-        "Host creates a lobby and clicks Start when ready; others wait in the room.",
-        "You can view instructions from the lobby gate or waiting room.",
+        "Peel (Space or the Peel button) when your rack is empty and your board is valid per the dictionary and min-length option.",
+        "When the bag has fewer tiles than players, the next Peel becomes Bananas! and ends the game.",
       ],
     },
     {
-      title: "Spectating",
+      title: "Dump & swaps",
       items: [
-        "Use the dropdown + See Other Board to view another player; you can\'t move their tiles.",
-        "Return to your board with the same button.",
+        "Drag any rack tile into the red Dump box to trade it in; that letter goes back to the bag and you draw up to three random replacements while supplies last.",
+        "Dump is single-tile; if the bag is low you may get fewer than three tiles back.",
       ],
     },
     {
-      title: "Tips",
+      title: "Spectating & view",
       items: [
-        "If peel is blocked, place all tiles and ensure all words are valid.",
-        "If tiles shrink, that\'s auto-fit making room near the edges.",
+        "Pick a player in the dropdown, then click See Other Board; click Return to Your Board to resume playing.",
+        "While spectating you can't move tiles or type; typing mode auto-disables.",
+        "Use Center Board to recentre; the board also auto-zooms/recenters when you build near the edges.",
+      ],
+    },
+    {
+      title: "Troubleshooting",
+      items: [
+        "If Peel is blocked, place every rack tile and fix invalid words (red tiles).",
+        "If tiles shrink, auto-fit is making space; Center Board to reset your view.",
       ],
     },
   ];
