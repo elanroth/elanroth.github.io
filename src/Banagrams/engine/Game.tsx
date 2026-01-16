@@ -166,14 +166,21 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
       otherBoards: others,
       options: state.options,
       players: state.players,
-      bagRemaining: state.bag.length,
     };
 
-    saveGameAnalysis(gameId, payload).catch((err) => {
-      console.error("saveGameAnalysis failed", err);
-      setFlash("Analysis save failed");
-      savedAnalysisRef.current = false; // allow retry on failure
-    });
+    saveGameAnalysis(gameId, payload)
+      .then(() => {
+        console.log("saveGameAnalysis: stored final game", {
+          gameId,
+          winnerId,
+          players: Object.values(state.players || {}).map((p) => p.nickname),
+        });
+      })
+      .catch((err) => {
+        console.error("saveGameAnalysis failed", err);
+        setFlash("Analysis save failed");
+        savedAnalysisRef.current = false; // allow retry on failure
+      });
   }, [gameId, state.bag.length, state.options, state.players, state.rack, state.remoteBoards, state.status.phase, state.status.winnerId, state.tiles]);
 
   // Collapse celebration badge after a moment so board is visible

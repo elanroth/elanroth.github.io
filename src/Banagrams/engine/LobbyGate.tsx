@@ -118,11 +118,11 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
     try {
       const { gameId } = await createLobby({
         lobbyName: "Test game",
-        bagSize: 8,
-        startingHand: 3,
+        bagSize: 40,
+        startingHand: 2,
         minLength: 2,
         hostId: playerId,
-        customBag: ["A", "A", "A", "A", "A", "A", "A", "A"],
+        customBag: ["A", "A", "A"],
       });
       await joinLobby(gameId, playerId, nick);
       localStorage.setItem("banagrams_nick", nick);
