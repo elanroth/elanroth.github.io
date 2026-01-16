@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createLobby, joinLobby, listLobbies, subscribeLobbies, type LobbyMeta } from "./firebase/rtdb";
-import { DEFAULT_OPTIONS } from "./utils";
 
 export type LobbyChoice = { gameId: string; playerId: string; nickname: string };
 
@@ -43,10 +42,7 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lobbyName, setLobbyName] = useState("");
-  const [bagSize, setBagSize] = useState<40 | 60 | 100 | 144>(DEFAULT_OPTIONS.bagSize);
-  const [startingHand, setStartingHand] = useState<number>(DEFAULT_OPTIONS.startingHand);
-  const [minLength, setMinLength] = useState<2 | 3 | 4>(DEFAULT_OPTIONS.minLength as 2 | 3 | 4);
-  const [showOptions, setShowOptions] = useState(false);
+  // Options now live in the waiting room; keep lobby creation lightweight here.
 
   const playerId = useMemo(() => getOrCreatePlayerId(), []);
 
@@ -86,20 +82,17 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
       setError("Enter a nickname");
       return;
     }
+    const trimmedLobbyName = lobbyName.trim();
     setError(null);
     setBusy(true);
     try {
       const { gameId } = await createLobby({
-        lobbyName,
-        bagSize,
-        startingHand,
-        minLength,
+        lobbyName: trimmedLobbyName,
         hostId: playerId,
       });
       await joinLobby(gameId, playerId, nick);
       localStorage.setItem("banagrams_nick", nick);
       onEnter({ gameId, playerId, nickname: nick });
-      setShowOptions(false);
     } catch (err) {
       setError("Could not create lobby");
     } finally {
@@ -137,259 +130,145 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(180deg,#fff8e1 0%, #fff3bf 60%, #fffbe6 100%)", fontFamily: "'Fredoka', system-ui, sans-serif" }}>
       <div style={{ width: "min(820px, 96vw)", background: "rgba(255,255,255,0.92)", padding: 24, borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.08)" }}>
-        {!showOptions && (
-          <>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 22 }}>Banagrams</div>
-                <div style={{ color: "#6b7280", fontSize: 14 }}>Pick a nickname and join a lobby.</div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={onShowInstructions}
-                  style={{
-                    padding: "10px 12px",
-                    background: "#e5e7eb",
-                    borderRadius: 12,
-                    border: "none",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  Instructions
-                </button>
-                <button
-                  type="button"
-                  onClick={createTestGame}
-                  disabled={busy}
-                  style={{
-                    padding: "10px 12px",
-                    background: "#d1fae5",
-                    color: "#065f46",
-                    borderRadius: 12,
-                    border: "1px solid #a7f3d0",
-                    fontWeight: 800,
-                    cursor: busy ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Test game
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowOptions(true)}
-                  disabled={busy}
-                  style={{
-                    padding: "10px 14px",
-                    background: "#ffd54f",
-                    borderRadius: 12,
-                    border: "none",
-                    boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-                    fontWeight: 800,
-                    cursor: busy ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Start new lobby
-                </button>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label htmlFor="nickname-input" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
-                Nickname
-              </label>
-              <input
-                id="nickname-input"
-                name="nickname"
-                autoComplete="nickname"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="Your name"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
-                  fontSize: 16,
-                }}
-              />
-            </div>
-
-            {error && <div style={{ color: "#b3261e", marginBottom: 12, fontWeight: 700 }}>{error}</div>}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {loading && <div style={{ color: "#6b7280" }}>Loading lobbies…</div>}
-              {!loading && lobbies.length === 0 && <div style={{ color: "#6b7280" }}>No lobbies yet. Start one!</div>}
-              {lobbies.map((lobby) => (
-                <div key={lobby.gameId} style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "12px 14px",
-                  borderRadius: 12,
-                  background: "linear-gradient(180deg,#fffef9,#fff7d6)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 800 }}>{lobby.lobbyName}</div>
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>
-                      {lobby.playerCount} player{lobby.playerCount === 1 ? "" : "s"} ·
-                      {lobby.status === "waiting" ? " Waiting" : lobby.status === "active" ? " Active" : " Finished"}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => enter(lobby)}
-                    disabled={busy || lobby.status !== "waiting"}
-                    style={{
-                      padding: "8px 12px",
-                      background: lobby.status === "waiting" ? "#2563eb" : "#cbd5e1",
-                      color: lobby.status === "waiting" ? "white" : "#475569",
-                      border: "none",
-                      borderRadius: 10,
-                      fontWeight: 700,
-                      cursor: busy || lobby.status !== "waiting" ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {lobby.status === "waiting" ? "Join" : lobby.status === "banana-split" ? "Finished" : "In Progress"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {showOptions && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <button
-                onClick={() => setShowOptions(false)}
-                disabled={busy}
-                style={{ padding: "8px 10px", background: "#e5e7eb", borderRadius: 10, border: "none", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer" }}
-              >
-                ← Back to lobbies
-              </button>
-              <button
-                onClick={createAndEnter}
-                disabled={busy}
-                style={{ padding: "10px 14px", background: "#2563eb", color: "white", borderRadius: 12, border: "none", boxShadow: "0 6px 18px rgba(0,0,0,0.08)", fontWeight: 800, cursor: busy ? "not-allowed" : "pointer" }}
-              >
-                Create lobby
-              </button>
-            </div>
-
-            <div style={{ marginBottom: 4 }}>
-              <label htmlFor="nickname-input" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>Nickname</label>
-              <input
-                id="nickname-input"
-                name="nickname"
-                autoComplete="nickname"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="Your name"
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #e5e7eb", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)", fontSize: 16 }}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="lobby-name" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>Lobby name</label>
-              <input
-                id="lobby-name"
-                value={lobbyName}
-                onChange={(e) => setLobbyName(e.target.value)}
-                placeholder="Optional"
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #e5e7eb", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)", fontSize: 15 }}
-              />
-            </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-              <strong style={{ minWidth: 120 }}>Bag size</strong>
-              <div style={{ display: "inline-flex" }}>
-                {[40, 60, 100, 144].map((v, idx, arr) => {
-                  const isActive = bagSize === v;
-                  const isFirst = idx === 0;
-                  const isLast = idx === arr.length - 1;
-                  return (
-                    <button
-                      key={v}
-                      onClick={() => setBagSize(v as 40 | 60 | 100 | 144)}
-                      style={{
-                        padding: "10px 14px",
-                        minWidth: 110,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        display: "inline-flex",
-                        fontWeight: 800,
-                        border: "1px solid #e5e7eb",
-                        background: isActive ? "#2563eb" : "white",
-                        color: isActive ? "white" : "#111",
-                        cursor: busy ? "not-allowed" : "pointer",
-                        marginLeft: isFirst ? 0 : -1,
-                        borderRadius: isFirst ? "12px 0 0 12px" : isLast ? "0 12px 12px 0" : "0",
-                      }}
-                      disabled={busy}
-                    >
-                      {v} tiles
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-              <strong style={{ minWidth: 120 }}>Starting tiles</strong>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <input
-                  type="range"
-                  min={16}
-                  max={30}
-                  step={1}
-                  value={startingHand}
-                  onChange={(e) => setStartingHand(Number(e.target.value))}
-                  disabled={busy}
-                  style={{ width: 260, accentColor: "#2563eb" }}
-                />
-                <div style={{ minWidth: 44, textAlign: "center", fontWeight: 800, fontSize: 18 }}>{startingHand}</div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-              <strong style={{ minWidth: 120 }}>Min word length</strong>
-              <div style={{ display: "inline-flex" }}>
-                {[2, 3, 4].map((v, idx, arr) => {
-                  const isActive = minLength === v;
-                  const isFirst = idx === 0;
-                  const isLast = idx === arr.length - 1;
-                  return (
-                    <button
-                      key={v}
-                      onClick={() => setMinLength(v as 2 | 3 | 4)}
-                      style={{
-                        padding: "10px 14px",
-                        minWidth: 80,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        display: "inline-flex",
-                        fontWeight: 800,
-                        border: "1px solid #e5e7eb",
-                        background: isActive ? "#2563eb" : "white",
-                        color: isActive ? "white" : "#111",
-                        cursor: busy ? "not-allowed" : "pointer",
-                        marginLeft: isFirst ? 0 : -1,
-                        borderRadius: isFirst ? "12px 0 0 12px" : isLast ? "0 12px 12px 0" : "0",
-                      }}
-                      disabled={busy}
-                    >
-                      {v}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {error && <div style={{ color: "#b3261e", marginTop: 4, fontWeight: 700 }}>{error}</div>}
+        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 22 }}>Banagrams</div>
+            <div style={{ color: "#6b7280", fontSize: 14 }}>Pick a nickname, create a lobby, tweak settings in the waiting room.</div>
           </div>
-        )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={onShowInstructions}
+              style={{
+                padding: "10px 12px",
+                background: "#e5e7eb",
+                borderRadius: 12,
+                border: "none",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Instructions
+            </button>
+            <button
+              type="button"
+              onClick={createTestGame}
+              disabled={busy}
+              style={{
+                padding: "10px 12px",
+                background: "#d1fae5",
+                color: "#065f46",
+                borderRadius: 12,
+                border: "1px solid #a7f3d0",
+                fontWeight: 800,
+                cursor: busy ? "not-allowed" : "pointer",
+              }}
+            >
+              Test game
+            </button>
+            <button
+              type="button"
+              onClick={createAndEnter}
+              disabled={busy}
+              style={{
+                padding: "10px 14px",
+                background: "#ffd54f",
+                borderRadius: 12,
+                border: "none",
+                boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+                fontWeight: 800,
+                cursor: busy ? "not-allowed" : "pointer",
+              }}
+            >
+              Start new lobby
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+          <div>
+            <label htmlFor="nickname-input" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+              Nickname
+            </label>
+            <input
+              id="nickname-input"
+              name="nickname"
+              autoComplete="nickname"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="Your name"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
+                fontSize: 16,
+              }}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="lobby-name" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+              Lobby name (optional)
+            </label>
+            <input
+              id="lobby-name"
+              value={lobbyName}
+              onChange={(e) => setLobbyName(e.target.value)}
+              placeholder="Auto-named if left blank"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
+                fontSize: 15,
+              }}
+            />
+          </div>
+        </div>
+
+        {error && <div style={{ color: "#b3261e", marginBottom: 12, fontWeight: 700 }}>{error}</div>}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {loading && <div style={{ color: "#6b7280" }}>Loading lobbies…</div>}
+          {!loading && lobbies.length === 0 && <div style={{ color: "#6b7280" }}>No lobbies yet. Start one!</div>}
+          {lobbies.map((lobby) => (
+            <div key={lobby.gameId} style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 14px",
+              borderRadius: 12,
+              background: "linear-gradient(180deg,#fffef9,#fff7d6)",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+            }}>
+              <div>
+                <div style={{ fontWeight: 800 }}>{lobby.lobbyName}</div>
+                <div style={{ color: "#6b7280", fontSize: 14 }}>
+                  {lobby.playerCount} player{lobby.playerCount === 1 ? "" : "s"} ·
+                  {lobby.status === "waiting" ? " Waiting" : lobby.status === "active" ? " Active" : " Finished"}
+                </div>
+              </div>
+              <button
+                onClick={() => enter(lobby)}
+                disabled={busy || lobby.status !== "waiting"}
+                style={{
+                  padding: "8px 12px",
+                  background: lobby.status === "waiting" ? "#2563eb" : "#cbd5e1",
+                  color: lobby.status === "waiting" ? "white" : "#475569",
+                  border: "none",
+                  borderRadius: 10,
+                  fontWeight: 700,
+                  cursor: busy || lobby.status !== "waiting" ? "not-allowed" : "pointer",
+                }}
+              >
+                {lobby.status === "waiting" ? "Join" : lobby.status === "banana-split" ? "Finished" : "In Progress"}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

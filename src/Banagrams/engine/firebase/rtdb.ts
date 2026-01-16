@@ -163,6 +163,40 @@ export async function ensurePlayer(gameId: string, userId: string, nickname: str
   });
 }
 
+/** Update lobby options before a game starts; host-only. Rebuilds the bag if bagSize changes. */
+export async function updateLobbyOptions(gameId: string, actorId: string, next: Partial<GameOptions>): Promise<void> {
+  const rootRef = ref(db, gamePath(gameId));
+  const snap = await get(rootRef);
+  const raw = (snap.val() ?? {}) as any;
+
+  const hostId = typeof raw.hostId === "string" ? raw.hostId : undefined;
+  if (hostId && hostId !== actorId) {
+    throw new Error("Only the host can change options");
+  }
+
+  const statusPhase = raw.status?.phase ?? "waiting";
+  if (statusPhase !== "waiting") {
+    throw new Error("Game already started");
+  }
+
+  const current = (raw.options ?? DEFAULT_OPTIONS) as GameOptions;
+  const merged: GameOptions = {
+    ...current,
+    ...next,
+    minLength: Math.max(2, Math.min(4, Math.round(next.minLength ?? current.minLength))) as GameOptions["minLength"],
+    startingHand: Math.max(1, Math.min(30, Math.round(next.startingHand ?? current.startingHand))),
+    timed: !!(next.timed ?? current.timed),
+  };
+
+  const updates: Record<string, unknown> = { options: merged };
+  if (typeof next.bagSize === "number" && next.bagSize !== current.bagSize) {
+    updates.bag = shuffleArray(createBag(merged));
+  }
+
+  logWrite("update", `${gamePath(gameId)} (options)`);
+  await update(rootRef, updates);
+}
+
 export async function updateLastSeen(gameId: string, userId: string): Promise<void> {
   const playerPath = `${playersPath(gameId)}/${cleanSegment("userId", userId)}`;
   logWrite("update", playerPath);
