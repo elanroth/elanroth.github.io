@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Game from "./Banagrams/engine/Game";
 import { LobbyGate, type LobbyChoice } from "./Banagrams/engine/LobbyGate";
 import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
@@ -97,6 +97,12 @@ export default function App() {
   const [showInstructions, setShowInstructions] = useState(false);
 
   const tabTitle = useMemo(() => TABS.find((t) => t.id === activeTab)?.label ?? "", [activeTab]);
+
+  useEffect(() => {
+    if (choice?.skipWaiting) {
+      setPhase("game");
+    }
+  }, [choice]);
 
   const banagramsView = (() => {
     if (showInstructions) return <InstructionsPage onClose={() => setShowInstructions(false)} />;

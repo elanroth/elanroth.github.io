@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { createLobby, joinLobby, listLobbies, subscribeLobbies, type LobbyMeta } from "./firebase/rtdb";
+import { createLobby, joinLobby, listLobbies, setGameStatus, subscribeLobbies, type LobbyMeta } from "./firebase/rtdb";
 
-export type LobbyChoice = { gameId: string; playerId: string; nickname: string };
+export type LobbyChoice = { gameId: string; playerId: string; nickname: string; skipWaiting?: boolean };
 
 type Props = {
   onEnter: (choice: LobbyChoice) => void;
@@ -111,15 +111,17 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
     try {
       const { gameId } = await createLobby({
         lobbyName: "Test game",
-        bagSize: 40,
-        startingHand: 2,
+        bagSize: 8,
+        startingHand: 3,
         minLength: 2,
         hostId: playerId,
-        customBag: ["A", "A", "A"],
+        customBag: ["A", "A", "A", "A", "A"],
       });
       await joinLobby(gameId, playerId, nick);
+      // Start immediately so we skip the waiting room
+      await setGameStatus(gameId, { phase: "active", updatedAt: Date.now() });
       localStorage.setItem("banagrams_nick", nick);
-      onEnter({ gameId, playerId, nickname: nick });
+      onEnter({ gameId, playerId, nickname: nick, skipWaiting: true });
     } catch (err) {
       setError("Could not create test lobby");
     } finally {
