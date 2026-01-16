@@ -102,7 +102,17 @@ export default function App() {
     if (showInstructions) return <InstructionsPage onClose={() => setShowInstructions(false)} />;
     if (!choice) return <LobbyGate onEnter={setChoice} onShowInstructions={() => setShowInstructions(true)} />;
     if (phase === "waiting") {
-      return <LobbyWaitingRoom choice={choice} onShowInstructions={() => setShowInstructions(true)} onReady={() => setPhase("game")} />;
+      return (
+        <LobbyWaitingRoom
+          choice={choice}
+          onShowInstructions={() => setShowInstructions(true)}
+          onReady={() => setPhase("game")}
+          onExit={() => {
+            setChoice(null);
+            setPhase("waiting");
+          }}
+        />
+      );
     }
       return (
         <Game

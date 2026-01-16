@@ -8,9 +8,10 @@ export type LobbyWaitingRoomProps = {
   choice: LobbyChoice;
   onReady: () => void;
   onShowInstructions?: () => void;
+  onExit?: () => void;
 };
 
-export function LobbyWaitingRoom({ choice, onReady, onShowInstructions }: LobbyWaitingRoomProps) {
+export function LobbyWaitingRoom({ choice, onReady, onShowInstructions, onExit }: LobbyWaitingRoomProps) {
   const { gameId, playerId } = choice;
   const [players, setPlayers] = useState<Record<string, PlayerInfo>>({});
   const [status, setStatus] = useState<GameStatus>({ phase: "waiting" });
@@ -82,7 +83,23 @@ export function LobbyWaitingRoom({ choice, onReady, onShowInstructions }: LobbyW
             </div>
           </div>
           {waiting && (
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                type="button"
+                onClick={() => onExit?.()}
+                disabled={busy}
+                style={{
+                  padding: "10px 12px",
+                  background: "#f3f4f6",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  color: "#374151",
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
+              >
+                Back
+              </button>
               <button
                 type="button"
                 onClick={() => onShowInstructions?.()}
