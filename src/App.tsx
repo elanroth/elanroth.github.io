@@ -5,15 +5,194 @@ import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./canadian/GreatWhiteNorth";
 
-type TabId = "home" | "blog" | "cv" | "banagrams" | "seqnc";
+type TabId = "home" | "education" | "experience" | "talks" | "cv" | "banagrams" | "seqnc";
 
 type Tab = { id: TabId; label: string };
 
 const TABS: Tab[] = [
   { id: "home", label: "Home" },
+  { id: "education", label: "Education" },
+  { id: "experience", label: "Experience" },
+  { id: "talks", label: "Talks" },
   { id: "cv", label: "CV" },
   { id: "banagrams", label: "Banagrams" },
   { id: "seqnc", label: "SEQNC" },
+];
+
+const educationItems = [
+  {
+    school: "University of Pennsylvania",
+    location: "Philadelphia, PA",
+    dates: "Aug 2021 – May 2025",
+    detail: "B.A. in Logic, Information, and Computation",
+    sub: "Minors: Computer Science, Mathematics, Religious Studies",
+    honors: [
+      "Phi Beta Kappa",
+      "Summa Cum Laude",
+      "Programming Languages Seminar",
+      "Logic Seminar",
+      "Sports Analytics Seminar",
+      "Interfaith Dialogue Club (President 2022–2023)",
+      "Putnam Exam score: 13 (2023)",
+    ],
+  },
+  {
+    school: "Budapest Semester in Mathematics",
+    location: "Budapest, Hungary",
+    dates: "Jan 2024 – May 2024",
+    detail: "Research on unit distance graph realization with the Rényi Institute",
+  },
+  {
+    school: "Shalom Hartman Institute",
+    location: "Jerusalem, Israel",
+    dates: "Aug 2020 – May 2021",
+    detail: "Hevruta Program",
+    sub: "Dialogue on religious philosophy and pluralism with 35 American and 35 Israeli students",
+  },
+  {
+    school: "The Leffell School",
+    location: "Hartsdale, NY",
+    dates: "Sep 2018 – May 2020",
+    detail: "High School Diploma",
+    sub: "AIME Qualifier (2020); Founder and President of the Aesthetic Graphing Club",
+  },
+];
+
+const coursework = {
+  mathematicsPenn: [
+    "Calculus II",
+    "Calculus III",
+    "Abstract Algebra I",
+    "Abstract Algebra II",
+    "Logic and Computability I",
+    "Logic and Computability II",
+    "Topics in Computability Theory",
+    "Graduate Analysis",
+    "Supervised Study in Computability Theory",
+    "Supervised Study in Lean Formalization of Computability",
+    "Independent Study in Model Theory",
+    "Independent Study in Game Theory",
+  ],
+  mathematicsBsm: [
+    "Research in AI and Unit Distance Graphs",
+    "Conjecture and Proof",
+    "Advanced Combinatorics",
+  ],
+  computerScience: [
+    "Programming Languages and Techniques I",
+    "Programming Languages and Techniques II",
+    "Mathematical Foundations of Computer Science",
+    "Automata, Computability, and Complexity",
+    "Data Structures and Algorithms",
+    "Independent Study in Homotopy Type Theory",
+  ],
+};
+
+const experienceSections = [
+  {
+    title: "Lean Contributions (top priority)",
+    items: [
+      {
+        title: "mathlib (Lean 4)",
+        meta: "",
+        summary: "Formalized core definitions and results on Turing degrees and reducibility; built infrastructure for computability-theoretic constructions.",
+      },
+      {
+        title: "Compfiles (Lean 4)",
+        meta: "",
+        summary: "Formalized a full USAMO problem, including statement and proof.",
+      },
+      {
+        title: "In progress",
+        meta: "",
+        summary: "Lean formalization of Kolmogorov complexity and algorithmic randomness.",
+      },
+    ],
+  },
+  {
+    title: "Research",
+    items: [
+      {
+        title: "Fulbright Student Program · University of Waterloo",
+        meta: "Ontario, Canada · Sep 2025 – Present",
+        summary: "Fulbright Visiting Researcher in Pure Mathematics. Working with Dr. Barbara Csima on computable structure theory, optimal bounds for Scott complexity of reduced abelian p-groups, and presenting research in algorithmic information theory.",
+      },
+      {
+        title: "University of Pennsylvania",
+        meta: "Philadelphia, PA · May 2024 – Aug 2024",
+        summary: "Programming Languages Research Assistant to Dr. Steve Zdancewic. Developed a denotational semantics for IMP, extended toward the untyped lambda calculus, and formally verified PL properties using Coq.",
+      },
+      {
+        title: "University of Pennsylvania",
+        meta: "Philadelphia, PA · Aug 2022 – May 2025",
+        summary: "Teaching Assistant, CIS 120: Programming Languages and Techniques. Taught weekly recitations and held office hours for large-enrollment courses.",
+      },
+      {
+        title: "University of Pennsylvania",
+        meta: "Philadelphia, PA · Aug 2024 – May 2025",
+        summary: "Teaching Assistant, CIS 500: Software Foundations. Held office hours for graduate students and wrote, administered, and graded exams.",
+      },
+    ],
+  },
+  {
+    title: "Analytics",
+    items: [
+      {
+        title: "Wharton Moneyball Academy",
+        meta: "Philadelphia, PA · Summer 2022 & Summer 2023",
+        summary: "Head Teaching and Research Assistant. Built baseball models using MCMC, managed teaching assistants and students, and taught statistical modeling in R.",
+      },
+      {
+        title: "Philadelphia Union",
+        meta: "Philadelphia, PA · Aug 2022 – Aug 2023",
+        summary: "Data Analyst. Built player/ball tracking visualizations and models for performance evaluation and decision-making.",
+      },
+    ],
+  },
+];
+
+const talks = [
+  {
+    title: "A series of four talks on Random Binary Sequences, Computability Learning Seminar, University of Waterloo (Oct–Nov 2025)",
+    links: [
+      { label: "First", url: "https://uwaterloo.ca/pure-mathematics/events/computability-learning-seminar-157" },
+      { label: "Second", url: "https://uwaterloo.ca/pure-mathematics/events/computability-learning-seminar-158" },
+      { label: "Third", url: "https://uwaterloo.ca/pure-mathematics/events/computability-learning-seminar-159" },
+      { label: "Fourth", url: "https://uwaterloo.ca/pure-mathematics/events/computability-learning-seminar-160" },
+    ],
+  },
+  {
+    title: "Formalizing Turing Degrees in Lean, Logic Seminar, University of Waterloo (Sep 2025)",
+    links: [
+      { label: "Abstract", url: "https://uwaterloo.ca/pure-mathematics/events/logic-seminar-77" },
+    ],
+  },
+  {
+    title: "Too HoTT to Handle: The Importance of Homotopy Type Theory, Logic Seminar, University of Pennsylvania (May 2025)",
+  },
+  {
+    title: "AI and Unit Distance Graphs, Joint Mathematics Meetings, Seattle (Jan 2025)",
+    links: [
+      { label: "Abstract", url: "https://meetings.ams.org/math/jmm2025/meetingapp.cgi/Paper/41126" },
+    ],
+  },
+  {
+    title: "Developing a Mechanized Denotational Semantics for IMP, University of Pennsylvania Research Expositions (Aug–Sep 2024)",
+  },
+  {
+    title: "Shapley Values and Game-Theoretic Evaluation of Escape Rooms, Directed Reading Program, University of Pennsylvania (Dec 2023)",
+    links: [
+      { label: "Abstract", url: "https://web.sas.upenn.edu/math-drp/fall-2023-projects/" },
+      { label: "Slides", url: "/DRP%20Game%20Theory.pptx" },
+    ],
+  },
+  {
+    title: "Model Theory: Categoricity, Completeness, and Algebraically Closed Fields, Directed Reading Program, University of Pennsylvania (May 2023)",
+    links: [
+      { label: "Abstract", url: "https://web.sas.upenn.edu/math-drp/spring-2023-projects/" },
+      { label: "Slides", url: "https://bpb-us-w2.wpmucdn.com/web.sas.upenn.edu/dist/e/952/files/2023/08/Elan-Final-Presentation.pdf" },
+    ],
+  },
 ];
 
 const currentProjects = [
@@ -79,7 +258,7 @@ const initialNav = (() => {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("tab");
     const full = url.searchParams.get("full") === "1";
-    if (t === "home" || t === "blog" || t === "cv" || t === "banagrams" || t === "seqnc") {
+    if (t === "home" || t === "education" || t === "experience" || t === "talks" || t === "cv" || t === "banagrams" || t === "seqnc") {
       return { tab: t as TabId, fullBanagrams: full && t === "banagrams", fullSeqnc: full && t === "seqnc" };
     }
   } catch {
@@ -221,12 +400,109 @@ export default function App() {
           </section>
         )}
 
-        {activeTab === "blog" && (
+        {activeTab === "education" && (
+          <section style={{ display: "grid", gap: 20 }}>
+            <div>
+              <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Education</h1>
+              <div style={{ display: "grid", gap: 12 }}>
+                {educationItems.map((item) => (
+                  <div key={item.school} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between" }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 16 }}>{item.school}</div>
+                        <div style={{ color: "#6b7280", fontSize: 13 }}>{item.location}</div>
+                      </div>
+                      <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.dates}</div>
+                    </div>
+                    <div style={{ marginTop: 8, color: "#374151", fontWeight: 700 }}>{item.detail}</div>
+                    {item.sub && <div style={{ color: "#4b5563", marginTop: 4 }}>{item.sub}</div>}
+                    {item.honors && item.honors.length > 0 && (
+                      <ul style={{ marginTop: 8, paddingLeft: 18, color: "#4b5563", lineHeight: 1.5 }}>
+                        {item.honors.map((honor) => (
+                          <li key={`${item.school}-${honor}`}>{honor}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Relevant Coursework</h2>
+              <div style={{ display: "grid", gap: 12 }}>
+                <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (University of Pennsylvania)</div>
+                  <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsPenn.join(" · ")}</div>
+                </div>
+                <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (Budapest Semester in Mathematics)</div>
+                  <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsBsm.join(" · ")}</div>
+                </div>
+                <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Computer Science (University of Pennsylvania)</div>
+                  <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.computerScience.join(" · ")}</div>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "experience" && (
+          <section style={{ display: "grid", gap: 20 }}>
+            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Experience</h1>
+            {experienceSections.map((section) => (
+              <div key={section.title} style={{ display: "grid", gap: 12 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800 }}>{section.title}</h2>
+                <div style={{ display: "grid", gap: 12 }}>
+                  {section.items.map((item) => (
+                    <div key={`${section.title}-${item.title}`} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div style={{ fontWeight: 800 }}>{item.title}</div>
+                        {item.meta && <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.meta}</div>}
+                      </div>
+                      <p style={{ color: "#4b5563", lineHeight: 1.6, marginTop: 6 }}>{item.summary}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
+        {activeTab === "talks" && (
           <section>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Blog</h1>
-            <p style={{ color: "#4b5563", lineHeight: 1.5 }}>
-              Posts coming soon. For now, this is a placeholder for lightweight writing.
-            </p>
+            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Talks</h1>
+            <div style={{ display: "grid", gap: 12 }}>
+              {talks.map((talk) => (
+                <div key={talk.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)", color: "#4b5563", lineHeight: 1.6, display: "grid", gap: 8 }}>
+                  <div>{talk.title}</div>
+                  {talk.links && (
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      {talk.links.map((link) => (
+                        <a
+                          key={link.url}
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            border: "1px solid #e5e7eb",
+                            background: "#f8fafc",
+                            fontWeight: 700,
+                            color: "#1d4ed8",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
         )}
 
