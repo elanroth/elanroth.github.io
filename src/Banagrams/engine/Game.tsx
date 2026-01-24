@@ -115,7 +115,7 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
     }
 
     // Reset celebration when a new game starts
-    if (state.status.phase === "playing") {
+    if (state.status.phase === "active") {
       gameEndedRef.current = false;
       setShowExitButton(false);
     }
