@@ -29,9 +29,6 @@ const educationItems = [
     honors: [
       "Phi Beta Kappa",
       "Summa Cum Laude",
-      "Programming Languages Seminar",
-      "Logic Seminar",
-      "Sports Analytics Seminar",
       "Interfaith Dialogue Club (President 2022–2023)",
       "Putnam Exam score: 13 (2023)",
     ],
@@ -203,6 +200,14 @@ const currentProjects = [
   {
     title: "Formalizing Turing Degrees in Lean 4",
     description: "Working with Tanner Duve to contribute to the to mathlib libary by formally defining Turing reducibility",
+  },
+  {
+    title: "Kolmogorov Complexity and Algorithmic Randomness",
+    description: "Investigating non-uniformity in realizing the correspondence between random left-c.e. reals and halting probabilities of optimal machines, with an emphasis on effective constructions and diagonalization.",
+  },
+  {
+    title: "Uniformity-Theoretic Complexity of Ω-Number Constructions",
+    description: "Analyzing why Theorem 2.1 blocks uniform construction of optimal machines from random left-c.e. indices, and how this obstruction appears across standard computability notions.",
   },
 ];
 
