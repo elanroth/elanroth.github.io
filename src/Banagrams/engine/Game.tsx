@@ -338,11 +338,6 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
   const viewingRackOrder = spectateId ? (viewingRemote?.rack ?? []) : state.rack;
   const isSpectating = spectateId !== null;
 
-  useEffect(() => {
-    if (!isSpectating) return;
-    setTypingMode((prev) => (prev.enabled ? { ...prev, enabled: false } : prev));
-  }, [isSpectating]);
-
   const boardTiles = useMemo(
     () => Object.values(viewingTiles).filter((t) => t.location === "board"),
     [viewingTiles]
