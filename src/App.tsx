@@ -9,6 +9,8 @@ type TabId = "home" | "education" | "experience" | "talks" | "cv" | "banagrams" 
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
+type ExperienceItem = { title: string; meta: string; summary: string; links?: LinkItem[] };
+type ExperienceSection = { title: string; items: ExperienceItem[] };
 
 const TABS: Tab[] = [
   { id: "home", label: "Home" },
@@ -86,7 +88,7 @@ const coursework = {
   ],
 };
 
-const experienceSections = [
+const experienceSections: ExperienceSection[] = [
   {
     title: "Research",
     items: [
