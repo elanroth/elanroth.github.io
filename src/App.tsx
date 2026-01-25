@@ -6,8 +6,9 @@ import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./canadian/GreatWhiteNorth";
 
 type TabId = "home" | "education" | "experience" | "talks" | "cv" | "banagrams" | "seqnc";
-
 type Tab = { id: TabId; label: string };
+type LinkItem = { label: string; url: string };
+type CurrentProject = { title: string; description: string; links?: LinkItem[] };
 
 const TABS: Tab[] = [
   { id: "home", label: "Home" },
@@ -87,26 +88,6 @@ const coursework = {
 
 const experienceSections = [
   {
-    title: "Lean Contributions (top priority)",
-    items: [
-      {
-        title: "mathlib (Lean 4)",
-        meta: "",
-        summary: "Formalized core definitions and results on Turing degrees and reducibility; built infrastructure for computability-theoretic constructions.",
-      },
-      {
-        title: "Compfiles (Lean 4)",
-        meta: "",
-        summary: "Formalized a full USAMO problem, including statement and proof.",
-      },
-      {
-        title: "In progress",
-        meta: "",
-        summary: "Lean formalization of Kolmogorov complexity and algorithmic randomness.",
-      },
-    ],
-  },
-  {
     title: "Research",
     items: [
       {
@@ -119,15 +100,49 @@ const experienceSections = [
         meta: "Philadelphia, PA · May 2024 – Aug 2024",
         summary: "Programming Languages Research Assistant to Dr. Steve Zdancewic. Developed a denotational semantics for IMP, extended toward the untyped lambda calculus, and formally verified PL properties using Coq.",
       },
+    ],
+  },
+  {
+    title: "Open Source",
+    items: [
       {
-        title: "University of Pennsylvania",
-        meta: "Philadelphia, PA · Aug 2022 – May 2025",
-        summary: "Teaching Assistant, CIS 120: Programming Languages and Techniques. Taught weekly recitations and held office hours for large-enrollment courses.",
+        title: "mathlib",
+        meta: "Lean 4",
+        summary: "Formalized core definitions and results on Turing degrees and reducibility; built infrastructure for computability-theoretic constructions.",
+        links: [
+          { label: "Source", url: "https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Computability/TuringDegree.lean" },
+        ],
       },
+      {
+        title: "Compfiles",
+        meta: "Lean 4",
+        summary: "Formalized a full USAMO problem, including statement and proof.",
+        links: [
+          { label: "Problem", url: "https://github.com/dwrensha/compfiles/blob/main/Compfiles/Usa2017P1.lean" },
+        ],
+      },
+      {
+        title: "In progress",
+        meta: "Lean 4",
+        summary: "Lean formalization of Kolmogorov complexity and algorithmic randomness.",
+        links: [
+          { label: "Source", url: "https://github.com/elanroth/cslib/tree/main/Cslib/Computability/KolmogorovComplexity" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Teaching",
+    items: [
       {
         title: "University of Pennsylvania",
         meta: "Philadelphia, PA · Aug 2024 – May 2025",
         summary: "Teaching Assistant, CIS 500: Software Foundations. Held office hours for graduate students and wrote, administered, and graded exams.",
+      },
+      {
+        title: "University of Pennsylvania",
+        meta: "Philadelphia, PA · Aug 2022 – May 2025",
+        summary: "Teaching Assistant, CIS 120: Programming Languages and Techniques. Taught weekly recitations and held office hours for large-enrollment courses.",
       },
     ],
   },
@@ -192,22 +207,22 @@ const talks = [
   },
 ];
 
-const currentProjects = [
+const currentProjects: CurrentProject[] = [
   {
     title: "Optimal Scott Sentences of Reduced Abelian p-Groups",
     description: "Working with Dr. Barbara Csima to characterize the Scott complexity of specific groups",
   },
   {
-    title: "Formalizing Turing Degrees in Lean 4",
+    title: "Uniform Complexity of Ω-Number Inversion Constructions",
+    description: "Investigating non-uniformity in realizing the correspondence between random left-c.e. reals and halting probabilities of optimal machines.",
+  },
+  {
+    title: "Formalizing Kolmogorov Complexity and Algorithmic Randomness",
+    description: "Using Lean to formalize these notions for the mathlib and cslib libraries",
+  },
+  {
+    title: "Formalizing Turing Degrees",
     description: "Working with Tanner Duve to contribute to the to mathlib libary by formally defining Turing reducibility",
-  },
-  {
-    title: "Kolmogorov Complexity and Algorithmic Randomness",
-    description: "Investigating non-uniformity in realizing the correspondence between random left-c.e. reals and halting probabilities of optimal machines, with an emphasis on effective constructions and diagonalization.",
-  },
-  {
-    title: "Uniformity-Theoretic Complexity of Ω-Number Constructions",
-    description: "Analyzing why Theorem 2.1 blocks uniform construction of optimal machines from random left-c.e. indices, and how this obstruction appears across standard computability notions.",
   },
 ];
 
@@ -373,10 +388,10 @@ export default function App() {
           <section style={{ display: "grid", gap: 24 }}>
             <div style={{ display: "grid", gap: 16, alignItems: "center", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
               <div>
-                <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 10 }}>Elan Roth</h1>
+                  <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 10 }}>About Me</h1>
                 <p style={{ color: "#4b5563", lineHeight: 1.6, marginBottom: 12 }}>
                   Currently researching mathematical logic at the University of Waterloo with Dr. Barbara Csima on a Fulbright Scholarship.
-                  I am most interested in computability theory and type theory, especially working with formal proof assistants.
+                  I am most interested in computability theory and type theory, especially working with formal proof assistants such as Lean and Rocq.
                 </p>
               </div>
               <div style={{ justifySelf: "center" }}>
@@ -398,6 +413,29 @@ export default function App() {
                   <div key={project.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
                     <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{project.title}</h3>
                     <p style={{ color: "#4b5563", lineHeight: 1.5 }}>{project.description}</p>
+                    {project.links && (
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+                        {project.links.map((link) => (
+                          <a
+                            key={link.url}
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 999,
+                              border: "1px solid #e5e7eb",
+                              background: "#f8fafc",
+                              fontWeight: 700,
+                              color: "#1d4ed8",
+                              textDecoration: "none",
+                            }}
+                          >
+                            {link.label}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -408,21 +446,20 @@ export default function App() {
         {activeTab === "education" && (
           <section style={{ display: "grid", gap: 20 }}>
             <div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Education</h1>
               <div style={{ display: "grid", gap: 12 }}>
                 {educationItems.map((item) => (
                   <div key={item.school} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between", alignItems: "baseline" }}>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: 16 }}>{item.school}</div>
-                        <div style={{ color: "#6b7280", fontSize: 13 }}>{item.location}</div>
+                        <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{item.school}</div>
+                        <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 600 }}>{item.location}</div>
                       </div>
                       <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.dates}</div>
                     </div>
-                    <div style={{ marginTop: 8, color: "#374151", fontWeight: 700 }}>{item.detail}</div>
-                    {item.sub && <div style={{ color: "#4b5563", marginTop: 4 }}>{item.sub}</div>}
+                    <div style={{ marginTop: 8, color: "#374151", fontWeight: 700, fontSize: 14 }}>{item.detail}</div>
+                    {item.sub && <div style={{ color: "#4b5563", marginTop: 4, fontSize: 14 }}>{item.sub}</div>}
                     {item.honors && item.honors.length > 0 && (
-                      <ul style={{ marginTop: 8, paddingLeft: 18, color: "#4b5563", lineHeight: 1.5 }}>
+                      <ul style={{ marginTop: 8, paddingLeft: 18, color: "#4b5563", lineHeight: 1.5, fontSize: 14 }}>
                         {item.honors.map((honor) => (
                           <li key={`${item.school}-${honor}`}>{honor}</li>
                         ))}
@@ -455,7 +492,6 @@ export default function App() {
 
         {activeTab === "experience" && (
           <section style={{ display: "grid", gap: 20 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Experience</h1>
             {experienceSections.map((section) => (
               <div key={section.title} style={{ display: "grid", gap: 12 }}>
                 <h2 style={{ fontSize: 20, fontWeight: 800 }}>{section.title}</h2>
@@ -467,6 +503,29 @@ export default function App() {
                         {item.meta && <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.meta}</div>}
                       </div>
                       <p style={{ color: "#4b5563", lineHeight: 1.6, marginTop: 6 }}>{item.summary}</p>
+                      {item.links && (
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+                          {item.links.map((link) => (
+                            <a
+                              key={link.url}
+                              href={link.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 999,
+                                border: "1px solid #e5e7eb",
+                                background: "#f8fafc",
+                                fontWeight: 700,
+                                color: "#1d4ed8",
+                                textDecoration: "none",
+                              }}
+                            >
+                              {link.label}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -477,7 +536,6 @@ export default function App() {
 
         {activeTab === "talks" && (
           <section>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Talks</h1>
             <div style={{ display: "grid", gap: 12 }}>
               {talks.map((talk) => (
                 <div key={talk.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)", color: "#4b5563", lineHeight: 1.6, display: "grid", gap: 8 }}>
@@ -513,7 +571,6 @@ export default function App() {
 
         {activeTab === "cv" && (
           <section>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>CV</h1>
             <p style={{ color: "#4b5563", lineHeight: 1.5 }}>
               Drop a PDF link here or add bullet highlights. This keeps the site light without extra UI.
             </p>
@@ -522,14 +579,12 @@ export default function App() {
 
         {activeTab === "seqnc" && (
           <section>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>SEQNC</h1>
             <SEQNC />
           </section>
         )}
 
         {activeTab === "banagrams" && (
           <section>
-            <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>Banagrams</h1>
             <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.04)" }}>
               {banagramsView}
             </div>
