@@ -4,57 +4,116 @@ Snapshot of the current workspace so you can copy/paste into another AI.
 
 ```
 elanroth.github.io/
-├── build/                     # Vite build output (for deploy)
-│   ├── index.html
-│   └── assets/
-├── public/
-│   ├── books/
-│   └── images/
-├── src/
-│   ├── App.tsx
-│   ├── index.css
-│   ├── main.tsx
-│   ├── styles/
-│   │   └── globals.css
-│   ├── components/
-│   │   ├── figma/
-│   │   │   └── ImageWithFallback.tsx
-│   │   ├── tabs/              # Home/Blog/CV/Bookshelf tabs
-│   │   │   ├── BlogTab.tsx
-│   │   │   ├── Bookshelf.tsx
-│   │   │   ├── CVTab.tsx
-│   │   │   └── Home.tsx
-│   │   └── ui/                # Shadcn-style UI primitives
-│   │       ├── accordion.tsx … tooltip.tsx, etc.
-│   │       ├── mathblock.css
-│   │       └── MathBlock.tsx
-│   ├── Banagrams/             # Game implementation
-│   │   ├── Banagrams.tsx
-│   │   ├── dictionary.txt
-│   │   ├── English Words.txt
-│   │   └── engine_2/
-│   │       ├── Game.tsx
-│   │       ├── board.tsx      # validation + contiguity logic
-│   │       ├── tiles.ts       # tile state ops (draw/place/move)
-│   │       ├── reducer.ts
-│   │       ├── types.ts
-│   │       ├── _distribution.ts
-│   │       ├── center.ts, coords.ts, drag.ts, selection.ts, utils.ts
-│   │       ├── firebase/      # rtdb sync helpers
-│   │       └── hooks/
-│   │           └── useBoardSync.ts
-│   └── Banagrams/engine/      # (older engine version)
-├── eslint.config.js
+├── .editorconfig
+├── .env.local
+├── .vscode/
+│   └── settings.json
+├── PROJECT_STRUCTURE.md
+├── README.md
+├── database-debug.log
+├── database.rules.json
+├── firebase-debug.log
+├── firebase.json
 ├── index.html
+├── package-lock.json
 ├── package.json
 ├── postcss.config.js
 ├── tailwind.config.js
 ├── tsconfig.json
 ├── vite.config.js
-└── README.md
+├── build/                     # Vite build output (for deploy)
+│   ├── index.html
+│   ├── Elan Roth CV Nov 25.pdf
+│   ├── vite.svg
+│   ├── assets/
+│   │   ├── index-BbiMCuho.css
+│   │   ├── index-CHoiP_5G.js
+│   │   └── katex-qrhCpa0F.js
+│   ├── books/
+│   │   ├── godel_escher_bach.jpg
+│   │   ├── IMG_1852.jpeg
+│   │   ├── IMG_1829.jpeg
+│   │   └── placeholder.png
+│   └── images/
+│       ├── IMG_1852.jpeg
+│       ├── IMG_1829.jpeg
+│       └── Curr.JPG
+├── dist/                      # Vite output (local)
+│   ├── index.html
+│   ├── index 2.html
+│   ├── vite.svg
+│   ├── assets/
+│   │   ├── index-CiuyY2C8.css
+│   │   └── index-C2zDnoCZ.js
+│   └── books/
+│       ├── godel_escher_bach.jpg
+│       └── placeholder.png
+├── public/
+│   ├── DRP Game Theory.pptx
+│   ├── Elan Roth CV.pdf
+│   ├── Elan Roth CV Jan 26.pdf
+│   ├── vite.svg
+│   ├── books/
+│   │   ├── godel_escher_bach.jpg
+│   │   ├── IMG_1852.jpeg
+│   │   ├── IMG_1829.jpeg
+│   │   └── placeholder.png
+│   └── images/
+│       ├── IMG_1852.jpeg
+│       ├── IMG_1829.jpeg
+│       ├── WhoDunIt.jpg
+│       └── Curr.JPG
+├── scripts/
+├── src/
+│   ├── App.tsx
+│   ├── Attributions.md
+│   ├── LetterTrail.tsx
+│   ├── env.d.ts
+│   ├── index.css
+│   ├── main.tsx
+│   ├── react-jsx.d.ts
+│   ├── Banagrams/
+│   │   ├── Plan.pptx
+│   │   ├── Bananagrams Design.pdf
+│   │   ├── Banangrams Plan.pdf
+│   │   ├── dictionary.txt
+│   │   ├── English Words.txt
+│   │   └── engine/
+│   │       ├── Game.tsx
+│   │       ├── InstructionsPage.tsx
+│   │       ├── LobbyGate.tsx
+│   │       ├── LobbyWaitingRoom.tsx
+│   │       ├── _distribution.ts
+│   │       ├── board.tsx
+│   │       ├── center.ts
+│   │       ├── coords.ts
+│   │       ├── drag.ts
+│   │       ├── reducer.ts
+│   │       ├── selection.ts
+│   │       ├── tiles.ts
+│   │       ├── types.ts
+│   │       ├── typingMode.ts
+│   │       ├── utils.ts
+│   │       ├── firebase/
+│   │       │   ├── firebase.ts
+│   │       │   └── rtdb.ts
+│   │       ├── hooks/
+│   │       │   └── useBoardSync.ts
+│   │       └── tests/
+│   │           ├── GameOptions/
+│   │           └── RemoteBoards/
+│   ├── canadian/
+│   │   ├── dictionary.txt
+│   │   └── GreatWhiteNorth.tsx
+│   └── styles/
+│       └── globals.css
+└── .venv/
+	├── bin/
+	├── include/
+	├── lib/
+	└── pyvenv.cfg
 ```
 
 Notes:
-- Banagrams game lives in `src/Banagrams/engine_2/` (current engine); older engine kept in `src/Banagrams/engine/`.
-- UI components are under `src/components/ui/` (shadcn-like) and tab content under `src/components/tabs/`.
-- Build artifacts live in `build/` for deployment.
+- Banagrams game lives in `src/Banagrams/engine/`.
+- Build artifacts live in `build/` (deploy) and `dist/` (local Vite output).
