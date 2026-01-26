@@ -18,6 +18,16 @@
     "gameAnalyses": {
       ".read": true,
       ".write": true
+    },
+    "anagrams": {
+      "$gameId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "anagramsMeta": {
+      ".read": true,
+      ".write": true
     }
   }
 }

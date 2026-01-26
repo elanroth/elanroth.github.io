@@ -62,52 +62,77 @@ export async function createAnagramsLobby({
   const bag = shuffleArray(createBag({ bagSize: options.bagSize }));
   const state = createGame({ players: [], letterBag: bag.join(""), minWordLength: options.minWordLength, shuffle: false });
 
-  await set(ref(db, gamePath(gameId)), {
-    ...state,
-    gameId,
-    playersById: {},
-    status: "active",
-    lobbyName: trimmedLobbyName,
-    hostId,
-    options,
-  });
+  console.debug("[anagrams] createLobby:start", { gameId, trimmedLobbyName, hostId, options });
 
-  await set(ref(db, metaPath(gameId)), {
-    gameId,
-    lobbyName: trimmedLobbyName,
-    createdAt,
-    playerCount: 0,
-    status: "active",
-    hostId,
-    options,
-  });
+  try {
+    await set(ref(db, gamePath(gameId)), {
+      ...state,
+      gameId,
+      playersById: {},
+      status: "active",
+      lobbyName: trimmedLobbyName,
+      hostId,
+      options,
+    });
+  } catch (err) {
+    console.error("[anagrams] createLobby:gameWriteFailed", { gameId, err });
+    throw err;
+  }
 
+  try {
+    await set(ref(db, metaPath(gameId)), {
+      gameId,
+      lobbyName: trimmedLobbyName,
+      createdAt,
+      playerCount: 0,
+      status: "active",
+      hostId,
+      options,
+    });
+  } catch (err) {
+    console.error("[anagrams] createLobby:metaWriteFailed", { gameId, err });
+    throw err;
+  }
+
+  console.debug("[anagrams] createLobby:success", { gameId, lobbyName: trimmedLobbyName });
   return { gameId, lobbyName: trimmedLobbyName };
 }
 
 export async function joinAnagramsLobby(gameId: string, playerId: string, nickname: string): Promise<number> {
+  console.debug("[anagrams] joinLobby:start", { gameId, playerId, nickname });
   const root = ref(db, gamePath(cleanSegment("gameId", gameId)));
-  const result = await runTransaction(root, (curr) => {
-    const raw = (curr ?? {}) as any;
-    const players = Array.isArray(raw.players) ? raw.players : [];
-    const playersById = (raw.playersById ?? {}) as Record<string, number>;
+  let result;
+  try {
+    result = await runTransaction(root, (curr) => {
+      const raw = (curr ?? {}) as any;
+      const players = Array.isArray(raw.players) ? raw.players : [];
+      const playersById = (raw.playersById ?? {}) as Record<string, number>;
 
-    if (typeof playersById[playerId] === "number") {
+      if (typeof playersById[playerId] === "number") {
+        return { ...raw, players, playersById };
+      }
+
+      const nextIndex = players.length;
+      players.push({ name: nickname, words: [], score: 0 });
+      playersById[playerId] = nextIndex;
+
       return { ...raw, players, playersById };
-    }
+    });
+  } catch (err) {
+    console.error("[anagrams] joinLobby:txFailed", { gameId, playerId, err });
+    throw err;
+  }
 
-    const nextIndex = players.length;
-    players.push({ name: nickname, words: [], score: 0 });
-    playersById[playerId] = nextIndex;
-
-    return { ...raw, players, playersById };
-  });
-
-  await update(ref(db, metaPath(gameId)), {
-    playerCount: ((result.snapshot.val() as any)?.players?.length ?? 0),
-  });
+  try {
+    await update(ref(db, metaPath(gameId)), {
+      playerCount: ((result.snapshot.val() as any)?.players?.length ?? 0),
+    });
+  } catch (err) {
+    console.error("[anagrams] joinLobby:metaUpdateFailed", { gameId, playerId, err });
+  }
 
   const val = result.snapshot.val() as any;
+  console.debug("[anagrams] joinLobby:success", { gameId, playerId, playerIndex: val?.playersById?.[playerId] });
   return val?.playersById?.[playerId] ?? 0;
 }
 
