@@ -65,7 +65,10 @@ export type TileRequest = {
   want: string;            // e.g. "E"
   offer?: string;          // optional 1-for-1
   createdAt: number;
+  expiresAt?: number;
   status: "open" | "accepted" | "rejected";
+  acceptedBy?: PlayerId;
+  resolvedAt?: number;
 };
 
 // (Kept for future if you later want richer remote-board metadata. Not used by default sync.)
@@ -155,6 +158,8 @@ export type Action =
   // requests
   | { type: "REQUEST_TILE"; want: string; offer?: string }
   | { type: "REQUEST_RESOLVE"; requestId: RequestId; accept: boolean }
+  | { type: "REQUESTS_SET"; requests: Record<RequestId, TileRequest> }
+  | { type: "GIVE_TILE"; tileId: TileId }
 
   // dictionary
   | { type: "DICT_LOADING" }

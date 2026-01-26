@@ -5,7 +5,7 @@ import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { boardBounds, getValidWords, tilesInWorldRect } from "./board";
-import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis, saveFinalSnapshot, ensureNextLobby, joinLobby } from "./firebase/rtdb";
+import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis, saveFinalSnapshot, ensureNextLobby, joinLobby, createTileRequest, resolveTileRequest } from "./firebase/rtdb";
 type GameProps = { gameId: string; playerId: string; nickname: string; onExitToLobby?: (next: { gameId: string; playerId: string; nickname: string }) => void };
 import { DEFAULT_OPTIONS } from "./utils";
 import { advanceCursorUntilOpen, boardTileAt, canPlaceAt, findRackTileForLetter, initialTypingModeState, moveCursor, normalizeLetterKey } from "./typingMode";
@@ -89,6 +89,9 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
   const savedAnalysisRef = useRef(false);
   const gameEndedRef = useRef(false);
   const [typingMode, setTypingMode] = useState(() => initialTypingModeState());
+  const [requestInput, setRequestInput] = useState("");
+  const [showRequests, setShowRequests] = useState(false);
+  const [requestTick, setRequestTick] = useState(0);
 
   const bananaSpecs = useMemo(() => {
     if (!showBananas) return [] as Array<{ key: string; left: number; delay: number; duration: number; size: number }>;
@@ -102,6 +105,19 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
   }, [showBananas]);
 
   const showBackToLobby = !!onExitToLobby && showExitButton && (state.status.phase === "banana-split" || (gameEndedRef.current && state.status.phase === "waiting"));
+
+  const openRequests = useMemo(() => {
+    const now = Date.now();
+    return Object.values(state.requests || {})
+      .filter((req) => req.status === "open" && (typeof req.expiresAt !== "number" || req.expiresAt > now))
+      .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+  }, [state.requests, requestTick]);
+
+  useEffect(() => {
+    if (!Object.keys(state.requests || {}).length) return;
+    const id = window.setInterval(() => setRequestTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [state.requests]);
 
   // Turn on celebration whenever game status reaches banana-split
   useEffect(() => {
@@ -1000,6 +1016,20 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
           </div>
           <div className="text-sm text-muted-foreground">Bag: {state.bag.length}</div>
           <div className="text-sm text-muted-foreground">Players: {Object.keys(state.players || {}).length}</div>
+          <button
+            onClick={() => setShowRequests((prev) => !prev)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: showRequests ? "#111827" : "rgba(255,255,255,0.92)",
+              color: showRequests ? "white" : "#111",
+              fontWeight: 800,
+              boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+            }}
+          >
+            {showRequests ? "Hide Requests" : "Request Letter"}
+          </button>
           {(state.status.phase === "banana-split" || (gameEndedRef.current && state.status.phase === "waiting")) && (
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div className="text-sm font-bold" style={{ color: "#0f5132", background: "#d1e7dd", padding: "6px 10px", borderRadius: 10 }}>
@@ -1040,6 +1070,149 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
           )}
         </div>
       </header>
+
+      {!showRequests && openRequests.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: HEADER_H + 8,
+            left: 12,
+            display: "grid",
+            gap: 8,
+            zIndex: 60,
+          }}
+        >
+          {openRequests.map((req) => {
+            const want = req.want?.toUpperCase?.() ?? "";
+            const tileId = findRackTileForLetter(state.tiles, state.rack, want);
+            return (
+              <div
+                key={req.id}
+                style={{
+                  background: "rgba(37,99,235,0.12)",
+                  color: "#1d4ed8",
+                  padding: "8px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(37,99,235,0.3)",
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span>{req.from === playerId ? "You" : nicknameFor(req.from)} wants {want}</span>
+                <button
+                  onClick={() => {
+                    if (!tileId) {
+                      setFlash("You don't have that letter");
+                      console.warn("[request] give blocked: missing tile", { gameId, playerId, want, requestId: req.id });
+                      return;
+                    }
+                    dispatch({ type: "GIVE_TILE", tileId });
+                    pushGrants(gameId, { [req.from]: [want] })
+                      .then(() => resolveTileRequest(gameId, req.id, true, playerId))
+                      .catch((err) => {
+                        console.error("[request] give failed", { gameId, playerId, want, requestId: req.id, err });
+                        setFlash("Give failed");
+                      });
+                  }}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: tileId ? "white" : "#e5e7eb",
+                    fontWeight: 700,
+                    cursor: tileId ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Give
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showRequests && (
+        <div style={{ padding: "8px 12px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, borderBottom: "1px solid #e5e7eb", background: "rgba(255,255,255,0.92)" }}>
+        <div style={{ fontWeight: 700 }}>Request a letter</div>
+        <input
+          value={requestInput}
+          onChange={(e) => setRequestInput(e.target.value.toUpperCase().slice(0, 1))}
+          placeholder="A"
+          style={{ width: 44, textAlign: "center", padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb", fontWeight: 800 }}
+        />
+        <button
+          onClick={() => {
+            if (isSpectating) {
+              setFlash("Cannot request while spectating");
+              console.warn("[request] blocked: spectating", { gameId, playerId });
+              return;
+            }
+            const want = requestInput.trim().toUpperCase();
+            if (!want || !/^[A-Z]$/.test(want)) {
+              setFlash("Enter a single letter");
+              console.warn("[request] invalid input", { gameId, playerId, want });
+              return;
+            }
+            createTileRequest(gameId, playerId, want)
+              .then(() => setRequestInput(""))
+              .catch((err) => {
+                console.error("[request] failed", { gameId, playerId, want, err });
+                setFlash("Request failed");
+              });
+          }}
+          style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", background: "white", fontWeight: 800 }}
+        >
+          Request
+        </button>
+
+        {openRequests.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            {openRequests.map((req) => {
+              const want = req.want?.toUpperCase?.() ?? "";
+              const tileId = findRackTileForLetter(state.tiles, state.rack, want);
+              return (
+                <div
+                  key={req.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 10px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#f8fafc",
+                    fontWeight: 700,
+                  }}
+                >
+                  <span>{req.from === playerId ? "You" : nicknameFor(req.from)} wants {want}</span>
+                  <button
+                    onClick={() => {
+                      if (!tileId) {
+                        setFlash("You don't have that letter");
+                        console.warn("[request] give blocked: missing tile", { gameId, playerId, want, requestId: req.id });
+                        return;
+                      }
+                      dispatch({ type: "GIVE_TILE", tileId });
+                      pushGrants(gameId, { [req.from]: [want] })
+                        .then(() => resolveTileRequest(gameId, req.id, true, playerId))
+                        .catch((err) => {
+                          console.error("[request] give failed", { gameId, playerId, want, requestId: req.id, err });
+                          setFlash("Give failed");
+                        });
+                    }}
+                    style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #e5e7eb", background: tileId ? "#2563eb" : "#e5e7eb", color: tileId ? "white" : "#6b7280", fontWeight: 800 }}
+                  >
+                    Give
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        </div>
+      )}
 
       {spectateId && (
         <div

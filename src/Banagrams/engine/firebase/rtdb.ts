@@ -49,6 +49,7 @@ const playersPath = (gameId: string) => `${gamePath(gameId)}/players`;
 const bagPath = (gameId: string) => `${gamePath(gameId)}/bag`;
 const statusPath = (gameId: string) => `${gamePath(gameId)}/status`;
 const grantsPath = (gameId: string) => `${gamePath(gameId)}/grants`;
+const requestsPath = (gameId: string) => `${gamePath(gameId)}/requests`;
 const finalPath = (gameId: string, userId: string, ts: number) => `${gamePath(gameId)}/final/${cleanSegment("userId", userId)}/${ts}`;
 const metaRoot = `gamesMeta`;
 const metaPath = (gameId: string) => `${metaRoot}/${cleanSegment("gameId", gameId)}`;
@@ -89,6 +90,7 @@ export type GameSnapshot = {
   status: GameStatus;
   grants: Record<string, Record<string, string>>;
   options: GameOptions;
+  requests: Record<string, any>;
   hostId?: string;
   lobbyName?: string;
   nextLobbyId?: string;
@@ -123,6 +125,7 @@ export async function createLobby(options: Partial<GameOptions> & { lobbyName?: 
     boards: {},
     players: {},
     grants: {},
+    requests: {},
   });
 
   const meta = metaPath(gameId);
@@ -226,11 +229,39 @@ export function subscribeGame(gameId: string, cb: (snapshot: GameSnapshot) => vo
     const status = (raw.status ?? { phase: "waiting" }) as GameStatus;
     const grants = (raw.grants ?? {}) as Record<string, Record<string, string>>;
     const options = (raw.options ?? DEFAULT_OPTIONS) as GameOptions;
+    const requests = (raw.requests ?? {}) as Record<string, any>;
     const hostId = raw.hostId as string | undefined;
     const lobbyName = raw.lobbyName as string | undefined;
     const nextLobbyId = typeof raw.nextLobbyId === "string" ? raw.nextLobbyId : undefined;
 
-    cb({ boards, bag, players, status, grants, options, hostId, lobbyName, nextLobbyId });
+    cb({ boards, bag, players, status, grants, options, requests, hostId, lobbyName, nextLobbyId });
+  });
+}
+
+export async function createTileRequest(gameId: string, from: PlayerId, want: string, offer?: string): Promise<void> {
+  const reqId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const path = `${requestsPath(gameId)}/${reqId}`;
+  logWrite("set", path);
+  const createdAt = Date.now();
+  const payload: Record<string, unknown> = {
+    id: reqId,
+    from,
+    want: want.toUpperCase(),
+    createdAt,
+    expiresAt: createdAt + 6000,
+    status: "open",
+  };
+  if (offer) payload.offer = offer.toUpperCase();
+  await set(ref(db, path), payload);
+}
+
+export async function resolveTileRequest(gameId: string, requestId: string, accept: boolean, acceptedBy?: PlayerId): Promise<void> {
+  const path = `${requestsPath(gameId)}/${cleanSegment("requestId", requestId)}`;
+  logWrite("update", path);
+  await update(ref(db, path), {
+    status: accept ? "accepted" : "rejected",
+    acceptedBy: accept ? acceptedBy : null,
+    resolvedAt: Date.now(),
   });
 }
 

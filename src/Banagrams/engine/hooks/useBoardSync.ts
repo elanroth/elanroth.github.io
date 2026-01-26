@@ -66,6 +66,9 @@ export function useBoardSync(
       if (snapshot.options) {
         dispatch({ type: "OPTIONS_SET", options: snapshot.options });
       }
+      if (snapshot.requests) {
+        dispatch({ type: "REQUESTS_SET", requests: snapshot.requests });
+      }
 
       const grantsForMe = snapshot.grants?.[userId];
       if (grantsForMe && Object.keys(grantsForMe).length > 0) {

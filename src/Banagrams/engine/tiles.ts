@@ -20,6 +20,21 @@ export function giveLetters(state: GameState, letters: string[]): GameState {
   return { ...state, tiles: nextTiles, rack: nextRack };
 }
 
+export function removeTileFromRack(state: GameState, tileId: TileId): GameState {
+  const tile = state.tiles[tileId];
+  if (!tile || tile.owner !== state.selfId) return state;
+  if (tile.location !== "rack") return state;
+
+  const nextTiles: TilesById = { ...state.tiles };
+  delete nextTiles[tileId];
+
+  const nextRack = state.rack.filter((id) => id !== tileId);
+  const nextSelection = { ...state.selection };
+  delete nextSelection[tileId];
+
+  return { ...state, tiles: nextTiles, rack: nextRack, selection: nextSelection };
+}
+
 export function drawTiles(state: GameState, count: number): GameState {
   if (count === -1) {
     return giveLetters(state, startingLetters.toUpperCase().split(""))
