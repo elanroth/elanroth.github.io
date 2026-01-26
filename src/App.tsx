@@ -4,8 +4,9 @@ import { LobbyGate, type LobbyChoice } from "./Banagrams/engine/LobbyGate";
 import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./canadian/GreatWhiteNorth";
+import { AnagramsVisualizer } from "./Anagrams/game";
 
-type TabId = "home" | "education" | "experience" | "talks" | "cv" | "banagrams" | "seqnc";
+type TabId = "home" | "education" | "experience" | "talks" | "cv" | "anagrams" | "banagrams" | "seqnc";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
@@ -18,6 +19,7 @@ const TABS: Tab[] = [
   { id: "experience", label: "Experience" },
   { id: "talks", label: "Talks" },
   { id: "cv", label: "CV" },
+  { id: "anagrams", label: "Anagrams" },
   { id: "banagrams", label: "Banagrams" },
   { id: "seqnc", label: "SEQNC" },
 ];
@@ -275,24 +277,41 @@ function openSeqncInNewTab() {
   }
 }
 
+function openAnagramsInNewTab() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "anagrams");
+    url.searchParams.set("full", "1");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+  } catch {
+    window.open("?tab=anagrams&full=1", "_blank", "noopener,noreferrer");
+  }
+}
+
 const initialNav = (() => {
   try {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("tab");
     const full = url.searchParams.get("full") === "1";
-    if (t === "home" || t === "education" || t === "experience" || t === "talks" || t === "cv" || t === "banagrams" || t === "seqnc") {
-      return { tab: t as TabId, fullBanagrams: full && t === "banagrams", fullSeqnc: full && t === "seqnc" };
+    if (t === "home" || t === "education" || t === "experience" || t === "talks" || t === "cv" || t === "anagrams" || t === "banagrams" || t === "seqnc") {
+      return {
+        tab: t as TabId,
+        fullBanagrams: full && t === "banagrams",
+        fullSeqnc: full && t === "seqnc",
+        fullAnagrams: full && t === "anagrams",
+      };
     }
   } catch {
     /* ignore */
   }
-  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false };
+  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false };
 })();
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>(initialNav.tab);
   const [fullBanagrams] = useState<boolean>(initialNav.fullBanagrams);
   const [fullSeqnc] = useState<boolean>(initialNav.fullSeqnc);
+  const [fullAnagrams] = useState<boolean>(initialNav.fullAnagrams);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
   const [showInstructions, setShowInstructions] = useState(false);
@@ -350,6 +369,16 @@ export default function App() {
     );
   }
 
+  if (fullAnagrams && activeTab === "anagrams") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+        <main style={{ width: "100%", padding: "24px" }}>
+          <AnagramsVisualizer />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(249,250,251,0.9)", backdropFilter: "blur(6px)", borderBottom: "1px solid #e5e7eb" }}>
@@ -365,6 +394,10 @@ export default function App() {
                 tab={tab}
                 active={tab.id === activeTab}
                 onClick={() => {
+                  if (tab.id === "anagrams") {
+                    openAnagramsInNewTab();
+                    return;
+                  }
                   if (tab.id === "banagrams") {
                     openBanagramsInNewTab();
                     return;
@@ -576,6 +609,14 @@ export default function App() {
             <p style={{ color: "#4b5563", lineHeight: 1.5 }}>
               Drop a PDF link here or add bullet highlights. This keeps the site light without extra UI.
             </p>
+          </section>
+        )}
+
+        {activeTab === "anagrams" && (
+          <section>
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 18, background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.04)" }}>
+              <AnagramsVisualizer />
+            </div>
           </section>
         )}
 
