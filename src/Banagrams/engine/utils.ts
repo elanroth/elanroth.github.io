@@ -19,7 +19,7 @@ export const DEFAULT_OPTIONS: GameOptions = {
 };
 
 export function createBag(options?: Partial<GameOptions>): string[] {
-  const size = (options?.bagSize ?? DEFAULT_OPTIONS.bagSize) as 8 | 40 | 60 | 100 | 144;
+  const size = (options?.bagSize ?? DEFAULT_OPTIONS.bagSize);
   const dist = DISTRIBUTIONS[size] ?? DISTRIBUTIONS[DEFAULT_OPTIONS.bagSize];
   const bag: string[] = [];
   for (const [letter, count] of Object.entries(dist)) {

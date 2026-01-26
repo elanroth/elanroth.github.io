@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { claimWord, createGame, drawTile, findSnatchSources, type GameState, type WordSource } from "../engine";
-import { createAnagramsGame, subscribeAnagramsGame, updateAnagramsGame } from "../firebase/rtdb";
+import { subscribeAnagramsGame, updateAnagramsGame } from "../firebase/rtdb";
+import type { AnagramsLobbyChoice } from "../LobbyGate";
 
 const defaultNames = ["Alice", "Bob", "Casey", "Dee"];
 
@@ -31,20 +32,13 @@ const boardStyle: CSSProperties = {
   gap: 8,
 };
 
-export function AnagramsVisualizer() {
-  const gameId = useMemo(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("game") ?? "local";
-    } catch {
-      return "local";
-    }
-  }, []);
+export function AnagramsVisualizer({ choice }: { choice: AnagramsLobbyChoice }) {
+  const gameId = choice.gameId;
+  const playerIndex = choice.playerIndex;
   const [state, setState] = useState<GameState>(() => createSession(defaultNames.slice(0, 3)));
   const [claimInput, setClaimInput] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [selectedSources, setSelectedSources] = useState<WordSource[]>([]);
-  const initializedRef = useRef(false);
   const revealed = state.revealed.join(" ") || "(none)";
 
   const focusInput = () => {
@@ -89,10 +83,6 @@ export function AnagramsVisualizer() {
         minWordLength: snapshot.minWordLength ?? 3,
       });
 
-      if (!initializedRef.current && (!snapshot.players || snapshot.players.length === 0)) {
-        initializedRef.current = true;
-        createAnagramsGame(gameId, defaultNames.slice(0, 3)).catch(() => {});
-      }
     });
 
     return () => unsubscribe();
@@ -121,7 +111,7 @@ export function AnagramsVisualizer() {
       }
     }
     console.debug("[anagrams] claim:attempt", { gameId, input: normalizedInput, selectedSources: sourcesToUse });
-    const result = claimWord(state, 0, normalizedInput, sourcesToUse);
+    const result = claimWord(state, playerIndex, normalizedInput, sourcesToUse);
     setState(result.state);
     console.debug("[anagrams] claim:result", result);
     updateAnagramsGame(gameId, result.state).catch(() => {});

@@ -80,7 +80,7 @@ export type RemoteBoard = {
 // Game options
 export type GameOptions = {
   minLength: number;           // 2/3/4
-  bagSize: 8 | 40 | 60 | 100 | 144;
+  bagSize: number;
   startingHand: number;        // slider-controlled (16–30)
   timed: boolean;
 }

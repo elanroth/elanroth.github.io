@@ -61,10 +61,11 @@ function scaleTo(total: number): Dist {
   return scaled;
 }
 
-export const DISTRIBUTIONS: Record<8 | 40 | 60 | 100 | 144, Dist> = {
+export const DISTRIBUTIONS: Record<number, Dist> = {
   8: { A: 8 },
   40: scaleTo(40),
   60: scaleTo(60),
   100: scaleTo(100),
   144: FULL_144,
+  // If input not one of these numbers then shit goes haywire, I guess some null error!
 };

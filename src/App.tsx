@@ -5,6 +5,7 @@ import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./canadian/GreatWhiteNorth";
 import { AnagramsVisualizer } from "./Anagrams/game";
+import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";
 
 type TabId = "home" | "education" | "experience" | "talks" | "cv" | "anagrams" | "banagrams" | "seqnc";
 type Tab = { id: TabId; label: string };
@@ -313,6 +314,7 @@ export default function App() {
   const [fullSeqnc] = useState<boolean>(initialNav.fullSeqnc);
   const [fullAnagrams] = useState<boolean>(initialNav.fullAnagrams);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
+  const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
   const [showInstructions, setShowInstructions] = useState(false);
 
@@ -373,7 +375,11 @@ export default function App() {
     return (
       <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
         <main style={{ width: "100%", padding: "24px" }}>
-          <AnagramsVisualizer />
+          {anagramsChoice ? (
+            <AnagramsVisualizer choice={anagramsChoice} />
+          ) : (
+            <AnagramsLobbyGate onEnter={setAnagramsChoice} />
+          )}
         </main>
       </div>
     );
@@ -615,7 +621,11 @@ export default function App() {
         {activeTab === "anagrams" && (
           <section>
             <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 18, background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.04)" }}>
-              <AnagramsVisualizer />
+              {anagramsChoice ? (
+                <AnagramsVisualizer choice={anagramsChoice} />
+              ) : (
+                <AnagramsLobbyGate onEnter={setAnagramsChoice} />
+              )}
             </div>
           </section>
         )}
