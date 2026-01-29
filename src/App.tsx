@@ -5,7 +5,10 @@ import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./canadian/GreatWhiteNorth";
 import { AnagramsVisualizer } from "./Anagrams/game";
-import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";
+import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";import React from "react";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 type TabId = "home" | "education" | "experience" | "talks" | "cv" | "anagrams" | "banagrams" | "seqnc";
 type Tab = { id: TabId; label: string };

@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import katex from 'katex';
 import "./index.css";
 // KaTeX stylesheet for math rendering (install katex via npm first)
 try {
