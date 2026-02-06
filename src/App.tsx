@@ -167,11 +167,10 @@ const experienceSections: ExperienceSection[] = [
   },
 ];
 
-type AboutSectionId = "overview" | "education" | "coursework" | "research" | "open-source" | "talks" | "teaching" | "sports-analytics";
+type AboutSectionId = "education" | "coursework" | "research" | "open-source" | "talks" | "teaching" | "sports-analytics";
 type AboutSection = { id: AboutSectionId; label: string };
 
 const ABOUT_SECTIONS: AboutSection[] = [
-  { id: "overview", label: "Overview" },
   { id: "education", label: "Education" },
   { id: "coursework", label: "Coursework" },
   { id: "research", label: "Research" },
@@ -181,8 +180,6 @@ const ABOUT_SECTIONS: AboutSection[] = [
   { id: "sports-analytics", label: "Sports Analytics" },
 ];
 
-const aboutIntro =
-  "I am currently based at the University of Waterloo on a Fulbright Scholarship, working in mathematical logic and computability theory. My focus is on formal methods and the structure of computation, with an emphasis on proof assistants and algorithmic randomness.";
 
 type GameCard = { id: string; title: string; description: string; imageUrl?: string; onOpen: () => void; disabled?: boolean; status?: string };
 
@@ -361,7 +358,7 @@ export default function App() {
   const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
   const [showInstructions, setShowInstructions] = useState(false);
-  const [aboutSection, setAboutSection] = useState<AboutSectionId>("overview");
+  const [aboutSection, setAboutSection] = useState<AboutSectionId>("education");
 
   const tabTitle = useMemo(() => TABS.find((t) => t.id === activeTab)?.label ?? "", [activeTab]);
 
@@ -372,7 +369,7 @@ export default function App() {
   }, [choice]);
   useEffect(() => {
     if (activeTab === "about") {
-      setAboutSection("overview");
+      setAboutSection("education");
     }
   }, [activeTab]);
 
@@ -542,12 +539,6 @@ export default function App() {
               ))}
             </aside>
             <div style={{ display: "grid", gap: 20 }}>
-              {aboutSection === "overview" && (
-                <div style={{ padding: 18, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                  <p style={{ color: "#4b5563", lineHeight: 1.7 }}>{aboutIntro}</p>
-                </div>
-              )}
-
               {aboutSection === "education" && (
                 <section style={{ display: "grid", gap: 20 }}>
                   <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Education</h2>
