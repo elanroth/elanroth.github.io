@@ -218,12 +218,12 @@ const talks = [
       { label: "Fourth", url: "https://uwaterloo.ca/pure-mathematics/events/computability-learning-seminar-160" },
     ],
   },
-  {
-    title: "Formalizing Turing Degrees in Lean, Logic Seminar, University of Waterloo (Sep 2025)",
-    links: [
-      { label: "Abstract", url: "https://uwaterloo.ca/pure-mathematics/events/logic-seminar-77" },
-    ],
-  },
+  // {
+  //   title: "Formalizing Turing Degrees in Lean, Logic Seminar, University of Waterloo (Sep 2025)",
+  //   links: [
+  //     { label: "Abstract", url: "https://uwaterloo.ca/pure-mathematics/events/logic-seminar-77" },
+  //   ],
+  // },
   {
     title: "Too HoTT to Handle: The Importance of Homotopy Type Theory, Logic Seminar, University of Pennsylvania (May 2025)",
   },
