@@ -187,21 +187,21 @@ const GAME_CARDS: GameCard[] = [
   {
     id: "banagrams",
     title: "Banagrams",
-    description: "A real-time tile game focused on fast word-building and pattern search.",
+    description: "It's Banagrams, but online.",
     imageUrl: "/images/Banagrams_Photo.png",
     onOpen: openBanagramsInNewTab,
   },
   {
     id: "seqnc",
     title: "SEQNC",
-    description: "A sequence game that blends strategy and quick recognition.",
+    description: "Inspired by a game I play with license plates in Ontario.",
     imageUrl: "/images/SEQNC_Photo.png",
     onOpen: openSeqncInNewTab,
   },
   {
     id: "anagrams",
     title: "Anagrams",
-    description: "Explore letter permutations and visualize the structure of word sets.",
+    description: "Sometimes called Snatch, just a game I grew up playing.",
     status: "Under Construction",
     disabled: true,
     onOpen: openAnagramsInNewTab,
@@ -692,8 +692,8 @@ export default function App() {
         )}
 
         {activeTab === "games" && (
-          <section style={{ display: "grid", gap: 16 }}>
-            <div style={{ display: "grid", gap: 16, maxWidth: 1020, margin: "0 auto" }}>
+          <section style={{ display: "grid", gap: 16, justifyItems: "center" }}>
+            <div style={{ display: "grid", gap: 16, width: "80%", maxWidth: 1120, margin: "0 auto" }}>
               {GAME_CARDS.map((game) => (
                 <button
                   key={game.id}
@@ -714,27 +714,43 @@ export default function App() {
                     padding: 0,
                     cursor: game.disabled ? "not-allowed" : "pointer",
                     opacity: game.disabled ? 0.9 : 1,
+                    width: "100%",
                   }}
                 >
                   <div
                     style={{
-                      height: 190,
+                      height: 52,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 800,
+                      fontSize: 18,
+                      letterSpacing: "0.02em",
+                      color: "#111827",
+                      background: "#f8fafc",
+                      borderBottom: "1px solid #e5e7eb",
+                    }}
+                  >
+                    {game.title}
+                  </div>
+                  <div
+                    style={{
+                      height: 220,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       background: game.imageUrl
-                        ? `url(${game.imageUrl}) center/cover no-repeat`
+                        ? `url(${game.imageUrl}) center/contain no-repeat`
                         : "linear-gradient(135deg, #e2e8f0, #f8fafc)",
                       backgroundColor: game.imageUrl ? "#f8fafc" : "transparent",
                       borderBottom: "1px solid #e5e7eb",
                       color: "#94a3b8",
-                      fontSize: 48,
+                      fontSize: 44,
                     }}
                   >
                     {game.disabled && !game.imageUrl ? "🚧" : ""}
                   </div>
-                  <div style={{ padding: 14, display: "grid", gap: 8 }}>
-                    <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{game.title}</div>
+                  <div style={{ padding: 14, display: "grid", gap: 8, textAlign: "center" }}>
                     <div style={{ color: "#4b5563", lineHeight: 1.5 }}>{game.description}</div>
                     {game.status && (
                       <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", color: "#9ca3af" }}>
