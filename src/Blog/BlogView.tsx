@@ -5,7 +5,7 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { blogMetadata } from "./metadata";
 
-type BlogPost = { slug: string; title: string; content: string; date?: string };
+type BlogPost = { slug: string; title: string; content: string; date?: string; excerpt?: string; tags?: string[] };
 
 type BlogViewMode = "list" | "post";
 
@@ -23,6 +23,10 @@ function titleFromSlug(slug: string) {
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
+function stripFirstHeading(markdown: string) {
+  return markdown.replace(/^#\s+.*\n+/, "");
+}
+
 const BLOG_POSTS: BlogPost[] = Object.entries(postModules)
   .map(([path, content]) => {
     const slug = path.split("/").pop()?.replace(/\.md$/, "") ?? "post";
@@ -32,6 +36,8 @@ const BLOG_POSTS: BlogPost[] = Object.entries(postModules)
       slug,
       title: meta?.title ?? titleFromMarkdown(content, fallback),
       date: meta?.date,
+      excerpt: meta?.excerpt ?? "",
+      tags: meta?.tags ?? [],
       content,
     };
   })
@@ -74,17 +80,19 @@ export default function BlogView() {
               setBlogView("post");
             }}
             style={{
-              padding: 16,
-              borderRadius: 12,
+              padding: 18,
+              borderRadius: 16,
               border: "1px solid #e5e7eb",
               background: "white",
-              boxShadow: "0 8px 18px rgba(0,0,0,0.04)",
+              boxShadow: "0 8px 18px rgba(15, 23, 42, 0.06)",
               textAlign: "left",
               cursor: "pointer",
+              display: "grid",
+              gap: 10,
             }}
           >
-            <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{post.title}</div>
-            <div style={{ marginTop: 6, color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{post.date ?? "Date TBD"}</div>
+            <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>{post.title}</div>
+            {post.excerpt && <div style={{ color: "#475569", lineHeight: 1.6 }}>{post.excerpt}</div>}
           </button>
         ))}
       </div>
@@ -92,6 +100,7 @@ export default function BlogView() {
   }
 
   const activePost = BLOG_POSTS.find((post) => post.slug === activePostSlug);
+  const postContent = activePost?.content ? stripFirstHeading(activePost.content) : "";
 
   return (
     <div style={{ padding: 20, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
@@ -114,14 +123,28 @@ export default function BlogView() {
         <div style={{ fontWeight: 900, fontSize: 26, color: "#111827" }}>
           {activePost?.title ?? "Post"}
         </div>
-        <div style={{ marginTop: 6, color: "#6b7280", fontSize: 13, fontWeight: 700 }}>
-          {activePost?.date ?? "Date TBD"}
-        </div>
       </div>
       <div className="markdown" style={{ marginTop: 16 }}>
         <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-          {activePost?.content ?? ""}
+          {postContent}
         </ReactMarkdown>
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <button
+          type="button"
+          onClick={() => setBlogView("list")}
+          style={{
+            padding: "6px 12px",
+            borderRadius: 999,
+            border: "1px solid #e5e7eb",
+            background: "#f8fafc",
+            fontWeight: 700,
+            color: "#111827",
+            cursor: "pointer",
+          }}
+        >
+          Back to posts
+        </button>
       </div>
     </div>
   );

@@ -1,18 +1,24 @@
-# Computability - History and Formalization
+# Foundations of Algorithmic Randomness and Computability
 
-## The Dream of Mechanical Reasoning
+## Introduction
 
-At the turn of the twentieth century, David Hilbert expressed the belief that all of mathematics could be reduced to mechanical symbolic manipulation, void of the need for human insight or creativity. If we could just find the right formal system, the right rules for pushing symbols around, then we could put any conjecture into a machine and receive either a proof or a refutation. In terms that hadn't yet been coined, he believed in the existence of an *algorithm* for deciding all mathematical truth. This was referred to as the Entscheidunsgproblem.
+Since its inception, mathematics has been the language with which humanity formalizes abstract concepts. Sometimes the translation into math is straightforward, with operations such as addition and multiplication being highly intuitive. Other times, finding the math to represent notions such as infinity or holes in space is highly nontrivial. This post explores two fundamental questions: what does it mean to be random, and what does it mean to compute? We develop the theory of computation and algorithmic randomness by introducing historical background, the central constructions in computability theory, and three mathematical approaches to defining randomness. Our discussion is enriched by a formalization written in the Lean theorem prover, and code snippets will be used throughout the text to supplement and substantiate the ideas we present.
+
+## I. The Formalization of Computation
+
+### The Dream of Mechanical Reasoning
+
+At the turn of the twentieth century, David Hilbert expressed the belief that all of mathematics could be reduced to mechanical symbolic manipulation, void of the need for human insight or creativity. If we could just find the right formal system, the right rules for pushing symbols around, then we could put any conjecture into a machine and receive either a proof or a refutation. In terms that hadn't yet been coined, he believed in the existence of an *algorithm* for deciding all mathematical truth. This was referred to as the Entscheidungsproblem.
 
 To answer this question positively, one would simply have to provide such an algorithm. But to prove such a machine does not exist, we need to step back and answer a more fundamental question: *what is an algorithm?*. Before the 1930s, this notion lived only in intuition. Computation had the status of "I know it when I see it". But to make progress on this question we had to put the notion on formal grounds.
 
-In the 1930s, Turing, Church, and Gödel each provided rigorous definitions of computability, and these definitions ended up giving us the tools to prove Hilbert wrong. Gödel's incompleteness theorems showed that any sufficiently powerful formal system contains true statements it cannot prove, Turing proved that no algorithm can decide whether an arbitrary program halts, and the fully mechanical mathematician was proven impossible.
+In the 1930s, Turing, Church, and Gödel each provided rigorous definitions of computability, and these definitions gave us the tools to prove Hilbert wrong. Gödel's incompleteness theorems showed that any sufficiently powerful formal system contains true statements it cannot prove, Turing proved that no algorithm can decide whether an arbitrary program halts, and the fully mechanical mathematician was proven impossible.
 
 Still, something survives from Hilbert's vision. We cannot mechanize the *discovery* of all mathematical truth, but we can mechanize its *verification*. Modern proof assistants like Lean, Coq, and Isabelle let us write proofs in formal languages where every step is checked against a set of rules encoded into the language. The computer cannot tell us what to prove or how, but it can confirm, with absolute certainty, that our reasoning is valid.
 
-While Godel and Turing's results provide hard theoretical limits on computation, recent progress in machine learning suggests that some sufficiently advanced models may be able to approximate Hilbert's dream in practice. Modern systems have very recently been able to generate formal proofs of previously unsolved problems, do graduate-level mathematics, and win the most difficult math competitions. They're beginning to assist not just with verification but with actual mathematical discovery. One can imagine an AI system powerful enough to answer, with high probability, every mathematical question humans actually want to ask, and this would resemble Hilbert's magical oracle.
+While Gödel and Turing's results provide hard theoretical limits on computation, recent progress in machine learning suggests that some sufficiently advanced models may be able to approximate Hilbert's dream in practice. Modern systems have very recently been able to generate formal proofs of previously unsolved problems, do graduate-level mathematics, and win the most difficult math competitions. They're beginning to assist not just with verification but with actual mathematical discovery. One can imagine an AI system powerful enough to answer, with high probability, every mathematical question humans actually want to ask, and this would resemble Hilbert's magical oracle. 
 
-## Three Models of Computation
+### Three Models of Computation
 
 In the 1930s, three mathematicians working independently proposed formal definitions of computability. Alan Turing imagined an idealized human computer: someone with unlimited paper, a finite set of instructions, and infinite patience. Alonzo Church built a calculus of pure functions, where computation meant simplifying terms by applying and substituting. And Kurt Gödel, building on work by Herbrand, defined a class of arithmetic functions that could be built from simple pieces using specific construction rules.
 
@@ -20,9 +26,9 @@ In the 1930s, three mathematicians working independently proposed formal definit
 
 **Lambda calculus.** Alonzo Church's calculus of pure functions. This is a language that consists of simple expressions that can be applied to other expressions and simplified by substituting variables. Church claims a function is computable if it can be written as a lambda expression.
 
-**Recursive functions.** Kurt Gödel's class of number-theoretic functions built from simple primitives: zero, successor, projections—using composition, primitive recursion, and unbounded search. Godel claims a function is computable if it belongs to this class.
+**Recursive functions.** Kurt Gödel's class of number-theoretic functions built from simple primitives: zero, successor, projections—using composition, primitive recursion, and unbounded search. Gödel claims a function is computable if it belongs to this class.
 
-## The Church-Turing Thesis
+### The Church-Turing Thesis
 
 Surprisingly, it turns out that these seemingly different notions of computation - computation as instruction following, computation as term simplification, and computation as recursion on $\mathbb{N}$ - are exactly equivalent. This is a mathematical theorem: any Turing-computable function is lambda-definable, any lambda-definable function is recursive, and any recursive function is Turing-computable.
 
@@ -30,7 +36,7 @@ The **Church-Turing thesis** is a philosophical claim asserting that this shared
 
 While the CT thesis can't be proven, this convergence provides pretty convincing evidence of its truth. Three mathematicians with different motivations and different formalisms arrived at the same boundary. Every subsequent attempt to formalize computation—register machines, Post systems, cellular automata—has yielded the same class of functions. When every reasonable approach produces identical results, we have good reason to believe we've identified something fundamental about the universe.
 
-## Partial Recursive Functions: The Formal Definition
+### Partial Recursive Functions: The Formal Definition
 
 We work with the recursive function approach, as it connects most directly to our formalization. A **partial recursive function** is built from simple primitives using a small set of operations. The word "partial" matters here: these functions need not be defined everywhere. A computation might run forever without producing an answer.
 
@@ -62,17 +68,17 @@ $$
 
 If no such $n$ exists, the search runs forever. The function is undefined at that input.
 
-## Why μ-Minimization Matters
+### Why μ-Minimization Matters
 
-Primitive recursion alone gives you a lot: all the arithmetic operations, primality testing, anything with a predictable runtime. But it doesn't give you *everything* computable.
+Primitive recursion alone gives you a lot: all the arithmetic operations, primality testing, anything with a predictable runtime. But it doesn't give you *everything* computable. 
 
 Consider the following problem: given a description of a computation, find when (if ever) it terminates. This requires searching through time steps 0, 1, 2, ... until termination occurs. There's no bound you can compute in advance. You must simply search, and the search may never end.
 
 The μ-operator is what separates the *primitive* recursive functions from the *partial* recursive functions. It's the source of undecidability, of partial functions, of computations that might diverge. It's also what makes the recursive functions powerful enough to capture all of computation.
 
-## Relativizing Computation: Oracles
+### Oracles and Relative Computability
 
-We can all recognize that some problems are harder than others. In computability we are interested in comparing the relative difficulty of computational problems. One way to compare difficulty is through *reducibility*. Reducibility is a way of converting one problem into another, something which naturally comes up in every day life. For example, if you are looking to find your way to a certain destination, this becomes easy if you are able to obtain a map to your destination, ie. the problem of finding your destination *reduces* to finding a map to it. Another way to look at it is: the problem of finding your destination is *no more unsolvable* than the problem of obtaining a map.
+We can all recognize that some problems are harder than others. In computability we are interested in comparing the relative difficulty of computational problems. One way to compare difficulty is through *reducibility*. Reducibility is a way of converting one problem into another, something which naturally comes up in everyday life. For example, if you are looking to find your way to a certain destination, this becomes easy if you are able to obtain a map to your destination, i.e. the problem of finding your destination *reduces* to finding a map to it. Another way to look at it is: the problem of finding your destination is *no more unsolvable* than the problem of obtaining a map.
 
 Suppose we augment our computing device with an **oracle**, a black box that instantly answers queries about some function $g$. We can't see inside the box; we just submit inputs and receive outputs, at zero cost. A function $f$ is **recursive in** $g$ (written $f \leq_T g$ for Turing reducibility) if $f$ can be computed by a machine with oracle access to $g$. This relation captures a notion of *relative difficulty*: $f \leq_T g$ means "$f$ is no harder to compute than $g$," or "if someone handed us the answers for $g$, we could compute $f$."
 
@@ -99,7 +105,7 @@ The `oracle` constructor says: any function in our oracle set $O$ is computable 
 
 The `Nat.rfind` searches for the first $n$ where $f(a, n) = 0$. If found, it returns that $n$. If $f(a, n) \neq 0$ for all $n$, the result is `Part.none`: undefined.
 
-## Degrees of Unsolvability
+### Degrees of Unsolvability
 
 The reducibility relation orders problems by their inherent complexity. It is reflexive: any problem reduces to itself, since you can just solve it directly. It is transitive: if $f$ reduces to $g$ and $g$ reduces to $h$, then $f$ reduces to $h$ by chaining the reductions. But it is not antisymmetric. Two genuinely different problems can be mutually reducible, each one solvable given access to the other. When this happens, we say $f$ and $g$ are **Turing equivalent** ($f \equiv_T g$). They sit at the same level of difficulty.
 
@@ -117,7 +123,7 @@ To compare degrees rather than individual functions, we must lift the ordering. 
 
 With this lifted ordering, the Turing degrees form a **partial order**: reflexive, transitive, and now antisymmetric by construction. Two degrees are equal exactly when their members are mutually reducible. At the bottom sits $\mathbf{0}$, the degree containing all computable functions. These are the "easy" problems, solvable by algorithms with no oracle at all. They're all Turing-equivalent to each other: any computable function can compute any other without an oracle.
 
-## The Structure of the Degrees
+### The Structure of the Degrees 
 
 The simplest non-computable degree is $\mathbf{0'}$ (read "zero jump"), the degree of the halting problem. Given an encoding of programs, the halting problem asks: does program $e$ halt on input $n$? Turing proved that no computable function can answer this question for all pairs $(e, n)$. Yet the halting problem is well-defined as a set, and any function that could answer it would live in degree $\mathbf{0'}$.
 
@@ -132,15 +138,15 @@ More specifically the degrees form a join semilattice: any two degrees **a** and
 In Lean, we define the join by interleaving: even inputs query $f$, odd inputs query $g$, and we encode which oracle answered in the output.
 
 ```lean
-def turingJoin (f g : ℕ →. ℕ) : ℕ →. ℕ :=
+def join (f g : ℕ →. ℕ) : ℕ →. ℕ :=
   fun n =>
-    cond n.bodd
-    ( (g n.div2).map (fun y => 2 * y + 1) )
+    cond n.bodd 
+    ( (g n.div2).map (fun y => 2 * y + 1) ) 
     ( (f n.div2).map (fun y => 2 * y) )
-infix :50 " ⊕ " => turingJoin
+infix :50 " ⊕ " => join
 ```
 
-This definition of `turingJoin` forms the least upper bound (supremum) in our lattice:
+This definition of `join` forms the least upper bound (supremum) in our lattice:
 
 ```lean
 lemma left_le_join (f g : ℕ →. ℕ) : f ≤ᵀ (f ⊕ g)
@@ -158,11 +164,11 @@ instance instSemilatticeSup : SemilatticeSup TuringDegree where
   sup_le _ _ _ := sup_le
 ```
 
-One mysterious part of the structure of the Turing degrees is its **automorphism group**, $Aut(\mathbf{T})$. An automorphism of the Turing degrees is a permutation $π$ that preserves the ordering in both directions: $a ≤ b$ if and only if $π(a) ≤ π(b)$. The trivial automorphism is the identity function. There is an open conjecture which asks whether there are *any* non-trivial automorphisms at all. The closest we've gotten is from Slaman and Woodin, who proved that $Aut(\mathbf{T})$ is at most countable - we don't know if there are more than one, but at we know there are fewer than there are real numbers!
+One mysterious part of the structure of the Turing degrees is its **automorphism group**, $Aut(\mathbf{T})$. An automorphism of the Turing degrees is a permutation $π$ that preserves the ordering in both directions: $a ≤ b$ if and only if $π(a) ≤ π(b)$. The trivial automorphism is the identity function. There is an open conjecture which asks whether there are *any* non-trivial automorphisms at all. The closest we've gotten is from Slaman and Woodin, who proved that $Aut(\mathbf{T})$ is at most countable - we don't know if there are more than one, but we know there are fewer than there are real numbers!
 
 These different aspects of this structure matter for randomness. When we say a sequence is "random," we are making a claim about its computational properties. Random sequences are incomputable—they sit strictly above $\mathbf{0}$—and they resist computation in specific, measure-theoretic ways.
 
-## Gödel Encoding: Programs as Numbers
+### Gödel Encoding: Programs as Numbers
 
 A key technique running through all of computability theory is **Gödel encoding**, the representation of syntactic objects as natural numbers. Programs, formulas, proofs, and even other encodings can all be assigned numerical codes.
 
@@ -218,28 +224,29 @@ theorem exists_code {α : Type} [Primcodable α] (g : α → ℕ →. ℕ) (f : 
 
 This theorem is the formal statement of universality. A function is recursive in $g$ if and only if it has a code. The encoding bridges syntax and semantics: it lets us treat programs as data, feeding a program its own code as input.
 
-This encoding additionally allows us to define the jump operator mentioned previously.
+This encoding additionally allows us to define the jump operator mentioned previously. 
 
 ```lean
 def jump (f : ℕ →. ℕ) : ℕ →. ℕ :=
   λ n => eval (λ _ : Unit => f) (decode n) n
 ```
 
-To compute the jump of an oracle $f$ on input $n$, we decode $n$ as a program, run that program on input $n$ with oracle access to $f$, and return whatever it returns. The domain of this function—the set of $n$ where the $n$-th $f$-oracle program halts on itself—is the halting problem relative to $f$.
+To compute the jump of an oracle $f$ on input $n$, we decode $n$ as a program, run that program on input $n$ with oracle access to $f$, and return whatever it returns. The domain of this function—the set of $n$ where the $n$-th $f$-oracle program halts on itself—is the halting problem relative to $f$. 
 
-## Randomness as Defined by Computability
+The theory developed in this section allows us to study infinite objects through the lens of computation. In particular, we can ask whether an infinite binary sequence can be predicted, compressed, or successfully exploited by any algorithmic procedure. This viewpoint leads to computability-theoretic definitions of randomness, which introduce in the next section.
 
-Armed with this hefty tool we call "computation," we may use against another abstract notion: Randomness. What is $\emph{random}$? Intuitively we may have some ideas, but formalization requires rigor. First, we must fix an object of study. What things are we going to classify as random or not random? As algorithmic randomness is a field within theoretical computer science, some giants before us [Chaitin, Schnorr, ML,...] chose infinite binary sequences. Here are a few examples:
+## II. Translating Abstract Randomness to Mathematics
+
+Armed with this hefty tool we call "computation," we may use against another abstract notion: Randomness. What is *randomness*? Intuitively we may have some ideas, but formalization requires rigor. First, we must fix an object of study. What things are we going to classify as random or not random? As algorithmic randomness is a field within theoretical computer science, those who came before us chose infinite binary sequences. Here are a few examples:
 
 - $A_1 := 000 \dots$
 - $A_2 := 01010101 \dots$
 - $A_3 := 10110111011110111110 \dots$
 - $A_4 := 10100101001011101001 \dots$
 
-Which ones do you think are random? What pattern do the non-random seeming ones follow? You may have noticed that the use of $\dots$ is leading; stopping after three $0$'s in $A_1$ clearly indicates that the $0$'s will repeat, and similarly with the pattern $01$ in $A_2$. So these are definitely $\emph{not}$ random. $A_3$ and $A_4$ are left for your consideration. We urge you to pasuse and attempt to define your own notion of randomness. We present below four individuals' characterizations of random binary sequences. Is yours similar?
+Which ones do you think are random? What pattern do the non-random seeming ones follow? You may have noticed that the use of $\dots$ is leading; stopping after three $0$'s in $A_1$ clearly indicates that the $0$'s will repeat, and similarly with the pattern $01$ in $A_2$. So these are definitely *not* random. $A_3$ and $A_4$ are left for your consideration. We urge you to pause and attempt to define your own notion of randomness. We present below three individuals' characterizations of random binary sequences. Is yours similar?
 
-## Kolmogorov Complexity and Incompressibility
-
+### Kolmogorov Complexity and Incompressibility
 To study the first notion, we must humble ourselves. Infinite binary strings are impossible to fathom because (and only because) they are infinite. While we cannot grasp infinity, we can appeal to the finite world we do understand. Where we can put our conveniently formalized theory of computation into action. With these tools, we can reasonably observe arbitrarily long initial segments of our infinite binary string in question.
 
 Using the same idea of encoding programs as above, we can encode finite binary strings into natural numbers in order to use the recursive functions. Note that `decode_encode` asserts that we can go back and forth between binary strings and natural numbers without losing any data.
@@ -261,17 +268,17 @@ theorem decode_encode (σ : BinSeq) :
   decode (encode σ) = σ
 ```
 
-Algorithmic randomness uses the term "machine" to describe the lifting of a partially recursive function to take and return finite binary strings. Given some fixed machine, $M$, we can ask which strings it will output and how difficult it is to actually return them. For some finite binary string, $\sigma$, we may ask what is the shortest string such that running $M$ on that string will output $\sigma$. Formally, we can define Kolmogorov complexity with respect to a machine $M$ as
+Algorithmic randomness uses the term "machine" to describe the lifting of a partially recursive function to take and return finite binary strings. Given some fixed machine, $M$, we can ask which strings it will output and how difficult it is to actually return them. For some finite binary string, $\sigma$, we may ask what is the shortest string such that running $M$ on that string will output $\sigma$. Formally, we can define Kolmogorov complexity with respect to a machine $M$ as 
 
-$$C_M(\sigma) = min \{ |\tau| : M(\tau) = \sigma \}$$
+$$C_M(\sigma) = \min \{ |\tau| : M(\tau) = \sigma \}$$
 
 where $|\tau|$ denotes the length of $\tau$ and $M(\tau)=\sigma$ means executing machine $M$ on $\tau$ halts with output $\sigma$.
 
 Now, inputs to these machines that halt on any arbitrary set of inputs have access more information than just the bits that make them up. Such a machine must somehow know when it has finished reading its input. Since our programs consist only of $0$'s and $1$'s, this information cannot come from a special end marker. Essentially, the machine is given the length of the input for free, even though this information is not encoded in the input string.
 
-From an information-theoretic perspecitve, this is unsatisfactory. If we hope for inputs to convey only the information of their bits, our machines must know where the string ends. To circumvent this issue, we restrict our attention to prefix-free machines. A machine $M$ is prefix-free if whenever $M(\sigma)$ and $M(\tau)$ both halt with $\sigma \neq \tau$, then $\sigma$ is not a prefix of $\tau$ and vice versa.
+From an information-theoretic perspective, this is unsatisfactory. If we hope for inputs to convey only the information of their bits, our machines must know where the string ends. To circumvent this issue, we restrict our attention to prefix-free machines. A machine $M$ is prefix-free if whenever $M(\sigma)$ and $M(\tau)$ both halt with $\sigma \neq \tau$, then $\sigma$ is not a prefix of $\tau$ and vice versa.
 
-But why just concern ourselves with $M$? Recall that universal machines can simulate every other machine, meaning for all machines $M$, and strings $\sigma, there is some $\rho_M$ such that
+But why just concern ourselves with $M$? Recall that universal machines can simulate every other machine, meaning for all machines $M$, and strings $\sigma$, there is some $\rho_M$ such that
 
 $$U(\rho_M\sigma) = M(\sigma)$$
 
@@ -302,39 +309,42 @@ noncomputable def K (σ : BinSeq) : Nat :=
 
 While this may seem like theoretical nonsense, the very device you are reading this on is a universal machine (with some technical caveats we do not have to get into). Machines can be thought of as programming languages, and your computer or phone is a universal machine that compiles programs written in other languages.
 
-Finally, we arrive at Kolmogorov's definition of randomness: an infinite binary string is random if it is incompressible. Letting $A \upharpoonright n$ denote the first $n$ bits of the binary string $A$, Kolmogorov says a string $A$ is random if there is some constant $c$ such that for all $n$, $K(A \upharpoonright n) \ge n - c$.
+Finally, we arrive at Kolmogorov's definition of randomness: an infinite binary string is random if it is  incompressible. Letting $A \upharpoonright n$ denote the first $n$ bits of the binary string $A$, Kolmogorov says a string $A$ is random if there is some constant $c$ such that for all $n$, $K(A \upharpoonright n) \ge n - c$.
 
-A string $A$ is random if there is no program that can effectively compress any of its initial segments. The constant arises from the cost of simulating other machines, where different choices for universal machines yield different behaviour, but are all within a constant.
+A string $A$ is random if there is no program that can effectively compress any of its initial segments. The constant arises from the cost of simulating other machines, where different choices for universal machines yield different behaviour, but are all within a constant. Here, we find a representation of randomness that is defined by its ability to evade computation.
 
-## Measure Theoretic Randomness
-
+### Measure Theoretic Randomness
 Per Martin-Löf took a different approach. He used measure theory to check how properties of strings can be encoded in its initial segments. These finite binary strings that we have been playing around with fortunately form a measurable space. Consider the tree below
 
-![Binary Rree](/Binary%20Tree.png "Binary Tree")
+![Binary Tree](/Binary%20Tree.png "Binary Tree")
 
-If we think of the tree as having total measure $1$, then its subtrees with roots at (the binary strings) $0$ and $1$ each have measure $\frac{1}{2}$ since their sum gives the measure of the entire tree. In fact, as we go down the tree, we define the subtree with root $\sigma$ to have measure $2^{-|\sigma|}$. Let's look at an example to see Martin-Löf's intution.
+If we think of the tree as having total measure $1$, then its subtrees with roots at (the binary strings) $0$ and $1$ each have measure $\frac{1}{2}$ since their sum gives the measure of the entire tree. In fact, as we go down the tree, we define the subtree with root $\sigma$ to have measure $2^{-|\sigma|}$. Let's look at an example to see Martin-Löf's intuition.
 
-Consider $B$ to be the class [footnote class vs set] of infinite binary strings such that the every odd bit [footnote about 1-indexing] is $1$. So $101010..., 111111, 1110101... \in B$ and $011111, 010101, 001010 \notin B$. Clearly, the strings in $B$ are not random, they follow some simple rule. Now, how can we use our tree to pin down where exactly these strings live? We will denote set of extensions of some finite string $\sigma$ as $\llbracket \sigma \rrbracket$. It is now our goal to "capture" $B$ in a series of progressively more specific sections of the tree. For every $A \in B$, we have that $A \in \llbracket 1 \rrbracket$. Only looking at $\llbracket 1 \rrbracket$ is too restrictive since that set includes strings like $10000...$ which do not have $1$ at the third bit. In order to ensure that our third bit is $1$, it must be the case that $A \in \llbracket 101 \rrbracket$ or $A \in \llbracket 111 \rrbracket$.
+Consider $B$ to be the class of infinite binary strings such that the every odd bit is $1$. So $101010..., 111111, 1110101... \in B$ and $011111, 010101, 001010 \notin B$. Clearly, the strings in $B$ are not random, they follow some simple rule. Now, how can we use our tree to pin down where exactly these strings live? We will denote set of extensions of some finite string $\sigma$ as $\lbrack\!\lbrack \sigma \rbrack\!\rbrack$. It is now our goal to "capture" $B$ in a series of progressively more specific sections of the tree. For every $A \in B$, we have that $A \in \lbrack\!\lbrack 1 \rbrack\!\rbrack$. Only looking at $\lbrack\!\lbrack 1 \rbrack\!\rbrack$ is too restrictive since that set includes strings like $10000...$ which do not have $1$ at the third bit. In order to ensure that our third bit is $1$, it must be the case that $A \in \lbrack\!\lbrack 101 \rbrack\!\rbrack$ or $A \in \lbrack\!\lbrack 111 \rbrack\!\rbrack$. 
 
-Adopting Martin-Löf's notation, we define a Martin-Löf test to be a sequence $\{ U_n \}_{n \in \mathbb{N}}$ of sets such that the measure of $U_n \le 2^{-n}$ and each $U_n$ is the union of these extensions. We can denote the measure of a set by $\mu(\cdot)$. For our example, $U_1 = \llbracket 1 \rrbracket$ and $U_2 = \llbracket 101 \rrbracket \cup \llbracket 111 \rrbracket$. Notice that $\llbracket 1 \rrbracket$ is half of our tree, so $\mu(U_1)=\frac{1}{2}=2^{-1}$ and $\llbracket 101 \rrbracket \cup \llbracket 111 \rrbracket$ is the union of two eighths of our tree, so $\mu(U_2)=\frac{1}{8} + \frac{1}{8} = \frac{1}{4} = 2^{-2}$. Try to see how you would define $U_n$ for each $n$ and verify that the measures behave nicely.
+Adopting Martin-Löf's notation, we define a Martin-Löf test to be a sequence $\{ U_n \}_{n \in \mathbb{N}}$ of sets such that the measure of $U_n \le 2^{-n}$ and each $U_n$ is the union of such extensions. Taking unions of such extensions means that we are asking a question of the form, "Does there exist an extension of any of these finite strings which gives us our infinite binary string?" This is found using $\mu$-minimization, connecting us to our computable functions above. We can denote the measure of a set by $\mu(\cdot)$. For our example, $U_1 = \lbrack\!\lbrack 1 \rbrack\!\rbrack$ and $U_2 = \lbrack\!\lbrack 101 \rbrack\!\rbrack \cup \lbrack\!\lbrack 111 \rbrack\!\rbrack$. Notice that $\lbrack\!\lbrack 1 \rbrack\!\rbrack$ is half of our tree, so $\mu(U_1)=\frac{1}{2}=2^{-1}$ and $\lbrack\!\lbrack 101 \rbrack\!\rbrack \cup \lbrack\!\lbrack 111 \rbrack\!\rbrack$ is the union of two eighths of our tree, so $\mu(U_2)=\frac{1}{8} + \frac{1}{8} = \frac{1}{4} = 2^{-2}$. Try to see how you would define $U_n$ for each $n$ and verify that the measures behave nicely.
 
-We call a class $C$ Martin-Löf null if there is a Martin-Löf test $\{ U_n \}_{n \in \mathbb{N}}$ such that $C \subseteq \bigcap_n U_n$. So our class $B \emph{ is}$ Martin-Löf null since the construction above gives such a Martin-Löf test. Martin-Löf nullity formally defines some reasonable proprty of our class in question. Finally, an infinite binary string $A$ is Martin-Löf random if $\{A\}$ is not Martin-Löf null. Viewing a Martin-Löf test as a query into whether some property holds of a sequence, $A$ is random if $A$ does not satisfy any property that is effectively describable.
+We call a class $C$ Martin-Löf null if there is a Martin-Löf test $\{ U_n \}_{n \in \mathbb{N}}$ such that $C \subseteq \bigcap_n U_n$. So our class $B$ *is* Martin-Löf null since the construction above gives such a Martin-Löf test. Martin-Löf nullity formally defines some reasonable property of our class in question. Finally, an infinite binary string $A$ is Martin-Löf random if $\{A\}$ is not Martin-Löf null. Viewing a Martin-Löf test as a query into whether some property holds of a sequence, $A$ is random if $A$ does not satisfy any property that is effectively describable.
 
-Crazy enough, there does exist a universal Martin-Löf test. Meaning that this singular test encompasses all other Martin-Löf tests. Such a test is inutitively difficult to visualize. So difficult, it is impossible. That's right. You just got diagnolized! [i can get rid of this, may not be the vibe lol]
+Crazy enough, there does exist a universal Martin-Löf test. Meaning that this singular test encompasses all other Martin-Löf tests. While we can enumerate the test, it requires infinite questions which means we cannot decide in finite time whether something is random.
 
-## Gambling Randomness
+
+### Gambling Randomness
 
 Let's shift gears. Say you have $\$1$ and we sit down to flip a coin many, many times. You bet whatever money you have at each flip. Your final winnings will be based on how you choose to divide your current winnings at any given point between heads and tails. Any way you could possibly choose each of your bets we can model using some sort of a computable process.
 
-We formally define a $\emph{martingale}$ to be a function $d$ from finite binary strings $\sigma$ to nonnegative real numbers that satisfies
+We formally define a *martingale* to be a function $d$ from finite binary strings $\sigma$ to nonnegative real numbers that satisfies
 $$d(\sigma) = \frac{d(\sigma0) + d(\sigma1)}{2}$$
 
-That's right. The CT thesis in action! Effective functions producing the limits of human computation power.
+That's right. The CT thesis in action! Effective functions producing the limits of human computation power. 
 
-This condition is known as the fairness condition and prohibits money from appearing out of nowhere, you can only make what you bet. Turning it to an inequality would yield supermartingales, similar functions with slightly different behavior.
+This condition is known as the fairness condition and prohibits money from appearing out of nowhere, you can only make what you bet. Turning it to an inequality would yield supermartingales, similar functions with slightly different behavior. Alternatively, we can restrict $d$'s values to be approximable by a computable sequence of rational numbers from below which we call computably enumerable (c.e.) martingales. We say that a betting strategy succeeds on a sequence of coin flips if such a strategy results in infinite winnings. Formally, a martingale $d$ succeeds on an infinite binary sequence $A$ succeeds if
 
-If we restrict the values that $d$ takes on to be computable numbers, we get the notion of Schnorr randomness, named for Claus Peter Schnorr. If we restrict $d$'s values to be computably enumerable (or c.e.) numbers, meaning non-decreasing but non-halting, then the following result shines through.
+$$\limsup_n d(A \upharpoonright n) = \infty$$
 
-## They are all equivalent!
+Finally, $A$ is random if no c.e. martingale succeeds on it. This notion of randomness says that an inherent trait of a random sequence is that no computable procedure can win infinite money betting on it.
 
-The notion of randomness as implemented by incompressibility, measure theoretic tests, and c.e. martingales agree on everything! For any infinite binary sequence $A$, all three ideas will classify it the same way. Another instance, along with the CT thesis, of different formalization of abstract notions converging to one.
+
+### They are all equivalent!
+
+The notion of randomness as represented by incompressibility, measure theoretic tests, and c.e. martingales turn out to agree on everything! That is, each identifies exactly the same infinite binary sequences as random. Another instance, along with the CT thesis, of different formalizations of abstract notions converging to one: what began as very different formalizations of our intuitive idea of “lack of pattern” end up describing precisely the same phenomenon. While the concept of addition seems to have only one true representation, computation and randomness give rise to many different formalizations. Between the CT thesis and the equivalence of these randomness definitions, we should feel secure that mathematics can capture the intricacies of our world.

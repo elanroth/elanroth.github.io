@@ -9,7 +9,7 @@ import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGat
 import React from "react";
 import BlogView from "./Blog/BlogView";
 
-type TabId = "home" | "education" | "experience" | "talks" | "cv" | "blog" | "anagrams" | "banagrams" | "seqnc";
+type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
@@ -18,14 +18,10 @@ type ExperienceSection = { title: string; items: ExperienceItem[] };
 
 const TABS: Tab[] = [
   { id: "home", label: "Home" },
-  { id: "education", label: "Education" },
-  { id: "experience", label: "Experience" },
-  { id: "talks", label: "Talks" },
+  { id: "about", label: "About" },
   // { id: "cv", label: "CV" },
   { id: "blog", label: "Blog" },
-  { id: "anagrams", label: "Anagrams" },
-  { id: "banagrams", label: "Banagrams" },
-  { id: "seqnc", label: "SEQNC" },
+  { id: "games", label: "Games" },
 ];
 
 const educationItems = [
@@ -101,22 +97,22 @@ const experienceSections: ExperienceSection[] = [
       {
         title: "Fulbright Student Program · University of Waterloo",
         meta: "Ontario, Canada · Sep 2025 – Present",
-        summary: "Fulbright Visiting Researcher in Pure Mathematics. Working with Dr. Barbara Csima on computable structure theory, optimal bounds for Scott complexity of reduced abelian p-groups, and presenting research in algorithmic information theory.",
+        summary: "Fulbright visiting researcher in pure mathematics, working with Dr. Barbara Csima on computable structure theory, Scott complexity bounds for reduced abelian p-groups, and algorithmic information theory.",
       },
       {
         title: "University of Pennsylvania",
         meta: "Philadelphia, PA · May 2024 – Aug 2024",
-        summary: "Programming Languages Research Assistant to Dr. Steve Zdancewic. Developed a denotational semantics for IMP, extended toward the untyped lambda calculus, and formally verified PL properties using Coq.",
+        summary: "Programming languages research assistant to Dr. Steve Zdancewic. Built a denotational semantics for IMP, extended it toward the untyped lambda calculus, and verified key properties in Coq.",
       },
     ],
   },
   {
-    title: "Open Source",
+    title: "Open Source Contributions",
     items: [
       {
         title: "mathlib",
         meta: "Lean 4",
-        summary: "Formalized core definitions and results on Turing degrees and reducibility; built infrastructure for computability-theoretic constructions.",
+        summary: "Contributed core definitions and results on Turing degrees and reducibility, plus infrastructure for computability-theoretic constructions.",
         links: [
           { label: "Source", url: "https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Computability/TuringDegree.lean" },
         ],
@@ -124,15 +120,15 @@ const experienceSections: ExperienceSection[] = [
       {
         title: "Compfiles",
         meta: "Lean 4",
-        summary: "Formalized a full USAMO problem, including statement and proof.",
+        summary: "Formalized a full USAMO problem, from statement to proof.",
         links: [
           { label: "Problem", url: "https://github.com/dwrensha/compfiles/blob/main/Compfiles/Usa2017P1.lean" },
         ],
       },
       {
-        title: "In progress",
+        title: "In progress (mathlib/cslib)",
         meta: "Lean 4",
-        summary: "Lean formalization of Kolmogorov complexity and algorithmic randomness.",
+        summary: "Ongoing Lean formalization of Kolmogorov complexity and algorithmic randomness.",
         links: [
           { label: "Source", url: "https://github.com/elanroth/cslib/tree/main/Cslib/Computability/KolmogorovComplexity" },
         ],
@@ -145,29 +141,73 @@ const experienceSections: ExperienceSection[] = [
       {
         title: "University of Pennsylvania",
         meta: "Philadelphia, PA · Aug 2024 – May 2025",
-        summary: "Teaching Assistant, CIS 500: Software Foundations. Held office hours for graduate students and wrote, administered, and graded exams.",
+        summary: "Led office hours for graduate students, designed exams, and supported the CIS 500 Software Foundations course.",
       },
       {
         title: "University of Pennsylvania",
         meta: "Philadelphia, PA · Aug 2022 – May 2025",
-        summary: "Teaching Assistant, CIS 120: Programming Languages and Techniques. Taught weekly recitations and held office hours for large-enrollment courses.",
+        summary: "Taught weekly recitations, ran office hours, and supported a large-enrollment CIS 120 course.",
       },
     ],
   },
   {
-    title: "Analytics",
+    title: "Sports Analytics",
     items: [
       {
         title: "Wharton Moneyball Academy",
         meta: "Philadelphia, PA · Summer 2022 & Summer 2023",
-        summary: "Head Teaching and Research Assistant. Built baseball models using MCMC, managed teaching assistants and students, and taught statistical modeling in R.",
+        summary: "Built baseball models with MCMC, led teaching assistants, and taught statistical modeling in R.",
       },
       {
         title: "Philadelphia Union",
         meta: "Philadelphia, PA · Aug 2022 – Aug 2023",
-        summary: "Data Analyst. Built player/ball tracking visualizations and models for performance evaluation and decision-making.",
+        summary: "Built player and ball tracking visualizations and models to support performance evaluation and decision-making.",
       },
     ],
+  },
+];
+
+type AboutSectionId = "overview" | "education" | "coursework" | "research" | "open-source" | "talks" | "teaching" | "sports-analytics";
+type AboutSection = { id: AboutSectionId; label: string };
+
+const ABOUT_SECTIONS: AboutSection[] = [
+  { id: "overview", label: "Overview" },
+  { id: "education", label: "Education" },
+  { id: "coursework", label: "Coursework" },
+  { id: "research", label: "Research" },
+  { id: "open-source", label: "Open Source Contributions" },
+  { id: "talks", label: "Talks" },
+  { id: "teaching", label: "Teaching" },
+  { id: "sports-analytics", label: "Sports Analytics" },
+];
+
+const aboutIntro =
+  "I am currently based at the University of Waterloo on a Fulbright Scholarship, working in mathematical logic and computability theory. My focus is on formal methods and the structure of computation, with an emphasis on proof assistants and algorithmic randomness.";
+
+type GameCard = { id: string; title: string; description: string; imageUrl?: string; onOpen: () => void; disabled?: boolean; status?: string };
+
+const GAME_CARDS: GameCard[] = [
+  {
+    id: "banagrams",
+    title: "Banagrams",
+    description: "A real-time tile game focused on fast word-building and pattern search.",
+    imageUrl: "/public/images/Banagrams_Photo.png",
+    onOpen: openBanagramsInNewTab,
+  },
+  {
+    id: "seqnc",
+    title: "SEQNC",
+    description: "A sequence game that blends strategy and quick recognition.",
+    imageUrl: "/public/images/SEQNC_Photo.png",
+    onOpen: openSeqncInNewTab,
+  },
+  {
+    id: "anagrams",
+    title: "Anagrams",
+    description: "Explore letter permutations and visualize the structure of word sets.",
+    status: "Under Construction",
+    disabled: true,
+    onOpen: openAnagramsInNewTab,
   },
 ];
 
@@ -222,7 +262,7 @@ const currentProjects: CurrentProject[] = [
   },
   {
     title: "Uniform Complexity of Ω-Number Inversion Constructions",
-    description: "Investigating non-uniformity in realizing the correspondence between random left-c.e. reals and halting probabilities of optimal machines.",
+    description: "Investigating non-uniformity in realizing the correspondence between random left-c.e. reals and halting probabilities of optimal machines",
   },
   {
     title: "Formalizing Kolmogorov Complexity and Algorithmic Randomness",
@@ -298,7 +338,7 @@ const initialNav = (() => {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("tab");
     const full = url.searchParams.get("full") === "1";
-    if (t === "home" || t === "education" || t === "experience" || t === "talks" || t === "cv" || t === "blog" || t === "anagrams" || t === "banagrams" || t === "seqnc") {
+    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc") {
       return {
         tab: t as TabId,
         fullBanagrams: full && t === "banagrams",
@@ -321,6 +361,7 @@ export default function App() {
   const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
   const [showInstructions, setShowInstructions] = useState(false);
+  const [aboutSection, setAboutSection] = useState<AboutSectionId>("overview");
 
   const tabTitle = useMemo(() => TABS.find((t) => t.id === activeTab)?.label ?? "", [activeTab]);
 
@@ -329,6 +370,11 @@ export default function App() {
       setPhase("game");
     }
   }, [choice]);
+  useEffect(() => {
+    if (activeTab === "about") {
+      setAboutSection("overview");
+    }
+  }, [activeTab]);
 
   const banagramsView = (() => {
     if (showInstructions) return <InstructionsPage onClose={() => setShowInstructions(false)} />;
@@ -392,7 +438,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(249,250,251,0.9)", backdropFilter: "blur(6px)", borderBottom: "1px solid #e5e7eb" }}>
-        <div style={{ maxWidth: 960, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 20 }}>Elan Roth</div>
             <div style={{ fontSize: 13, color: "#6b7280" }}>{tabTitle}</div>
@@ -404,22 +450,6 @@ export default function App() {
                 tab={tab}
                 active={tab.id === activeTab}
                 onClick={() => {
-                  if (tab.id === "anagrams") {
-                    openAnagramsInNewTab();
-                    return;
-                  }
-                  if (tab.id === "banagrams") {
-                    openBanagramsInNewTab();
-                    return;
-                  }
-                  if (tab.id === "cv") {
-                    openCvInNewTab();
-                    return;
-                  }
-                  if (tab.id === "seqnc") {
-                    openSeqncInNewTab();
-                    return;
-                  }
                   setActiveTab(tab.id);
                 }}
               />
@@ -428,14 +458,14 @@ export default function App() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 960, margin: "0 auto", padding: "18px 16px 32px" }}>
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 32px" }}>
         {activeTab === "home" && (
           <section style={{ display: "grid", gap: 24 }}>
             <div style={{ display: "grid", gap: 16, alignItems: "center", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
               <div>
-                  <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 10 }}>About Me</h1>
+                  <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 10 }}></h1>
                 <p style={{ color: "#4b5563", lineHeight: 1.6, marginBottom: 12 }}>
-                  Currently researching mathematical logic at the University of Waterloo with Dr. Barbara Csima on a Fulbright Scholarship.
+                  Researching mathematical logic at the University of Waterloo with Dr. Barbara Csima on a Fulbright Scholarship.
                   I am most interested in computability theory and type theory, especially working with formal proof assistants such as Lean and Rocq.
                 </p>
               </div>
@@ -488,49 +518,170 @@ export default function App() {
           </section>
         )}
 
-        {activeTab === "education" && (
-          <section style={{ display: "grid", gap: 20 }}>
-            <div>
-              <div style={{ display: "grid", gap: 12 }}>
-                {educationItems.map((item) => (
-                  <div key={item.school} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between", alignItems: "baseline" }}>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{item.school}</div>
-                        <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 600 }}>{item.location}</div>
-                      </div>
-                      <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.dates}</div>
-                    </div>
-                    <div style={{ marginTop: 8, color: "#374151", fontWeight: 700, fontSize: 14 }}>{item.detail}</div>
-                    {item.sub && <div style={{ color: "#4b5563", marginTop: 4, fontSize: 14 }}>{item.sub}</div>}
-                    {item.honors && item.honors.length > 0 && (
-                      <ul style={{ marginTop: 8, paddingLeft: 18, color: "#4b5563", lineHeight: 1.5, fontSize: 14 }}>
-                        {item.honors.map((honor) => (
-                          <li key={`${item.school}-${honor}`}>{honor}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+        {activeTab === "about" && (
+          <section style={{ display: "grid", gridTemplateColumns: "240px minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
+            <aside style={{ display: "grid", gap: 8, alignContent: "start" }}>
+              {ABOUT_SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  onClick={() => setAboutSection(section.id)}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: aboutSection === section.id ? "#111827" : "white",
+                    color: aboutSection === section.id ? "white" : "#111827",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </aside>
+            <div style={{ display: "grid", gap: 20 }}>
+              {aboutSection === "overview" && (
+                <div style={{ padding: 18, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                  <p style={{ color: "#4b5563", lineHeight: 1.7 }}>{aboutIntro}</p>
+                </div>
+              )}
 
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Relevant Coursework</h2>
-              <div style={{ display: "grid", gap: 12 }}>
-                <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (University of Pennsylvania)</div>
-                  <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsPenn.join(" · ")}</div>
-                </div>
-                <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (Budapest Semester in Mathematics)</div>
-                  <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsBsm.join(" · ")}</div>
-                </div>
-                <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Computer Science (University of Pennsylvania)</div>
-                  <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.computerScience.join(" · ")}</div>
-                </div>
-              </div>
+              {aboutSection === "education" && (
+                <section style={{ display: "grid", gap: 20 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Education</h2>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {educationItems.map((item) => (
+                      <div key={item.school} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between", alignItems: "baseline" }}>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{item.school}</div>
+                            <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 600 }}>{item.location}</div>
+                          </div>
+                          <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.dates}</div>
+                        </div>
+                        <div style={{ marginTop: 8, color: "#374151", fontWeight: 700, fontSize: 14 }}>{item.detail}</div>
+                        {item.sub && <div style={{ color: "#4b5563", marginTop: 4, fontSize: 14 }}>{item.sub}</div>}
+                        {item.honors && item.honors.length > 0 && (
+                          <ul style={{ marginTop: 8, paddingLeft: 18, color: "#4b5563", lineHeight: 1.5, fontSize: 14 }}>
+                            {item.honors.map((honor) => (
+                              <li key={`${item.school}-${honor}`}>{honor}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {aboutSection === "coursework" && (
+                <section style={{ display: "grid", gap: 16 }}>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Coursework</h2>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                      <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (University of Pennsylvania)</div>
+                      <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsPenn.join(" · ")}</div>
+                    </div>
+                    <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                      <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (Budapest Semester in Mathematics)</div>
+                      <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsBsm.join(" · ")}</div>
+                    </div>
+                    <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                      <div style={{ fontWeight: 800, marginBottom: 6 }}>Computer Science (University of Pennsylvania)</div>
+                      <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.computerScience.join(" · ")}</div>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {(aboutSection === "research" || aboutSection === "open-source" || aboutSection === "teaching" || aboutSection === "sports-analytics") && (
+                <section style={{ display: "grid", gap: 16 }}>
+                  {experienceSections
+                    .filter((section) => {
+                      if (aboutSection === "research") return section.title === "Research";
+                      if (aboutSection === "open-source") return section.title === "Open Source Contributions";
+                      if (aboutSection === "teaching") return section.title === "Teaching";
+                      return section.title === "Sports Analytics";
+                    })
+                    .map((section) => (
+                      <div key={section.title}>
+                        <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{section.title}</h2>
+                        <div style={{ marginTop: 10, display: "grid", gap: 12 }}>
+                          {section.items.map((item) => (
+                            <div key={`${section.title}-${item.title}`} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                                <div style={{ fontWeight: 800 }}>{item.title}</div>
+                                {item.meta && <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.meta}</div>}
+                              </div>
+                              <p style={{ color: "#4b5563", lineHeight: 1.6, marginTop: 6 }}>{item.summary}</p>
+                              {item.links && (
+                                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+                                  {item.links.map((link) => (
+                                    <a
+                                      key={link.url}
+                                      href={link.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      style={{
+                                        padding: "6px 10px",
+                                        borderRadius: 999,
+                                        border: "1px solid #e5e7eb",
+                                        background: "#f8fafc",
+                                        fontWeight: 700,
+                                        color: "#1d4ed8",
+                                        textDecoration: "none",
+                                      }}
+                                    >
+                                      {link.label}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </section>
+              )}
+
+              {aboutSection === "talks" && (
+                <section>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Talks</h2>
+                  <div style={{ marginTop: 10, display: "grid", gap: 12 }}>
+                    {talks.map((talk) => (
+                      <div key={talk.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)", color: "#4b5563", lineHeight: 1.6, display: "grid", gap: 8 }}>
+                        <div>{talk.title}</div>
+                        {talk.links && (
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            {talk.links.map((link) => (
+                              <a
+                                key={link.url}
+                                href={link.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 999,
+                                  border: "1px solid #e5e7eb",
+                                  background: "#f8fafc",
+                                  fontWeight: 700,
+                                  color: "#1d4ed8",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                {link.label}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           </section>
         )}
@@ -538,85 +689,6 @@ export default function App() {
         {activeTab === "blog" && (
           <section style={{ display: "grid", gap: 16 }}>
             <BlogView />
-          </section>
-        )}
-
-        {activeTab === "experience" && (
-          <section style={{ display: "grid", gap: 20 }}>
-            {experienceSections.map((section) => (
-              <div key={section.title} style={{ display: "grid", gap: 12 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800 }}>{section.title}</h2>
-                <div style={{ display: "grid", gap: 12 }}>
-                  {section.items.map((item) => (
-                    <div key={`${section.title}-${item.title}`} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                        <div style={{ fontWeight: 800 }}>{item.title}</div>
-                        {item.meta && <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.meta}</div>}
-                      </div>
-                      <p style={{ color: "#4b5563", lineHeight: 1.6, marginTop: 6 }}>{item.summary}</p>
-                      {item.links && (
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-                          {item.links.map((link) => (
-                            <a
-                              key={link.url}
-                              href={link.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{
-                                padding: "6px 10px",
-                                borderRadius: 999,
-                                border: "1px solid #e5e7eb",
-                                background: "#f8fafc",
-                                fontWeight: 700,
-                                color: "#1d4ed8",
-                                textDecoration: "none",
-                              }}
-                            >
-                              {link.label}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {activeTab === "talks" && (
-          <section>
-            <div style={{ display: "grid", gap: 12 }}>
-              {talks.map((talk) => (
-                <div key={talk.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)", color: "#4b5563", lineHeight: 1.6, display: "grid", gap: 8 }}>
-                  <div>{talk.title}</div>
-                  {talk.links && (
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      {talk.links.map((link) => (
-                        <a
-                          key={link.url}
-                          href={link.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid #e5e7eb",
-                            background: "#f8fafc",
-                            fontWeight: 700,
-                            color: "#1d4ed8",
-                            textDecoration: "none",
-                          }}
-                        >
-                          {link.label}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
           </section>
         )}
 
@@ -628,28 +700,59 @@ export default function App() {
           </section>
         )}
 
-        {activeTab === "anagrams" && (
-          <section>
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 18, background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.04)" }}>
-              {anagramsChoice ? (
-                <AnagramsVisualizer choice={anagramsChoice} />
-              ) : (
-                <AnagramsLobbyGate onEnter={setAnagramsChoice} />
-              )}
-            </div>
-          </section>
-        )}
-
-        {activeTab === "seqnc" && (
-          <section>
-            <SEQNC />
-          </section>
-        )}
-
-        {activeTab === "banagrams" && (
-          <section>
-            <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.04)" }}>
-              {banagramsView}
+        {activeTab === "games" && (
+          <section style={{ display: "grid", gap: 16 }}>
+            <div style={{ display: "grid", gap: 16, maxWidth: 1020, margin: "0 auto" }}>
+              {GAME_CARDS.map((game) => (
+                <button
+                  key={game.id}
+                  type="button"
+                  onClick={() => {
+                    if (!game.disabled) {
+                      game.onOpen();
+                    }
+                  }}
+                  disabled={game.disabled}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 14,
+                    background: "white",
+                    boxShadow: "0 8px 18px rgba(0,0,0,0.04)",
+                    overflow: "hidden",
+                    textAlign: "left",
+                    padding: 0,
+                    cursor: game.disabled ? "not-allowed" : "pointer",
+                    opacity: game.disabled ? 0.9 : 1,
+                  }}
+                >
+                  <div
+                    style={{
+                      height: 190,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: game.imageUrl
+                        ? `url(${game.imageUrl}) center/cover no-repeat`
+                        : "linear-gradient(135deg, #e2e8f0, #f8fafc)",
+                      backgroundColor: game.imageUrl ? "#f8fafc" : "transparent",
+                      borderBottom: "1px solid #e5e7eb",
+                      color: "#94a3b8",
+                      fontSize: 48,
+                    }}
+                  >
+                    {game.disabled && !game.imageUrl ? "🚧" : ""}
+                  </div>
+                  <div style={{ padding: 14, display: "grid", gap: 8 }}>
+                    <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{game.title}</div>
+                    <div style={{ color: "#4b5563", lineHeight: 1.5 }}>{game.description}</div>
+                    {game.status && (
+                      <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", color: "#9ca3af" }}>
+                        {game.status}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
             </div>
           </section>
         )}
