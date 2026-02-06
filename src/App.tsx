@@ -26,7 +26,7 @@ const TABS: Tab[] = [
   { id: "education", label: "Education" },
   { id: "experience", label: "Experience" },
   { id: "talks", label: "Talks" },
-  { id: "cv", label: "CV" },
+  // { id: "cv", label: "CV" },
   { id: "blog", label: "Blog" },
   { id: "anagrams", label: "Anagrams" },
   { id: "banagrams", label: "Banagrams" },
