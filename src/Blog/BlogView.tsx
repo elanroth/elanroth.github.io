@@ -9,7 +9,7 @@ type BlogPost = { slug: string; title: string; content: string; date?: string; e
 
 type BlogViewMode = "list" | "post";
 
-const postModules = import.meta.glob("./content/*.md", { as: "raw", eager: true }) as Record<string, string>;
+const postModules = import.meta.glob("./content/*.md", { query: "?raw", import: 'default', eager: true }) as Record<string, string>;
 
 function titleFromMarkdown(markdown: string, fallback: string) {
   const match = markdown.match(/^#\s+(.+)$/m);

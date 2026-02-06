@@ -1,4 +1,5 @@
 # Foundations of Algorithmic Randomness and Computability
+Written in collaboration with [Tanner Duve](https://tannerduve.github.io/)
 
 ## Introduction
 
@@ -316,7 +317,7 @@ A string $A$ is random if there is no program that can effectively compress any 
 ### Measure Theoretic Randomness
 Per Martin-Löf took a different approach. He used measure theory to check how properties of strings can be encoded in its initial segments. These finite binary strings that we have been playing around with fortunately form a measurable space. Consider the tree below
 
-![Binary Tree](/Binary%20Tree.png "Binary Tree")
+![Binary Tree](/images/blog/Binary%20Tree.png "Binary Tree")
 
 If we think of the tree as having total measure $1$, then its subtrees with roots at (the binary strings) $0$ and $1$ each have measure $\frac{1}{2}$ since their sum gives the measure of the entire tree. In fact, as we go down the tree, we define the subtree with root $\sigma$ to have measure $2^{-|\sigma|}$. Let's look at an example to see Martin-Löf's intuition.
 
