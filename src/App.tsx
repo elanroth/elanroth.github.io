@@ -188,14 +188,14 @@ const GAME_CARDS: GameCard[] = [
     id: "banagrams",
     title: "Banagrams",
     description: "A real-time tile game focused on fast word-building and pattern search.",
-    imageUrl: "/public/images/Banagrams_Photo.png",
+    imageUrl: "/images/Banagrams_Photo.png",
     onOpen: openBanagramsInNewTab,
   },
   {
     id: "seqnc",
     title: "SEQNC",
     description: "A sequence game that blends strategy and quick recognition.",
-    imageUrl: "/public/images/SEQNC_Photo.png",
+    imageUrl: "/images/SEQNC_Photo.png",
     onOpen: openSeqncInNewTab,
   },
   {
