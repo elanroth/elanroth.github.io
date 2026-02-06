@@ -5,17 +5,21 @@ import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./canadian/GreatWhiteNorth";
 import { AnagramsVisualizer } from "./Anagrams/game";
-import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";import React from "react";
+import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
+import { blogMetadata } from "./posts/metadata";
 
-type TabId = "home" | "education" | "experience" | "talks" | "cv" | "anagrams" | "banagrams" | "seqnc";
+type TabId = "home" | "education" | "experience" | "talks" | "cv" | "blog" | "anagrams" | "banagrams" | "seqnc";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
 type ExperienceItem = { title: string; meta: string; summary: string; links?: LinkItem[] };
 type ExperienceSection = { title: string; items: ExperienceItem[] };
+type BlogPost = { slug: string; title: string; content: string; date?: string };
 
 const TABS: Tab[] = [
   { id: "home", label: "Home" },
@@ -23,6 +27,7 @@ const TABS: Tab[] = [
   { id: "experience", label: "Experience" },
   { id: "talks", label: "Talks" },
   { id: "cv", label: "CV" },
+  { id: "blog", label: "Blog" },
   { id: "anagrams", label: "Anagrams" },
   { id: "banagrams", label: "Banagrams" },
   { id: "seqnc", label: "SEQNC" },
@@ -234,6 +239,42 @@ const currentProjects: CurrentProject[] = [
   },
 ];
 
+const postModules = import.meta.glob("./posts/*.md", { as: "raw", eager: true }) as Record<string, string>;
+
+function titleFromMarkdown(markdown: string, fallback: string) {
+  const match = markdown.match(/^#\s+(.+)$/m);
+  if (match) return match[1].trim();
+  return fallback;
+}
+
+function titleFromSlug(slug: string) {
+  return slug
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+const BLOG_POSTS: BlogPost[] = Object.entries(postModules)
+  .map(([path, content]) => {
+    const slug = path.split("/").pop()?.replace(/\.md$/, "") ?? "post";
+    const fallback = titleFromSlug(slug);
+    const meta = blogMetadata[slug];
+    return {
+      slug,
+      title: meta?.title ?? titleFromMarkdown(content, fallback),
+      date: meta?.date,
+      content,
+    };
+  })
+  .sort((a, b) => {
+    const aTime = a.date ? Date.parse(a.date) : Number.NaN;
+    const bTime = b.date ? Date.parse(b.date) : Number.NaN;
+    const aHasDate = !Number.isNaN(aTime);
+    const bHasDate = !Number.isNaN(bTime);
+    if (aHasDate && bHasDate && aTime !== bTime) return bTime - aTime;
+    if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+    return a.title.localeCompare(b.title);
+  });
+
 function TabButton({ tab, active, onClick }: { tab: Tab; active: boolean; onClick: () => void }) {
   return (
     <button
@@ -297,7 +338,7 @@ const initialNav = (() => {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("tab");
     const full = url.searchParams.get("full") === "1";
-    if (t === "home" || t === "education" || t === "experience" || t === "talks" || t === "cv" || t === "anagrams" || t === "banagrams" || t === "seqnc") {
+    if (t === "home" || t === "education" || t === "experience" || t === "talks" || t === "cv" || t === "blog" || t === "anagrams" || t === "banagrams" || t === "seqnc") {
       return {
         tab: t as TabId,
         fullBanagrams: full && t === "banagrams",
@@ -320,6 +361,8 @@ export default function App() {
   const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
   const [showInstructions, setShowInstructions] = useState(false);
+  const [activePostSlug, setActivePostSlug] = useState<string>("");
+  const [blogView, setBlogView] = useState<"list" | "post">("list");
 
   const tabTitle = useMemo(() => TABS.find((t) => t.id === activeTab)?.label ?? "", [activeTab]);
 
@@ -328,6 +371,15 @@ export default function App() {
       setPhase("game");
     }
   }, [choice]);
+  useEffect(() => {
+    if (activeTab === "blog") {
+      setBlogView("list");
+    }
+  }, [activeTab]);
+  useEffect(() => {
+    if (activePostSlug || BLOG_POSTS.length === 0) return;
+    setActivePostSlug(BLOG_POSTS[0].slug);
+  }, [activePostSlug]);
 
   const banagramsView = (() => {
     if (showInstructions) return <InstructionsPage onClose={() => setShowInstructions(false)} />;
@@ -531,6 +583,72 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </section>
+        )}
+
+        {activeTab === "blog" && (
+          <section style={{ display: "grid", gap: 16 }}>
+            {BLOG_POSTS.length === 0 ? (
+              <div style={{ padding: 20, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)", color: "#6b7280", fontWeight: 600 }}>
+                No posts yet.
+              </div>
+            ) : blogView === "list" ? (
+              <div style={{ display: "grid", gap: 12 }}>
+                {BLOG_POSTS.map((post) => (
+                  <button
+                    key={post.slug}
+                    type="button"
+                    onClick={() => {
+                      setActivePostSlug(post.slug);
+                      setBlogView("post");
+                    }}
+                    style={{
+                      padding: 16,
+                      borderRadius: 12,
+                      border: "1px solid #e5e7eb",
+                      background: "white",
+                      boxShadow: "0 8px 18px rgba(0,0,0,0.04)",
+                      textAlign: "left",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{post.title}</div>
+                    <div style={{ marginTop: 6, color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{post.date ?? "Date TBD"}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: 20, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+                <button
+                  type="button"
+                  onClick={() => setBlogView("list")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: "1px solid #e5e7eb",
+                    background: "#f8fafc",
+                    fontWeight: 700,
+                    color: "#111827",
+                    cursor: "pointer",
+                  }}
+                >
+                  Back to posts
+                </button>
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontWeight: 900, fontSize: 26, color: "#111827" }}>
+                    {BLOG_POSTS.find((post) => post.slug === activePostSlug)?.title ?? "Post"}
+                  </div>
+                  <div style={{ marginTop: 6, color: "#6b7280", fontSize: 13, fontWeight: 700 }}>
+                    {BLOG_POSTS.find((post) => post.slug === activePostSlug)?.date ?? "Date TBD"}
+                  </div>
+                </div>
+                <div className="markdown" style={{ marginTop: 16 }}>
+                  <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    {BLOG_POSTS.find((post) => post.slug === activePostSlug)?.content ?? ""}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

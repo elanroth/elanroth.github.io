@@ -1,3 +1,107 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.markdown {
+	color: #111827;
+	line-height: 1.7;
+	font-size: 16px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+	color: #0f172a;
+	font-weight: 800;
+	line-height: 1.2;
+	margin: 24px 0 12px;
+}
+
+.markdown h1 {
+	font-size: 28px;
+}
+
+.markdown h2 {
+	font-size: 22px;
+}
+
+.markdown h3 {
+	font-size: 18px;
+}
+
+.markdown p {
+	margin: 12px 0;
+}
+
+.markdown strong {
+	font-weight: 800;
+}
+
+.markdown em {
+	font-style: italic;
+}
+
+.markdown a {
+	color: #1d4ed8;
+	text-decoration: none;
+	font-weight: 700;
+}
+
+.markdown a:hover {
+	text-decoration: underline;
+}
+
+.markdown ul,
+.markdown ol {
+	margin: 12px 0 12px 20px;
+	padding-left: 16px;
+}
+
+.markdown li {
+	margin: 6px 0;
+}
+
+.markdown blockquote {
+	margin: 16px 0;
+	padding: 8px 14px;
+	border-left: 3px solid #e5e7eb;
+	background: #f8fafc;
+	color: #374151;
+}
+
+.markdown pre {
+	margin: 14px 0;
+	padding: 14px;
+	background: #0f172a;
+	color: #e2e8f0;
+	border-radius: 10px;
+	overflow-x: auto;
+	font-size: 14px;
+	line-height: 1.6;
+}
+
+.markdown code {
+	font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.markdown :not(pre) > code {
+	background: #f1f5f9;
+	color: #0f172a;
+	padding: 2px 6px;
+	border-radius: 6px;
+	font-size: 0.95em;
+}
+
+.markdown img {
+	max-width: 100%;
+	height: auto;
+	border-radius: 10px;
+	margin: 12px 0;
+}
+
+.markdown hr {
+	border: 0;
+	border-top: 1px solid #e5e7eb;
+	margin: 20px 0;
+}
