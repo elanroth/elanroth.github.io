@@ -3,7 +3,7 @@ import Game from "./Banagrams/engine/Game";
 import { LobbyGate, type LobbyChoice } from "./Banagrams/engine/LobbyGate";
 import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
-import { SEQNC } from "./canadian/GreatWhiteNorth";
+import { SEQNC } from "./SEQNC/GreatWhiteNorth";
 import { AnagramsVisualizer } from "./Anagrams/game";
 import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";
 import React from "react";
@@ -218,12 +218,12 @@ const talks = [
       { label: "Fourth", url: "https://uwaterloo.ca/pure-mathematics/events/computability-learning-seminar-160" },
     ],
   },
-  // {
-  //   title: "Formalizing Turing Degrees in Lean, Logic Seminar, University of Waterloo (Sep 2025)",
-  //   links: [
-  //     { label: "Abstract", url: "https://uwaterloo.ca/pure-mathematics/events/logic-seminar-77" },
-  //   ],
-  // },
+  {
+    title: "Formalizing Turing Degrees in Lean, Logic Seminar, University of Waterloo (Sep 2025)",
+    links: [
+      { label: "Abstract", url: "https://uwaterloo.ca/pure-mathematics/events/logic-seminar-77" },
+    ],
+  },
   {
     title: "Too HoTT to Handle: The Importance of Homotopy Type Theory, Logic Seminar, University of Pennsylvania (May 2025)",
   },
@@ -265,10 +265,10 @@ const currentProjects: CurrentProject[] = [
     title: "Formalizing Kolmogorov Complexity and Algorithmic Randomness",
     description: "Using Lean to formalize these notions for the mathlib and cslib libraries",
   },
-  {
-    title: "Formalizing Turing Degrees",
-    description: "Working with Tanner Duve to contribute to the to mathlib libary by formally defining Turing reducibility",
-  },
+  // {
+  //   title: "Formalizing Turing Degrees",
+  //   description: "Working with Tanner Duve to contribute to the to mathlib libary by formally defining Turing reducibility",
+  // },
 ];
 
 
