@@ -27,6 +27,31 @@ function stripFirstHeading(markdown: string) {
   return markdown.replace(/^#\s+.*\n+/, "");
 }
 
+function getPostSlugFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const slug = url.searchParams.get("post");
+    return slug ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function setPostSlugInUrl(slug?: string) {
+  try {
+    const url = new URL(window.location.href);
+    if (slug) {
+      url.searchParams.set("tab", "blog");
+      url.searchParams.set("post", slug);
+    } else {
+      url.searchParams.delete("post");
+    }
+    window.history.pushState({}, "", url.toString());
+  } catch {
+    /* ignore */
+  }
+}
+
 const BLOG_POSTS: BlogPost[] = Object.entries(postModules)
   .map(([path, content]) => {
     const slug = path.split("/").pop()?.replace(/\.md$/, "") ?? "post";
@@ -56,9 +81,38 @@ export default function BlogView() {
   const [blogView, setBlogView] = useState<BlogViewMode>("list");
 
   useEffect(() => {
+    const slugFromUrl = getPostSlugFromUrl();
+    if (slugFromUrl) {
+      setActivePostSlug(slugFromUrl);
+      setBlogView("post");
+    }
+
+    function handlePopState() {
+      const nextSlug = getPostSlugFromUrl();
+      if (!nextSlug) {
+        setBlogView("list");
+        return;
+      }
+      setActivePostSlug(nextSlug);
+      setBlogView("post");
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
     if (activePostSlug || BLOG_POSTS.length === 0) return;
     setActivePostSlug(BLOG_POSTS[0].slug);
   }, [activePostSlug]);
+
+  useEffect(() => {
+    if (blogView !== "post") return;
+    const exists = BLOG_POSTS.some((post) => post.slug === activePostSlug);
+    if (exists) return;
+    setBlogView("list");
+    setPostSlugInUrl(undefined);
+  }, [activePostSlug, blogView]);
 
   if (BLOG_POSTS.length === 0) {
     return (
@@ -78,6 +132,7 @@ export default function BlogView() {
             onClick={() => {
               setActivePostSlug(post.slug);
               setBlogView("post");
+              setPostSlugInUrl(post.slug);
             }}
             style={{
               padding: 18,
@@ -106,7 +161,10 @@ export default function BlogView() {
     <div style={{ padding: 20, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
       <button
         type="button"
-        onClick={() => setBlogView("list")}
+        onClick={() => {
+          setBlogView("list");
+          setPostSlugInUrl(undefined);
+        }}
         style={{
           padding: "6px 12px",
           borderRadius: 999,
@@ -132,7 +190,10 @@ export default function BlogView() {
       <div style={{ marginTop: 20 }}>
         <button
           type="button"
-          onClick={() => setBlogView("list")}
+          onClick={() => {
+            setBlogView("list");
+            setPostSlugInUrl(undefined);
+          }}
           style={{
             padding: "6px 12px",
             borderRadius: 999,

@@ -335,6 +335,15 @@ const initialNav = (() => {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("tab");
     const full = url.searchParams.get("full") === "1";
+    const post = url.searchParams.get("post");
+    if (post) {
+      return {
+        tab: "blog" as TabId,
+        fullBanagrams: false,
+        fullSeqnc: false,
+        fullAnagrams: false,
+      };
+    }
     if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc") {
       return {
         tab: t as TabId,
