@@ -1,9 +1,11 @@
 # Foundations of Algorithmic Randomness and Computability
 Written in collaboration with [Tanner Duve](https://tannerduve.github.io/)
 
+Check out the Lean code we have written for [Computability](https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Computability/TuringDegree.lean) and [Randomness](https://github.com/elanroth/cslib/tree/main/Cslib/Computability/KolmogorovComplexity)
+
 ## Introduction
 
-Since its inception, mathematics has been the language with which humanity formalizes abstract concepts. Sometimes the translation into math is straightforward, with operations such as addition and multiplication being highly intuitive. Other times, finding the math to represent notions such as infinity or holes in space is highly nontrivial. This post explores two fundamental questions: what does it mean to be random, and what does it mean to compute? We develop the theory of computation and algorithmic randomness by introducing historical background, the central constructions in computability theory, and three mathematical approaches to defining randomness. Our discussion is enriched by a formalization written in the Lean theorem prover, and code snippets will be used throughout the text to supplement and substantiate the ideas we present.
+This post explores two fundamental questions: what does it mean to be random, and what does it mean to compute? We develop the theory of computation and algorithmic randomness by introducing historical background, the central constructions in computability theory, and three mathematical approaches to defining randomness. Our discussion is enriched by a formalization written in the Lean theorem prover, and code snippets will be used throughout the text to supplement and substantiate the ideas we present.
 
 ## I. The Formalization of Computation
 
@@ -348,4 +350,4 @@ Finally, $A$ is random if no c.e. martingale succeeds on it. This notion of rand
 
 ### They are all equivalent!
 
-The notion of randomness as represented by incompressibility, measure theoretic tests, and c.e. martingales turn out to agree on everything! That is, each identifies exactly the same infinite binary sequences as random. Another instance, along with the CT thesis, of different formalizations of abstract notions converging to one: what began as very different formalizations of our intuitive idea of “lack of pattern” end up describing precisely the same phenomenon. While the concept of addition seems to have only one true representation, computation and randomness give rise to many different formalizations. Between the CT thesis and the equivalence of these randomness definitions, we should feel secure that mathematics can capture the intricacies of our world.
+The notion of randomness as represented by incompressibility, measure theoretic tests, and c.e. martingales turn out to agree on everything! That is, each identifies exactly the same infinite binary sequences as random. Another instance, along with the CT thesis, of different formalizations of abstract notions converging to one: what began as very different formalizations of our intuitive idea of “lack of pattern” end up describing precisely the same phenomenon. When independent formalizations of the same intuitive concept consistently single out the same objects, that is evidence that we have stumbled upon something "real", not just an artifact of the formalism.
