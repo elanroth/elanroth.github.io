@@ -9,7 +9,7 @@ import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGat
 import React from "react";
 import BlogView from "./Blog/BlogView";
 
-type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc";
+type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "god";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
@@ -22,6 +22,7 @@ const TABS: Tab[] = [
   // { id: "cv", label: "CV" },
   { id: "blog", label: "Blog" },
   { id: "games", label: "Games" },
+  { id: "god", label: "God" },
 ];
 
 const educationItems = [
@@ -330,6 +331,10 @@ function openAnagramsInNewTab() {
   }
 }
 
+function openGodInNewTab() {
+  window.open("https://open.spotify.com/show/7hUT0A4fQYB4TgmEZt8BjV?si=5d1633640fe34b97", "_blank", "noopener,noreferrer");
+}
+
 const initialNav = (() => {
   try {
     const url = new URL(window.location.href);
@@ -456,6 +461,10 @@ export default function App() {
                 tab={tab}
                 active={tab.id === activeTab}
                 onClick={() => {
+                  if (tab.id === "god") {
+                    openGodInNewTab();
+                    return;
+                  }
                   setActiveTab(tab.id);
                 }}
               />
