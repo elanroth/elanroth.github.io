@@ -34,10 +34,10 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
 
-      - name: Include budget app
-        run: |
-          mkdir -p build/budget
-          cp -R budget/* build/budget/
+      # - name: Include budget app
+      #   run: |
+      #     mkdir -p build/budget
+      #     cp -R budget/* build/budget/
 
 
       - name: Stamp build
