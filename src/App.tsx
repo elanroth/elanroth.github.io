@@ -203,8 +203,6 @@ const GAME_CARDS: GameCard[] = [
     id: "anagrams",
     title: "Anagrams",
     description: "Sometimes called Snatch, just a game I grew up playing.",
-    status: "Under Construction",
-    disabled: true,
     onOpen: openAnagramsInNewTab,
   },
 ];
@@ -435,13 +433,11 @@ export default function App() {
   if (fullAnagrams && activeTab === "anagrams") {
     return (
       <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-        <main style={{ width: "100%", padding: "24px" }}>
-          {anagramsChoice ? (
-            <AnagramsVisualizer choice={anagramsChoice} />
-          ) : (
-            <AnagramsLobbyGate onEnter={setAnagramsChoice} />
-          )}
-        </main>
+        {anagramsChoice ? (
+          <AnagramsVisualizer choice={anagramsChoice} />
+        ) : (
+          <AnagramsLobbyGate onEnter={setAnagramsChoice} />
+        )}
       </div>
     );
   }

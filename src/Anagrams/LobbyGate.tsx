@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createAnagramsLobby,
+  createAnagramsTestLobby,
   joinAnagramsLobby,
   listAnagramsLobbies,
   subscribeAnagramsLobbies,
@@ -11,7 +12,6 @@ export type AnagramsLobbyChoice = {
   gameId: string;
   playerId: string;
   nickname: string;
-  playerIndex: number;
 };
 
 type Props = {
@@ -44,6 +44,7 @@ function getOrCreatePlayerId(): string {
 }
 
 export function AnagramsLobbyGate({ onEnter }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [nickname, setNickname] = useState(() => localStorage.getItem("anagrams_nick") || "");
   const [lobbies, setLobbies] = useState<AnagramsLobbyMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +63,31 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
     return unsub;
   }, []);
 
+  useEffect(() => {
+    const logLayout = (label: string) => {
+      const root = document.getElementById("root");
+      const doc = document.documentElement;
+      const body = document.body;
+      const container = containerRef.current;
+
+      console.log("[anagrams-layout]", label, {
+        userAgent: navigator.userAgent,
+        dpr: window.devicePixelRatio,
+        inner: { width: window.innerWidth, height: window.innerHeight },
+        screen: { width: window.screen.width, height: window.screen.height },
+        doc: { clientWidth: doc.clientWidth, clientHeight: doc.clientHeight, scrollWidth: doc.scrollWidth, scrollHeight: doc.scrollHeight },
+        body: { clientWidth: body.clientWidth, clientHeight: body.clientHeight, scrollWidth: body.scrollWidth, scrollHeight: body.scrollHeight },
+        root: root ? root.getBoundingClientRect() : null,
+        container: container ? container.getBoundingClientRect() : null,
+      });
+    };
+
+    const onResize = () => logLayout("resize");
+    logLayout("mount");
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   async function enter(lobby: AnagramsLobbyMeta) {
     const nick = nickname.trim();
     if (!nick) {
@@ -71,9 +97,9 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
     setError(null);
     setBusy(true);
     try {
-      const playerIndex = await joinAnagramsLobby(lobby.gameId, playerId, nick);
+      await joinAnagramsLobby(lobby.gameId, playerId, nick);
       localStorage.setItem("anagrams_nick", nick);
-      onEnter({ gameId: lobby.gameId, playerId, nickname: nick, playerIndex });
+      onEnter({ gameId: lobby.gameId, playerId, nickname: nick });
     } catch (err) {
       setError("Could not join lobby");
     } finally {
@@ -96,9 +122,9 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
         hostId: playerId,
         options: { bagSize, minWordLength },
       });
-      const playerIndex = await joinAnagramsLobby(gameId, playerId, nick);
+      await joinAnagramsLobby(gameId, playerId, nick);
       localStorage.setItem("anagrams_nick", nick);
-      onEnter({ gameId, playerId, nickname: nick, playerIndex });
+      onEnter({ gameId, playerId, nickname: nick });
     } catch (err) {
       setError("Could not create lobby");
     } finally {
@@ -106,30 +132,76 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
     }
   }
 
+  async function createTestGame() {
+    const nick = nickname.trim();
+    if (!nick) {
+      setError("Enter a nickname");
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      const { gameId } = await createAnagramsTestLobby({ hostId: playerId, nickname: nick });
+      localStorage.setItem("anagrams_nick", nick);
+      onEnter({ gameId, playerId, nickname: nick });
+    } catch (err) {
+      setError("Could not create test lobby");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(180deg,#fff8e1 0%, #fff3bf 60%, #fffbe6 100%)", fontFamily: "'Fredoka', system-ui, sans-serif" }}>
-      <div style={{ width: "min(860px, 96vw)", background: "rgba(255,255,255,0.92)", padding: 24, borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.08)" }}>
+    <div ref={containerRef} className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #667eea, #764ba2)", fontFamily: "'Fredoka', system-ui, sans-serif", width: "100vw", minHeight: "100vh", margin: 0, padding: 0 }}>
+      <style>{`
+        html, body, #root {
+          width: 100%;
+          height: 100%;
+          margin: 0;
+        }
+      `}</style>
+      <div style={{ width: "min(880px, 96vw)", background: "rgba(255,255,255,0.96)", padding: 28, borderRadius: 22, boxShadow: "0 18px 36px rgba(17,24,39,0.2)", margin: "24px" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: 22 }}>Anagrams</div>
+            <div style={{ fontWeight: 900, fontSize: 22, letterSpacing: "0.08em", textTransform: "uppercase" }}>Anagrams</div>
             <div style={{ color: "#6b7280", fontSize: 14 }}>Join any lobby (even in progress) or start a new one.</div>
           </div>
-          <button
-            type="button"
-            onClick={createAndEnter}
-            disabled={busy}
-            style={{
-              padding: "10px 14px",
-              background: "#ffd54f",
-              borderRadius: 12,
-              border: "none",
-              boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-              fontWeight: 800,
-              cursor: busy ? "not-allowed" : "pointer",
-            }}
-          >
-            Start new lobby
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={createTestGame}
+              disabled={busy}
+              style={{
+                padding: "10px 12px",
+                background: "#ffffff",
+                color: "#0f172a",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                fontWeight: 800,
+                boxShadow: "0 6px 14px rgba(17,24,39,0.12)",
+                cursor: busy ? "not-allowed" : "pointer",
+              }}
+            >
+              Test game
+            </button>
+            <button
+              type="button"
+              onClick={createAndEnter}
+              disabled={busy}
+              style={{
+                padding: "10px 14px",
+                background: "#2dd4bf",
+                color: "#0f172a",
+                borderRadius: 12,
+                border: "1px solid #14b8a6",
+                boxShadow: "0 8px 18px rgba(15,118,110,0.32)",
+                fontWeight: 800,
+                cursor: busy ? "not-allowed" : "pointer",
+              }}
+            >
+              Start new lobby
+            </button>
+          </div>
         </div>
 
         <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
@@ -147,10 +219,11 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
               style={{
                 width: "100%",
                 padding: "10px 12px",
-                borderRadius: 10,
+                borderRadius: 12,
                 border: "1px solid #e5e7eb",
                 boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
                 fontSize: 16,
+                background: "rgba(255,255,255,0.92)",
               }}
             />
           </div>
@@ -167,10 +240,11 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
               style={{
                 width: "100%",
                 padding: "10px 12px",
-                borderRadius: 10,
+                borderRadius: 12,
                 border: "1px solid #e5e7eb",
                 boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
                 fontSize: 15,
+                background: "rgba(255,255,255,0.92)",
               }}
             />
           </div>

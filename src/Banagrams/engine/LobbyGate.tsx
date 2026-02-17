@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createLobby, joinLobby, listLobbies, setGameStatus, subscribeLobbies, type LobbyMeta } from "./firebase/rtdb";
 
 export type LobbyChoice = { gameId: string; playerId: string; nickname: string; skipWaiting?: boolean };
@@ -36,6 +36,7 @@ function getOrCreatePlayerId(): string {
 }
 
 export function LobbyGate({ onEnter, onShowInstructions }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [nickname, setNickname] = useState(() => localStorage.getItem("banagrams_nick") || "");
   const [lobbies, setLobbies] = useState<LobbyMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,31 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
     listLobbies().then(setLobbies).finally(() => setLoading(false));
     const unsub = subscribeLobbies(setLobbies);
     return unsub;
+  }, []);
+
+  useEffect(() => {
+    const logLayout = (label: string) => {
+      const root = document.getElementById("root");
+      const doc = document.documentElement;
+      const body = document.body;
+      const container = containerRef.current;
+
+      console.log("[banagrams-layout]", label, {
+        userAgent: navigator.userAgent,
+        dpr: window.devicePixelRatio,
+        inner: { width: window.innerWidth, height: window.innerHeight },
+        screen: { width: window.screen.width, height: window.screen.height },
+        doc: { clientWidth: doc.clientWidth, clientHeight: doc.clientHeight, scrollWidth: doc.scrollWidth, scrollHeight: doc.scrollHeight },
+        body: { clientWidth: body.clientWidth, clientHeight: body.clientHeight, scrollWidth: body.scrollWidth, scrollHeight: body.scrollHeight },
+        root: root ? root.getBoundingClientRect() : null,
+        container: container ? container.getBoundingClientRect() : null,
+      });
+    };
+
+    const onResize = () => logLayout("resize");
+    logLayout("mount");
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   async function enter(lobby: LobbyMeta) {
@@ -130,7 +156,7 @@ export function LobbyGate({ onEnter, onShowInstructions }: Props) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(180deg,#fff8e1 0%, #fff3bf 60%, #fffbe6 100%)", fontFamily: "'Fredoka', system-ui, sans-serif" }}>
+    <div ref={containerRef} className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(180deg,#fff8e1 0%, #fff3bf 60%, #fffbe6 100%)", fontFamily: "'Fredoka', system-ui, sans-serif" }}>
       <div style={{ width: "min(820px, 96vw)", background: "rgba(255,255,255,0.92)", padding: 24, borderRadius: 16, boxShadow: "0 12px 32px rgba(0,0,0,0.08)" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div>

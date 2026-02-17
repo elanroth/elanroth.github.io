@@ -1,20 +1,28 @@
+import { createBanagramsBag, DEFAULT_BANAGRAMS_BAG_SIZE } from "./banagramsBag";
+import { haveSameLemma } from "./lemmatizer";
+
+export { getLemma, haveSameLemma } from "./lemmatizer";
+
 export type Tile = string;
 
 export interface PlayerState {
   name: string;
   words: string[];
   score: number;
+  joinedAt?: number;
+  lastSeen?: number;
+  active?: boolean;
 }
 
 export interface WordSource {
-  playerIndex: number;
+  playerId: string;
   wordIndex: number;
 }
 
 export type LetterCounts = number[];
 
 export type WordInfo = {
-  playerIndex: number;
+  playerId: string;
   wordIndex: number;
   text: string;
   counts: LetterCounts;
@@ -32,19 +40,18 @@ export type WordIndex = {
 export interface GameState {
   bag: Tile[];
   revealed: Tile[];
-  players: PlayerState[];
+  players: Record<string, PlayerState>;
   minWordLength: number;
 }
 
 export interface CreateGameOptions {
-  players: string[];
+  players: Record<string, PlayerState> | string[];
   letterBag?: string;
   minWordLength?: number;
   shuffle?: boolean;
 }
 
-const DEFAULT_BAG =
-  "EEEEEEEEEEEEAAAAAAAIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUUDDDDGGGBBCCMMPPFFHHVVWWYYKJXQZ";
+const DEFAULT_BAG = createBanagramsBag(DEFAULT_BANAGRAMS_BAG_SIZE).join("");
 
 export const normalizeWord = (word: string): string =>
   word.replace(/[^a-z]/gi, "").toUpperCase();
@@ -123,13 +130,13 @@ export const buildWordIndex = (state: GameState): WordIndex => {
   const poolCounts = tilesToCounts(state.revealed);
   let totalClaimedCounts = emptyCounts();
 
-  state.players.forEach((player, playerIndex) => {
-    const words = Array.isArray(player.words) ? player.words : [];
+  Object.entries(state.players ?? {}).forEach(([playerId, player]) => {
+    const words = Array.isArray(player?.words) ? player.words : [];
     words.forEach((text, wordIndex) => {
       const counts = wordToCounts(text);
       const presenceMask = countsPresenceMask(counts);
       const info: WordInfo = {
-        playerIndex,
+        playerId,
         wordIndex,
         text,
         counts,
@@ -163,7 +170,7 @@ export const validateSnatch = (
 
   const safePlayers = normalizePlayers(state.players);
   const sourceWords = sources
-    .map((s) => safePlayers[s.playerIndex]?.words[s.wordIndex])
+    .map((s) => safePlayers[s.playerId]?.words[s.wordIndex])
     .filter(Boolean) as string[];
 
   if (sourceWords.length !== sources.length) {
@@ -285,11 +292,118 @@ export const findSnatchSources = (
   }
 
   const sources = result.map((idx) => ({
-    playerIndex: wordInfos[idx].playerIndex,
+    playerId: wordInfos[idx].playerId,
     wordIndex: wordInfos[idx].wordIndex,
   }));
 
   return { ok: true, sources };
+};
+
+export const findSnatchSourceOptions = (
+  state: GameState,
+  targetWord: string,
+  maxOptions: number = 2,
+): { ok: boolean; reason?: string; options?: WordSource[][] } => {
+  const normalized = normalizeWord(targetWord);
+  if (normalized.length < state.minWordLength) {
+    return { ok: false, reason: `Word must be at least ${state.minWordLength} letters.` };
+  }
+
+  const targetCounts = wordToCounts(normalized);
+  const { wordInfos, poolCounts, totalClaimedCounts, wordsWithLetter } = buildWordIndex(state);
+
+  for (let i = 0; i < 26; i += 1) {
+    if (targetCounts[i] > poolCounts[i] + totalClaimedCounts[i]) {
+      return { ok: false, reason: "Missing extra tiles for snatch." };
+    }
+  }
+
+  const requiredFromWords = countsMaxSub(targetCounts, poolCounts);
+  const feasibleWordIndices = wordInfos
+    .map((info, idx) => ({ info, idx }))
+    .filter(({ info }) => countsLeq(info.counts, targetCounts))
+    .map(({ idx }) => idx);
+
+  if (feasibleWordIndices.length === 0) {
+    return { ok: false, reason: "No words available to snatch." };
+  }
+
+  const candidatesByIndex = new Set(feasibleWordIndices);
+
+  const candidateSetForLetter = (letterIndexValue: number): number[] =>
+    wordsWithLetter[letterIndexValue].filter((idx) => candidatesByIndex.has(idx));
+
+  const totalNeedLetters = requiredFromWords.reduce((sum, v) => sum + v, 0);
+  const maxDepth = Math.min(8, Math.max(1, totalNeedLetters));
+
+  const results: number[][] = [];
+
+  const dfs = (
+    startCounts: LetterCounts,
+    remainingRequired: LetterCounts,
+    chosen: number[],
+    depth: number,
+  ): void => {
+    if (results.length >= maxOptions) return;
+
+    const done = !countsAnyPositive(remainingRequired);
+    if (done) {
+      if (chosen.length === 0) return;
+      const sub = countsSubIfPossible(targetCounts, startCounts);
+      if (!sub.ok) return;
+      if (!countsAnyPositive(sub.remaining)) return;
+      if (!countsLeq(sub.remaining, poolCounts)) return;
+      results.push(chosen);
+      return;
+    }
+
+    if (depth >= maxDepth) return;
+
+    let bestLetter = -1;
+    let bestCandidates: number[] = [];
+    for (let i = 0; i < 26; i += 1) {
+      if (remainingRequired[i] <= 0) continue;
+      const cand = candidateSetForLetter(i);
+      if (cand.length === 0) return;
+      if (bestLetter === -1 || cand.length < bestCandidates.length) {
+        bestLetter = i;
+        bestCandidates = cand;
+      }
+    }
+
+    const scored = bestCandidates
+      .map((idx) => ({ idx, info: wordInfos[idx] }))
+      .map(({ idx, info }) => ({
+        idx,
+        score: countsMaxSub(remainingRequired, info.counts).reduce((s, v) => s + v, 0),
+      }))
+      .sort((a, b) => a.score - b.score);
+
+    for (const { idx } of scored) {
+      if (chosen.includes(idx)) continue;
+      const info = wordInfos[idx];
+      const nextCounts = countsAdd(startCounts, info.counts);
+      if (!countsLeq(nextCounts, targetCounts)) continue;
+      const nextRemaining = countsMaxSub(remainingRequired, info.counts);
+      dfs(nextCounts, nextRemaining, [...chosen, idx], depth + 1);
+      if (results.length >= maxOptions) return;
+    }
+  };
+
+  dfs(emptyCounts(), requiredFromWords, [], 0);
+
+  if (results.length === 0) {
+    return { ok: false, reason: "No valid snatch sources." };
+  }
+
+  const options = results.map((result) =>
+    result.map((idx) => ({
+      playerId: wordInfos[idx].playerId,
+      wordIndex: wordInfos[idx].wordIndex,
+    })),
+  );
+
+  return { ok: true, options };
 };
 
 const shuffleTiles = (tiles: Tile[]): Tile[] => {
@@ -358,16 +472,37 @@ export const createGame = ({
 }: CreateGameOptions): GameState => ({
   bag: shuffle ? shuffleTiles(createLetterBag(letterBag)) : createLetterBag(letterBag),
   revealed: [],
-  players: players.map((name) => ({ name, words: [], score: 0 })),
+  players: Array.isArray(players)
+    ? players.reduce((acc, name, idx) => {
+      acc[`player-${idx}`] = { name, words: [], score: 0, active: true };
+      return acc;
+    }, {} as Record<string, PlayerState>)
+    : Object.entries(players ?? {}).reduce((acc, [playerId, player]) => {
+      acc[playerId] = {
+        name: player.name,
+        words: Array.isArray(player.words) ? player.words : [],
+        score: Array.isArray(player.words) ? player.words.reduce((sum, w) => sum + scoreWord(w), 0) : 0,
+        joinedAt: player.joinedAt,
+        lastSeen: player.lastSeen,
+        active: player.active ?? true,
+      };
+      return acc;
+    }, {} as Record<string, PlayerState>),
   minWordLength,
 });
 
-const normalizePlayers = (players: PlayerState[]): PlayerState[] =>
-  players.map((player) => ({
-    name: player.name,
-    words: Array.isArray(player.words) ? player.words : [],
-    score: Array.isArray(player.words) ? player.words.reduce((sum, w) => sum + scoreWord(w), 0) : 0,
-  }));
+const normalizePlayers = (players: Record<string, PlayerState>): Record<string, PlayerState> =>
+  Object.entries(players ?? {}).reduce((acc, [playerId, player]) => {
+    acc[playerId] = {
+      name: player.name,
+      words: Array.isArray(player.words) ? player.words : [],
+      score: Array.isArray(player.words) ? player.words.reduce((sum, w) => sum + scoreWord(w), 0) : 0,
+      joinedAt: player.joinedAt,
+      lastSeen: player.lastSeen,
+      active: player.active ?? true,
+    };
+    return acc;
+  }, {} as Record<string, PlayerState>);
 
 export const drawTile = (state: GameState): { state: GameState; tile: Tile | null } => {
   if (state.bag.length === 0) {
@@ -382,34 +517,40 @@ export const drawTile = (state: GameState): { state: GameState; tile: Tile | nul
 
 export const claimWord = (
   state: GameState,
-  playerIndex: number,
+  playerId: string,
   word: string,
   sources: WordSource[] = [],
+  dictionary?: Set<string> | null,
 ): { state: GameState; ok: boolean; reason?: string } => {
   const safePlayers = normalizePlayers(state.players);
   const normalized = normalizeWord(word);
   console.debug("[anagrams] claimWord:start", {
-    playerIndex,
+    playerId,
     word,
     normalized,
     sources,
     revealed: state.revealed,
-    players: safePlayers.map((p) => ({ name: p.name, words: p.words })),
+    players: Object.values(safePlayers).map((p) => ({ name: p.name, words: p.words })),
   });
   if (normalized.length < state.minWordLength) {
     console.debug("[anagrams] claimWord:fail:minLength", { normalized, minWordLength: state.minWordLength });
     return { state, ok: false, reason: `Word must be at least ${state.minWordLength} letters.` };
   }
-  if (!safePlayers[playerIndex]) {
-    console.debug("[anagrams] claimWord:fail:unknownPlayer", { playerIndex });
+  if (!safePlayers[playerId]) {
+    console.debug("[anagrams] claimWord:fail:unknownPlayer", { playerId });
     return { state, ok: false, reason: "Unknown player." };
+  }
+
+  if (dictionary && dictionary.size > 0 && !dictionary.has(normalized)) {
+    console.debug("[anagrams] claimWord:fail:notInDictionary", { normalized });
+    return { state, ok: false, reason: "Not in dictionary." };
   }
 
   const letters = wordToLetters(normalized);
   const sourceList = sources
     .map((source) => ({
       ...source,
-      word: safePlayers[source.playerIndex]?.words[source.wordIndex],
+      word: safePlayers[source.playerId]?.words[source.wordIndex],
     }))
     .filter((source) => source.word);
 
@@ -424,15 +565,19 @@ export const claimWord = (
       return { state, ok: false, reason: "Word cannot be formed from revealed tiles." };
     }
 
-    const updatedPlayers = safePlayers.map((player, index) => {
-      if (index !== playerIndex) return player;
+    const updatedPlayers = Object.entries(safePlayers).reduce((acc, [id, player]) => {
+      if (id !== playerId) {
+        acc[id] = player;
+        return acc;
+      }
       const updatedWords = [...player.words, normalized];
-      return {
+      acc[id] = {
         ...player,
         words: updatedWords,
         score: updatedWords.reduce((sum, w) => sum + scoreWord(w), 0),
       };
-    });
+      return acc;
+    }, {} as Record<string, PlayerState>);
 
     const nextState = {
       state: {
@@ -447,6 +592,10 @@ export const claimWord = (
   }
 
   const sourceLetters = sourceList.flatMap((source) => wordToLetters(source.word as string));
+  if (sourceList.some((source) => haveSameLemma(normalized, source.word as string))) {
+    console.debug("[anagrams] claimWord:fail:inflection", { normalized, sourceList });
+    return { state, ok: false, reason: "Snatch cannot be an inflectional variant of a source word." };
+  }
   const subtraction = subtractLetters(letters, sourceLetters);
   console.debug("[anagrams] claimWord:snatch:counts", {
     target: normalized,
@@ -469,9 +618,9 @@ export const claimWord = (
     return { state, ok: false, reason: "Missing extra tiles for snatch." };
   }
 
-  const updatedPlayers = safePlayers.map((player, index) => {
+  const updatedPlayers = Object.entries(safePlayers).reduce((acc, [id, player]) => {
     const removing = sourceList
-      .filter((source) => source.playerIndex === index)
+      .filter((source) => source.playerId === id)
       .map((source) => source.wordIndex)
       .sort((a, b) => b - a);
 
@@ -480,16 +629,17 @@ export const claimWord = (
       nextWords.splice(wordIndex, 1);
     }
 
-    if (index === playerIndex) {
+    if (id === playerId) {
       nextWords = [...nextWords, normalized];
     }
 
-    return {
+    acc[id] = {
       ...player,
       words: nextWords,
       score: nextWords.reduce((sum, w) => sum + scoreWord(w), 0),
     };
-  });
+    return acc;
+  }, {} as Record<string, PlayerState>);
 
   const nextState = {
     state: {
