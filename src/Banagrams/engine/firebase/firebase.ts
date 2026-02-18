@@ -10,14 +10,17 @@ const cfg = {
   measurementId: import.meta.env.VITE_FB_MEASUREMENT_ID ?? import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+const useEmulatorEnv = import.meta.env.VITE_FB_USE_EMULATOR;
+const isLocalhost = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const useEmulator = useEmulatorEnv === "true" || useEmulatorEnv === "1" || (!useEmulatorEnv && import.meta.env.DEV && isLocalhost);
+
 if (!cfg.projectId) throw new Error("[FB] Missing PROJECT_ID (set VITE_FB_PROJECT_ID or VITE_FIREBASE_PROJECT_ID)");
-if (!cfg.databaseURL && !import.meta.env.VITE_FB_USE_EMULATOR) throw new Error("[FB] Missing DATABASE_URL (set VITE_FB_DATABASE_URL or VITE_FIREBASE_DATABASE_URL)");
+if (!cfg.databaseURL && !useEmulator) throw new Error("[FB] Missing DATABASE_URL (set VITE_FB_DATABASE_URL or VITE_FIREBASE_DATABASE_URL)");
 
 const app = getApps().length ? getApp() : initializeApp(cfg);
 export const db = getDatabase(app);
 
 // Local emulator support so you can develop without deploying
-const useEmulator = Boolean(import.meta.env.VITE_FB_USE_EMULATOR);
 let resolvedDbUrl = cfg.databaseURL ?? "";
 if (useEmulator) {
   const host = import.meta.env.VITE_FB_EMULATOR_HOST ?? "127.0.0.1";
