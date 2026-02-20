@@ -19,6 +19,21 @@ export interface WordSource {
   wordIndex: number;
 }
 
+export type PendingSnatch = {
+  claimantId: string;
+  word: string;
+  options: WordSource[][];
+  allowPool: boolean;
+  createdAt: number;
+};
+
+export type LastSnatch = {
+  at: number;
+  byPlayerId: string;
+  word: string;
+  targets: { playerId: string; word: string }[];
+};
+
 export type LetterCounts = number[];
 
 export type WordInfo = {
@@ -42,6 +57,8 @@ export interface GameState {
   revealed: Tile[];
   players: Record<string, PlayerState>;
   minWordLength: number;
+  pendingSnatch?: PendingSnatch | null;
+  lastSnatch?: LastSnatch | null;
 }
 
 export interface CreateGameOptions {
@@ -303,6 +320,7 @@ export const findSnatchSourceOptions = (
   state: GameState,
   targetWord: string,
   maxOptions: number = 2,
+  allowPoolChoice: boolean = false,
 ): { ok: boolean; reason?: string; options?: WordSource[][] } => {
   const normalized = normalizeWord(targetWord);
   if (normalized.length < state.minWordLength) {
@@ -326,6 +344,32 @@ export const findSnatchSourceOptions = (
 
   if (feasibleWordIndices.length === 0) {
     return { ok: false, reason: "No words available to snatch." };
+  }
+
+  if (allowPoolChoice && !countsAnyPositive(requiredFromWords)) {
+    const optional: number[][] = [];
+    for (const idx of feasibleWordIndices) {
+      const info = wordInfos[idx];
+      const sub = countsSubIfPossible(targetCounts, info.counts);
+      if (!sub.ok) continue;
+      if (!countsAnyPositive(sub.remaining)) continue;
+      if (!countsLeq(sub.remaining, poolCounts)) continue;
+      optional.push([idx]);
+      if (optional.length >= maxOptions) break;
+    }
+
+    if (optional.length === 0) {
+      return { ok: false, reason: "No valid snatch sources." };
+    }
+
+    const options = optional.map((result) =>
+      result.map((optionIdx) => ({
+        playerId: wordInfos[optionIdx].playerId,
+        wordIndex: wordInfos[optionIdx].wordIndex,
+      })),
+    );
+
+    return { ok: true, options };
   }
 
   const candidatesByIndex = new Set(feasibleWordIndices);
@@ -489,6 +533,8 @@ export const createGame = ({
       return acc;
     }, {} as Record<string, PlayerState>),
   minWordLength,
+  pendingSnatch: null,
+  lastSnatch: null,
 });
 
 const normalizePlayers = (players: Record<string, PlayerState>): Record<string, PlayerState> =>
@@ -553,6 +599,16 @@ export const claimWord = (
       word: safePlayers[source.playerId]?.words[source.wordIndex],
     }))
     .filter((source) => source.word);
+
+  if (sources.length > 0) {
+    console.log("[anagrams] claimWord:snatch:attempt", {
+      playerId,
+      word: normalized,
+      sources,
+      resolvedSources: sourceList.map((s) => ({ playerId: s.playerId, wordIndex: s.wordIndex, word: s.word })),
+      revealed: state.revealed,
+    });
+  }
 
   if (sources.length > 0 && sourceList.length !== sources.length) {
     console.debug("[anagrams] claimWord:fail:invalidSources", { sources, sourceList });
@@ -649,6 +705,12 @@ export const claimWord = (
     },
     ok: true,
   };
+  console.log("[anagrams] claimWord:snatch:success", {
+    playerId,
+    word: normalized,
+    sources: sourceList.map((s) => ({ playerId: s.playerId, wordIndex: s.wordIndex, word: s.word })),
+    removed: subtraction.remaining,
+  });
   console.debug("[anagrams] claimWord:success:snatch", nextState);
   return nextState;
 };

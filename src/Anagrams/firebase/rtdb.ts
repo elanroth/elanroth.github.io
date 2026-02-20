@@ -4,6 +4,16 @@ import { createGame } from "../engine";
 import { createBanagramsBag, shuffleTiles } from "../engine/banagramsBag";
 import { db } from "./firebase";
 
+const TEST_BAG_LETTERS = ["A", "E", "R", "S", "T", "N", "I"];
+
+const createTestBag = (size: number): string[] => {
+  const bag: string[] = [];
+  for (let i = 0; i < size; i += 1) {
+    bag.push(TEST_BAG_LETTERS[i % TEST_BAG_LETTERS.length]);
+  }
+  return bag;
+};
+
 const gamePath = (gameId: string) => `anagrams/${gameId}`;
 const metaRoot = `anagramsMeta`;
 const metaPath = (gameId: string) => `${metaRoot}/${gameId}`;
@@ -72,7 +82,10 @@ export async function createAnagramsLobby({
   const createdAt = Date.now();
   const gameId = `anagrams-${createdAt.toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
   const trimmedLobbyName = lobbyName?.trim() || "Anagrams";
-  const bag = shuffleTiles(createBanagramsBag(options.bagSize));
+  const bag = shuffleTiles(createTestBag(options.bagSize));
+  const initialRevealCount = Math.max(0, Math.round(options.minWordLength) - 1);
+  const revealed = bag.slice(0, initialRevealCount);
+  const remainingBag = bag.slice(initialRevealCount);
   const state = createGame({ players: [], letterBag: bag.join(""), minWordLength: options.minWordLength, shuffle: false });
 
   console.debug("[anagrams] createLobby:start", { gameId, trimmedLobbyName, hostId, options });
@@ -80,6 +93,8 @@ export async function createAnagramsLobby({
   try {
     await set(ref(db, gamePath(gameId)), {
       ...state,
+      bag: remainingBag,
+      revealed,
       gameId,
       status: "active",
       lobbyName: trimmedLobbyName,
@@ -121,9 +136,11 @@ export async function createAnagramsTestLobby({
   const gameId = `anagrams-test-${createdAt.toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
   const lobbyName = "Test game";
 
-  const bagSeed = shuffleTiles(createBanagramsBag(144));
-  const revealed = bagSeed.slice(0, 6);
-  const bag = bagSeed.slice(6, 14);
+  const minWordLength = 3;
+  const bagSeed = shuffleTiles(createTestBag(144));
+  const initialRevealCount = Math.max(0, minWordLength - 1);
+  const revealed = bagSeed.slice(0, initialRevealCount);
+  const bag = bagSeed.slice(initialRevealCount, initialRevealCount + 8);
 
   const now = Date.now();
   const players: Record<string, PlayerState> = {
@@ -181,7 +198,7 @@ export async function createAnagramsTestLobby({
     player.score = player.words.reduce((sum, word) => sum + word.length, 0);
   });
 
-  const state = createGame({ players: [], letterBag: "", shuffle: false, minWordLength: 3 });
+  const state = createGame({ players: [], letterBag: "", shuffle: false, minWordLength });
 
   await set(ref(db, gamePath(gameId)), {
     ...state,
@@ -192,7 +209,7 @@ export async function createAnagramsTestLobby({
     status: "active",
     lobbyName,
     hostId,
-    options: { bagSize: 144, minWordLength: 3 },
+    options: { bagSize: 144, minWordLength },
   });
 
   await set(ref(db, metaPath(gameId)), {
@@ -202,7 +219,7 @@ export async function createAnagramsTestLobby({
     playerCount: Object.keys(players).length,
     status: "active",
     hostId,
-    options: { bagSize: 144, minWordLength: 3 },
+    options: { bagSize: 144, minWordLength },
   });
 
   return { gameId, lobbyName, playerId: hostId };
@@ -343,6 +360,8 @@ export function subscribeAnagramsGame(gameId: string, cb: (snapshot: AnagramsSna
       revealed: raw.revealed ?? [],
       players: coercePlayersMap(raw.players),
       minWordLength: raw.minWordLength ?? 3,
+      pendingSnatch: raw.pendingSnatch ?? null,
+      lastSnatch: raw.lastSnatch ?? null,
       gameId,
       status: raw.status ?? "active",
       lobbyName: raw.lobbyName,
