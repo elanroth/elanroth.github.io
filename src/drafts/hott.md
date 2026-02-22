@@ -30,7 +30,4 @@ That's right! The integers are hidden within the circle! It took a long time for
 
 ### Two Circles with a Shared Point
 
-
-
-
 The first word of HoTT only took me two months to understand. So fun! The "type theory" piece felt more approachable after my summer doing research with the Programming Languages group in the computer science department. So how do these pieces come together? Well, it turns out that given any space, we can classify all of its paths up to homotopy equivalence. Let's look up at a few examples to understand.
