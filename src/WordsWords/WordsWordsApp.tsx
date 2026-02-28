@@ -194,18 +194,13 @@ export function WordsWordsApp() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analysisCache, setAnalysisCache] = useState<Record<number, AnalysisResult>>({});
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgressUpdate>({ stage: "init", progress: 0 });
-  const [analysisSections, setAnalysisSections] = useState<string[]>([
-    "most",
-    "fewest",
-    "zipf",
-    "hard",
-    "rare",
-    "branch-one",
-    "branch-high",
-    "alternating",
-    "structure",
-    "vowels",
-  ]);
+  const [analysisLoadState, setAnalysisLoadState] = useState<Record<number, { status: "idle" | "loading" | "ready" | "error"; progress: number }>>(() => {
+    const initial: Record<number, { status: "idle" | "loading" | "ready" | "error"; progress: number }> = {};
+    for (let n = 1; n <= ANALYSIS_MAX_N; n += 1) {
+      initial[n] = { status: "idle", progress: 0 };
+    }
+    return initial;
+  });
 
   const activeProcedure = "automaton";
 
@@ -301,34 +296,73 @@ export function WordsWordsApp() {
   useEffect(() => {
     if (activeTab !== "analysis") return;
     if (status !== "ready" || records.length === 0) return;
+    let cancelled = false;
+
+    const runQueue = async () => {
+      for (let n = 1; n <= ANALYSIS_MAX_N; n += 1) {
+        if (cancelled) return;
+        if (analysisCache[n]) continue;
+        setAnalysisLoadState((prev) => ({
+          ...prev,
+          [n]: { status: "loading", progress: 0 },
+        }));
+        if (analysisN === n) {
+          setAnalysisStatus("loading");
+          setAnalysisProgress({ stage: "init", progress: 0 });
+        }
+        try {
+          const result = await analyzePatternsWithProgress(records, n, (update) => {
+            if (cancelled) return;
+            if (analysisN === n) setAnalysisProgress(update);
+            setAnalysisLoadState((prev) => ({
+              ...prev,
+              [n]: { status: "loading", progress: update.progress },
+            }));
+          });
+          if (cancelled) return;
+          setAnalysisCache((prev) => ({ ...prev, [n]: result }));
+          setAnalysisLoadState((prev) => ({
+            ...prev,
+            [n]: { status: "ready", progress: 1 },
+          }));
+          if (analysisN === n) {
+            setAnalysis(result);
+            setAnalysisStatus("ready");
+          }
+        } catch (err) {
+          console.log("[wordswords:analysis-error]", { error: String(err) });
+          if (cancelled) return;
+          setAnalysisLoadState((prev) => ({
+            ...prev,
+            [n]: { status: "error", progress: 0 },
+          }));
+          if (analysisN === n) setAnalysisStatus("error");
+        }
+      }
+    };
+
+    runQueue();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, analysisCache, analysisN, records, status]);
+
+  useEffect(() => {
     const cached = analysisCache[analysisN];
     if (cached) {
       setAnalysis(cached);
       setAnalysisStatus("ready");
       return;
     }
-    let cancelled = false;
-    setAnalysisStatus("loading");
-    const handle = window.setTimeout(async () => {
-      try {
-        const result = await analyzePatternsWithProgress(records, analysisN, (update) => {
-          if (!cancelled) setAnalysisProgress(update);
-        });
-        if (!cancelled) {
-          setAnalysis(result);
-          setAnalysisCache((prev) => ({ ...prev, [analysisN]: result }));
-          setAnalysisStatus("ready");
-        }
-      } catch (err) {
-        console.log("[wordswords:analysis-error]", { error: String(err) });
-        if (!cancelled) setAnalysisStatus("error");
-      }
-    }, 0);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(handle);
-    };
-  }, [activeTab, analysisCache, analysisN, records, status]);
+    const state = analysisLoadState[analysisN];
+    if (state?.status === "loading") {
+      setAnalysisStatus("loading");
+    } else if (state?.status === "error") {
+      setAnalysisStatus("error");
+    } else {
+      setAnalysisStatus("idle");
+    }
+  }, [analysisCache, analysisLoadState, analysisN]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -452,75 +486,57 @@ export function WordsWordsApp() {
   }, [analysisStats]);
 
   const renderPatternRow = (stats: PatternStats) => {
-    const topWords = stats.topWords.map((w) => w.word).join(", ");
+    const topWord = stats.topWords[0]?.word ?? "-";
+    const bestGap = stats.bestGap === Number.POSITIVE_INFINITY ? "—" : stats.bestGap;
     return (
-      <div
+      <button
         key={stats.pattern}
+        type="button"
+        onClick={() => {
+          setActiveTab("finder");
+          setPattern(stats.pattern);
+          setDebouncedPattern(stats.pattern);
+        }}
         style={{
-          display: "grid",
-          gridTemplateColumns: "80px 1fr 130px 120px 110px 120px",
-          gap: 10,
-          padding: "10px 12px",
-          borderRadius: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+          padding: "8px 12px",
+          borderRadius: 10,
           background: "rgba(15,23,42,0.45)",
           border: "1px solid rgba(148,163,184,0.25)",
+          textAlign: "left",
+          cursor: "pointer",
+          width: "100%",
+          boxSizing: "border-box",
         }}
       >
-        <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: "0.08em" }}>{stats.pattern.toUpperCase()}</div>
-        <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#cbd5f5" }}>
-          <div>{`Top: ${topWords || "-"}`}</div>
-          <div>{`Best gap: ${stats.bestGapWord || "-"} (${stats.bestGap === Number.POSITIVE_INFINITY ? "-" : stats.bestGap})`}</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", color: "#e2e8f0" }}>{stats.pattern.toUpperCase()}</span>
+          <span style={{ fontSize: 12, color: "#94a3b8" }}>→</span>
+          <span style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>{topWord}</span>
         </div>
-        <div style={{ fontSize: 12, color: "#94a3b8" }}>{`Matches ${formatNumber(stats.count)}`}</div>
-        <div style={{ fontSize: 12, color: "#94a3b8" }}>{`Median gap ${stats.medianGap}`}</div>
-        <div style={{ fontSize: 12, color: stats.branchCount === 1 ? "#fbbf24" : "#94a3b8", fontWeight: stats.branchCount === 1 ? 800 : 600 }}>
-          {`Branch ${stats.branchCount}`}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px" }}>
+          <span style={{ fontSize: 11, color: "#64748b" }}>{`${formatNumber(stats.count)} matches`}</span>
+          <span style={{ fontSize: 11, color: "#64748b" }}>{`median gap ${stats.medianGap}`}</span>
+          <span style={{ fontSize: 11, color: "#64748b" }}>{`best gap ${bestGap}`}</span>
+          <span style={{ fontSize: 11, color: stats.branchCount === 1 ? "#fbbf24" : "#64748b", fontWeight: stats.branchCount === 1 ? 700 : 400 }}>
+            {`${stats.branchCount} branch${stats.branchCount === 1 ? "" : "es"}`}
+          </span>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("finder");
-            setPattern(stats.pattern);
-            setDebouncedPattern(stats.pattern);
-          }}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid rgba(56,189,248,0.4)",
-            background: "rgba(56,189,248,0.12)",
-            color: "#e2e8f0",
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          View in Finder
-        </button>
-      </div>
+      </button>
     );
   };
 
   const renderSection = (title: string, items: PatternStats[], subtitle?: string) => (
-    <section style={{ display: "grid", gap: 10 }}>
+    <section style={{ display: "grid", gap: 10, padding: 12, borderRadius: 14, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(148,163,184,0.2)" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
-        <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{title}</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>{title}</h3>
         {subtitle && <span style={{ fontSize: 12, color: "#94a3b8" }}>{subtitle}</span>}
       </div>
-      <div style={{ display: "grid", gap: 8 }}>{items.slice(0, 5).map(renderPatternRow)}</div>
+      <div style={{ display: "grid", gap: 6 }}>{items.slice(0, 5).map(renderPatternRow)}</div>
     </section>
   );
-
-  const analysisSectionOptions = [
-    { id: "most", label: "Most matches" },
-    { id: "fewest", label: "Fewest non-zero" },
-    { id: "zipf", label: "Highest top Zipf" },
-    { id: "hard", label: "Hardest" },
-    { id: "rare", label: "Rare letters" },
-    { id: "branch-one", label: "Branch = 1" },
-    { id: "branch-high", label: "Branch high" },
-    { id: "alternating", label: "Alternating VC" },
-    { id: "structure", label: "Structure buckets" },
-    { id: "vowels", label: "Vowel buckets" },
-  ];
 
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 10% 10%, rgba(56,189,248,0.35), transparent 45%), radial-gradient(circle at 80% 0%, rgba(251,191,36,0.25), transparent 40%), linear-gradient(180deg, #0f172a 0%, #020617 100%)", color: "#e2e8f0", fontFamily: "'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif" }}>
@@ -529,7 +545,7 @@ export function WordsWordsApp() {
         @keyframes riseIn { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes shimmer { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
       `}</style>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 18px 60px", display: "grid", gap: 24 }}>
+      <div style={{ maxWidth: 1600, margin: "0 auto", padding: "28px 20px 60px", display: "grid", gap: 20 }}>
         <header style={{ display: "grid", gap: 12, animation: "riseIn 0.6s ease" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
             <div>
@@ -625,55 +641,54 @@ export function WordsWordsApp() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setAnalysisN(value)}
-                        style={{
-                          padding: "6px 10px",
-                          borderRadius: 10,
-                          border: "1px solid rgba(148,163,184,0.4)",
-                          background: analysisN === value ? "rgba(56,189,248,0.25)" : "rgba(2,6,23,0.8)",
-                          color: analysisN === value ? "#f8fafc" : "#94a3b8",
-                          fontWeight: 800,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {`n=${value}`}
-                      </button>
-                    ))}
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((value) => {
+                        const loadState = analysisLoadState[value];
+                        const isReady = loadState?.status === "ready";
+                        const isLoading = loadState?.status === "loading";
+                        const isError = loadState?.status === "error";
+                        const progress = Math.max(0, Math.min(1, loadState?.progress ?? 0));
+                        const ringColor = isError ? "#f87171" : "#38bdf8";
+                        const ringBg = isReady ? ringColor : `conic-gradient(${ringColor} ${progress * 360}deg, rgba(148,163,184,0.25) 0deg)`;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => {
+                              if (!isReady) return;
+                              setAnalysisN(value);
+                            }}
+                            disabled={!isReady}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 10,
+                              border: "1px solid rgba(148,163,184,0.4)",
+                              background: analysisN === value ? "rgba(56,189,248,0.25)" : "rgba(2,6,23,0.8)",
+                              color: analysisN === value ? "#f8fafc" : "#94a3b8",
+                              fontWeight: 800,
+                              cursor: isReady ? "pointer" : "not-allowed",
+                              opacity: isReady ? 1 : 0.6,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: "50%",
+                                background: ringBg,
+                                border: "1px solid rgba(148,163,184,0.35)",
+                                boxShadow: isReady ? "0 0 6px rgba(56,189,248,0.5)" : "none",
+                              }}
+                              title={isLoading ? "Loading" : isReady ? "Ready" : isError ? "Error" : "Queued"}
+                            />
+                            {`n=${value}`}
+                          </button>
+                        );
+                      })}
                   </div>
                 </div>
-                {analysisStatus === "ready" && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {analysisSectionOptions.map((option) => {
-                      const active = analysisSections.includes(option.id);
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => {
-                            setAnalysisSections((prev) =>
-                              prev.includes(option.id) ? prev.filter((id) => id !== option.id) : [...prev, option.id]
-                            );
-                          }}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(148,163,184,0.4)",
-                            background: active ? "rgba(56,189,248,0.2)" : "rgba(2,6,23,0.7)",
-                            color: active ? "#f8fafc" : "#94a3b8",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
                 {analysisStatus === "loading" && (
                   <div style={{ display: "grid", gap: 12 }}>
                     <div style={{ height: 10, borderRadius: 999, background: "rgba(148,163,184,0.2)", overflow: "hidden" }}>
@@ -705,6 +720,13 @@ export function WordsWordsApp() {
                         <div style={{ color: "#cbd5f5" }}>{`Scanning: ${analysisProgress.currentWord}`}</div>
                       )}
                     </div>
+                  </div>
+                )}
+                {analysisStatus === "ready" && (
+                  <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#94a3b8" }}>
+                    <div>Legend: Most matches = highest count; Fewest non-zero = smallest non-zero count.</div>
+                    <div>Highest top Zipf = most common top word; Hardest = low count + low top Zipf.</div>
+                    <div>Rare letters = contains J/Q/X/Z; Branch = valid next-letter count; Alternating VC = vowel/consonant alternation.</div>
                   </div>
                 )}
               </div>
@@ -811,41 +833,37 @@ export function WordsWordsApp() {
             )}
 
             {activeTab === "analysis" && analysisStatus === "ready" && (
-              <div style={{ display: "grid", gap: 16 }}>
-                {analysisSections.includes("most") && renderSection("Most matches", topByCount)}
-                {analysisSections.includes("fewest") && renderSection("Fewest non-zero matches", fewestNonZero, "Includes singletons")}
-                {analysisSections.includes("zipf") && renderSection("Highest top Zipf word", topByZipf)}
-                {analysisSections.includes("hard") && renderSection("Hardest patterns", hardest, "Low count + low top Zipf")}
-                {analysisSections.includes("rare") && renderSection("Rare-letter patterns (J/Q/X/Z)", rareLetterPatterns)}
-                {analysisSections.includes("branch-one") && renderSection("Branching factor = 1", branchingOne)}
-                {analysisSections.includes("branch-high") && renderSection("Highest branching factor", branchingHigh)}
-                {analysisSections.includes("alternating") && renderSection("Alternating vowel/consonant", alternating)}
-                {analysisSections.includes("structure") && (
-                  <section style={{ display: "grid", gap: 10 }}>
-                    <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Structure buckets</h3>
-                    <div style={{ display: "grid", gap: 12 }}>
-                      {Array.from(structureBuckets.entries()).map(([key, list]) => (
-                        <div key={key} style={{ display: "grid", gap: 8 }}>
-                          <div style={{ fontSize: 12, color: "#94a3b8" }}>{key}</div>
-                          <div style={{ display: "grid", gap: 8 }}>{list.slice(0, 5).map(renderPatternRow)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
-                {analysisSections.includes("vowels") && (
-                  <section style={{ display: "grid", gap: 10 }}>
-                    <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Vowel count buckets</h3>
-                    <div style={{ display: "grid", gap: 12 }}>
-                      {Object.keys(vowelBuckets).map((key) => (
-                        <div key={key} style={{ display: "grid", gap: 8 }}>
-                          <div style={{ fontSize: 12, color: "#94a3b8" }}>{`${key} vowels`}</div>
-                          <div style={{ display: "grid", gap: 8 }}>{vowelBuckets[Number(key)].slice(0, 5).map(renderPatternRow)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+              <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+                {renderSection("Most matches", topByCount)}
+                {renderSection("Fewest non-zero", fewestNonZero, "Includes singletons")}
+                {renderSection("Highest top Zipf", topByZipf)}
+                {renderSection("Hardest patterns", hardest, "Low count + low top Zipf")}
+                {renderSection("Rare letters", rareLetterPatterns, "J / Q / X / Z")}
+                {renderSection("Branch = 1", branchingOne)}
+                {renderSection("Highest branching", branchingHigh)}
+                {renderSection("Alternating VC", alternating)}
+                <section style={{ display: "grid", gap: 10, padding: 12, borderRadius: 14, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(148,163,184,0.2)" }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>Structure buckets</h3>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {Array.from(structureBuckets.entries()).map(([key, list]) => (
+                      <div key={key} style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontSize: 12, color: "#94a3b8" }}>{key}</div>
+                        <div style={{ display: "grid", gap: 8 }}>{list.slice(0, 5).map(renderPatternRow)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+                <section style={{ display: "grid", gap: 10, padding: 12, borderRadius: 14, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(148,163,184,0.2)" }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>Vowel count buckets</h3>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {Object.keys(vowelBuckets).map((key) => (
+                      <div key={key} style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontSize: 12, color: "#94a3b8" }}>{`${key} vowels`}</div>
+                        <div style={{ display: "grid", gap: 8 }}>{vowelBuckets[Number(key)].slice(0, 5).map(renderPatternRow)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               </div>
             )}
           </div>
