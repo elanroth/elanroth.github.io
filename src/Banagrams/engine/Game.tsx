@@ -291,10 +291,17 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
   const RACK_MIN_H = 120;
   const RACK_MAX_H = 240;
   const MIN_TILE = 24;
+  const MIN_TILE_ZOOM = 16;
+  const MAX_TILE = 96;
   const GAP = 6;
+  const MIN_ZOOM = 0.6;
+  const MAX_ZOOM = 1.6;
+  const ZOOM_STEP = 0.1;
 
   // Board measurement
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const marqueeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const marqueeMovedRef = useRef(false);
   const [boardSize, setBoardSize] = useState({ w: 0, h: 0 });
   useEffect(() => {
     const el = boardRef.current;
@@ -310,6 +317,26 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
   }, []);
 
   const [baseTileSize, setBaseTileSize] = useState(52);
+  const [zoom, setZoom] = useState(1);
+
+  const adjustZoomByWheel = useCallback((deltaY: number) => {
+    setZoom((prev) => {
+      const next = prev - deltaY * 0.002;
+      return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(next.toFixed(2))));
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      adjustZoomByWheel(e.deltaY);
+    };
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [adjustZoomByWheel]);
 
   // Responsive tile size
   useEffect(() => {
@@ -394,21 +421,30 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
   }
 
   const tileSize = useMemo(() => {
-    if (!boardSize.w || !boardSize.h) return baseTileSize;
+    if (!boardSize.w || !boardSize.h) {
+      const scaled = Math.round(baseTileSize * zoom);
+      return Math.max(MIN_TILE_ZOOM, Math.min(MAX_TILE, scaled));
+    }
     const bounds = boardBounds(viewingTiles);
-    if (!bounds) return baseTileSize;
+    if (!bounds) {
+      const scaled = Math.round(baseTileSize * zoom);
+      return Math.max(MIN_TILE_ZOOM, Math.min(MAX_TILE, scaled));
+    }
     const marginCells = 1; // minimal padding; prevents early zoom-out for small boards
     const widthCells = bounds.max.x - bounds.min.x + 1 + marginCells * 2;
     const heightCells = bounds.max.y - bounds.min.y + 1 + marginCells * 2;
     const capacityW = Math.max(1, Math.floor(boardSize.w / (baseTileSize + GAP)));
     const capacityH = Math.max(1, Math.floor(boardSize.h / (baseTileSize + GAP)));
     // Only zoom out once we would exceed the available cell capacity at the base size.
-    if (widthCells <= capacityW && heightCells <= capacityH) return baseTileSize;
-    const sizeByW = Math.floor(boardSize.w / Math.max(widthCells, 1) - GAP);
-    const sizeByH = Math.floor(boardSize.h / Math.max(heightCells, 1) - GAP);
-    const target = Math.min(baseTileSize, sizeByW, sizeByH);
-    return Math.max(MIN_TILE, target);
-  }, [baseTileSize, boardSize.w, boardSize.h, viewingTiles]);
+    let autoSize = baseTileSize;
+    if (widthCells > capacityW || heightCells > capacityH) {
+      const sizeByW = Math.floor(boardSize.w / Math.max(widthCells, 1) - GAP);
+      const sizeByH = Math.floor(boardSize.h / Math.max(heightCells, 1) - GAP);
+      autoSize = Math.max(MIN_TILE, Math.min(baseTileSize, sizeByW, sizeByH));
+    }
+    const scaled = Math.round(autoSize * zoom);
+    return Math.max(MIN_TILE_ZOOM, Math.min(MAX_TILE, scaled));
+  }, [baseTileSize, boardSize.w, boardSize.h, viewingTiles, zoom]);
 
   const cell = tileSize + GAP;
 
@@ -596,6 +632,24 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
     const wx = Math.floor((xPx - cx) / cell);
     const wy = Math.floor((yPx - cy) / cell);
     return { x: wx, y: wy };
+  }
+
+  function clientToWorldCell(client: { x: number; y: number }) {
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const xPx = client.x - rect.left;
+    const yPx = client.y - rect.top;
+    return {
+      x: Math.floor((xPx - cx) / cell),
+      y: Math.floor((yPx - cy) / cell),
+    };
+  }
+
+  function resetMarqueeTracking() {
+    marqueeStartRef.current = null;
+    marqueeMovedRef.current = false;
   }
 
   function screenToWorld(client: { x: number; y: number }) {
@@ -935,6 +989,63 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
             Center Board
           </button>
 
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 8px",
+              background: "rgba(255,255,255,0.92)",
+              borderRadius: 12,
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
+            }}
+          >
+            <button
+              onClick={() => setZoom((prev) => Math.max(MIN_ZOOM, Number((prev - ZOOM_STEP).toFixed(2))))}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "white",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+              title="Zoom out"
+            >
+              -
+            </button>
+            <div style={{ minWidth: 44, textAlign: "center", fontWeight: 800 }}>{Math.round(zoom * 100)}%</div>
+            <button
+              onClick={() => setZoom((prev) => Math.min(MAX_ZOOM, Number((prev + ZOOM_STEP).toFixed(2))))}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "white",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+              title="Zoom in"
+            >
+              +
+            </button>
+            <button
+              onClick={() => setZoom(1)}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#f8fafc",
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+              title="Reset zoom"
+            >
+              Reset
+            </button>
+          </div>
+
           <div style={{ position: "relative" }}>
             <button
               onClick={() => {
@@ -1263,19 +1374,42 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
           if (e.button !== 0) return;
           const target = e.target as HTMLElement | null;
           if (target && target.closest("[data-tile]") ) return; // let tile drag handle it
+          if (typingMode.enabled) {
+            marqueeStartRef.current = { x: e.clientX, y: e.clientY };
+            marqueeMovedRef.current = false;
+            return;
+          }
           e.preventDefault();
           dispatch({ type: "MARQUEE_BEGIN", mouse: { x: e.clientX, y: e.clientY } });
         }}
         onMouseMove={(e) => {
           if (isSpectating) return;
+          if (typingMode.enabled && marqueeStartRef.current) {
+            const dx = e.clientX - marqueeStartRef.current.x;
+            const dy = e.clientY - marqueeStartRef.current.y;
+            const dist = Math.hypot(dx, dy);
+            if (!marqueeMovedRef.current && dist > 6) {
+              marqueeMovedRef.current = true;
+              dispatch({ type: "MARQUEE_BEGIN", mouse: marqueeStartRef.current });
+            }
+          }
           if (state.drag.kind === "marquee") {
             dispatch({ type: "MARQUEE_UPDATE", mouse: { x: e.clientX, y: e.clientY } });
           }
         }}
         onMouseUp={(e) => {
           if (isSpectating) return;
+          if (typingMode.enabled && marqueeStartRef.current && !marqueeMovedRef.current) {
+            const pos = clientToWorldCell({ x: e.clientX, y: e.clientY });
+            if (pos) {
+              setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(pos) }));
+            }
+            resetMarqueeTracking();
+            return;
+          }
           if (state.drag.kind === "marquee") {
             finalizeMarqueeSelection({ x: e.clientX, y: e.clientY });
+            resetMarqueeTracking();
           }
         }}
         onDragOver={(e) => e.preventDefault()}
@@ -1351,6 +1485,10 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
               key={t.id}
               draggable
               data-tile="1"
+              onClick={() => {
+                if (isSpectating || !typingMode.enabled) return;
+                setTypingMode((prev) => ({ ...prev, cursor: clampCursorToView(t.pos) }));
+              }}
               onDoubleClick={() => { if (!isSpectating) dispatch({ type: "RETURN_TO_RACK", tileId: t.id }); }}
               onDragStart={(e) => {
                 if (isSpectating) return;

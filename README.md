@@ -3,7 +3,7 @@
 Valid words courteous of
 <https://gist.github.com/deostroll/7693b6f3d48b44a89ee5f57bf750bd32>
 
-For testing: `firebase emulator:start --only datebase`
+For testing: `firebase emulators:start --only database`
 
 Banagrams
 
