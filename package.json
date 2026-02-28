@@ -74,6 +74,7 @@
             "deploy": "gh-pages -d build",
             "test": "vitest",
             "test:anagrams": "vitest src/Anagrams/tests",
-            "anagrams:play": "tsx scripts/anagrams-play.ts"
+            "anagrams:play": "tsx scripts/anagrams-play.ts",
+            "wordswords:build-zipf": "python3 scripts/wordswords-build-zipf.py"
       }
 }

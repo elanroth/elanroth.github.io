@@ -8,8 +8,9 @@ import { AnagramsVisualizer } from "./Anagrams/game";
 import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";
 import React from "react";
 import BlogView from "./Blog/BlogView";
+import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
 
-type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "god";
+type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "god";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
@@ -205,6 +206,12 @@ const GAME_CARDS: GameCard[] = [
     description: "Sometimes called Snatch, just a game I grew up playing.",
     onOpen: openAnagramsInNewTab,
   },
+  {
+    id: "wordswords",
+    title: "WordsWords",
+    description: "Zipf-ranked subsequence search and benchmarking lab.",
+    onOpen: openWordsWordsInNewTab,
+  },
 ];
 
 const talks = [
@@ -329,6 +336,17 @@ function openAnagramsInNewTab() {
   }
 }
 
+function openWordsWordsInNewTab() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "wordswords");
+    url.searchParams.set("full", "1");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+  } catch {
+    window.open("?tab=wordswords&full=1", "_blank", "noopener,noreferrer");
+  }
+}
+
 function openGodInNewTab() {
   window.open("https://open.spotify.com/show/7hUT0A4fQYB4TgmEZt8BjV?si=5d1633640fe34b97", "_blank", "noopener,noreferrer");
 }
@@ -347,18 +365,19 @@ const initialNav = (() => {
         fullAnagrams: false,
       };
     }
-    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc") {
+    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords") {
       return {
         tab: t as TabId,
         fullBanagrams: full && t === "banagrams",
         fullSeqnc: full && t === "seqnc",
         fullAnagrams: full && t === "anagrams",
+        fullWordsWords: full && t === "wordswords",
       };
     }
   } catch {
     /* ignore */
   }
-  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false };
+  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false, fullWordsWords: false };
 })();
 
 export default function App() {
@@ -366,6 +385,7 @@ export default function App() {
   const [fullBanagrams] = useState<boolean>(initialNav.fullBanagrams);
   const [fullSeqnc] = useState<boolean>(initialNav.fullSeqnc);
   const [fullAnagrams] = useState<boolean>(initialNav.fullAnagrams);
+  const [fullWordsWords] = useState<boolean>(initialNav.fullWordsWords);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
   const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
@@ -438,6 +458,14 @@ export default function App() {
         ) : (
           <AnagramsLobbyGate onEnter={setAnagramsChoice} />
         )}
+      </div>
+    );
+  }
+
+  if (fullWordsWords && activeTab === "wordswords") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#020617", color: "#e2e8f0" }}>
+        <WordsWordsApp />
       </div>
     );
   }
