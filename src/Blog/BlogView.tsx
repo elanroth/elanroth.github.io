@@ -48,7 +48,7 @@ function setPostSlugInUrl(slug?: string) {
     }
     window.history.pushState({}, "", url.toString());
   } catch {
-    /* ignore */
+    console.log("uh oh im in the BlogView")
   }
 }
 
