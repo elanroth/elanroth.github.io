@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   alphabetLetters,
-  buildBenchmarkPatterns,
   buildIndexes,
   buildWordRecords,
   formatNumber,
   normalizePattern,
   normalizeWord,
-  runBenchmark,
   runQuery,
-  type BenchmarkReport,
-  type Procedure,
   type RankedWord,
-  type SortMode,
+  type SortDirection,
+  type SortKey,
   type WordRecord,
 } from "./datastructure";
 
@@ -39,12 +36,6 @@ const DEFAULT_TOP_N = 80;
 const WORDLIST_PATH = "wordswords/wordlist.txt";
 const ZIPF_PATH = "wordswords/zipf.tsv";
 const USE_ZIPF = true;
-const BENCHMARK_TOP_N = 80;
-
-const BENCHMARK_OPTIONS = {
-  warmupIters: 2,
-  measuredIters: 5,
-};
 
 function getAssetUrl(path: string) {
   const base = import.meta.env.BASE_URL || "/";
@@ -101,7 +92,7 @@ function parseZipf(text: string) {
   return map;
 }
 
-function LogPanel({ metrics, report }: { metrics: LoadMetrics | null; report: BenchmarkReport | null }) {
+function LogPanel({ metrics }: { metrics: LoadMetrics | null }) {
   if (!metrics) return null;
   const rows = [
     { label: "wordlist fetch", value: `${metrics.wordFetchMs.toFixed(1)} ms` },
@@ -126,12 +117,6 @@ function LogPanel({ metrics, report }: { metrics: LoadMetrics | null; report: Be
             <span style={{ fontWeight: 700 }}>{row.value}</span>
           </div>
         ))}
-        {report && (
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-            <span style={{ color: "#94a3b8" }}>benchmark best</span>
-            <span style={{ fontWeight: 700 }}>{report.bestProcedure}</span>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -161,20 +146,19 @@ export function WordsWordsApp() {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [records, setRecords] = useState<WordRecord[]>([]);
   const [metrics, setMetrics] = useState<LoadMetrics | null>(null);
-  const [report, setReport] = useState<BenchmarkReport | null>(null);
   const [pattern, setPattern] = useState("");
   const [debouncedPattern, setDebouncedPattern] = useState("");
   const [results, setResults] = useState<RankedWord[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
-  const [procedureMode, setProcedureMode] = useState<"auto" | Procedure>("auto");
-  const [sortMode, setSortMode] = useState<SortMode>("gap");
+  const [sortKey, setSortKey] = useState<SortKey>("gap");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [showHints, setShowHints] = useState(true);
   const [hints, setHints] = useState<HintCell[]>([]);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
 
-  const activeProcedure: Procedure = procedureMode === "auto" ? report?.bestProcedure ?? "automaton" : procedureMode;
+  const activeProcedure = "automaton";
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -267,29 +251,16 @@ export function WordsWordsApp() {
 
   useEffect(() => {
     if (status !== "ready") return;
-    const patterns = buildBenchmarkPatterns(records);
-    const run = runBenchmark(records, patterns, {
-      warmupIters: BENCHMARK_OPTIONS.warmupIters,
-      measuredIters: BENCHMARK_OPTIONS.measuredIters,
-      topN: BENCHMARK_TOP_N,
-      procedures: ["baseline", "automaton"],
-    });
-    setReport(run);
-    console.log("[wordswords:benchmark]", run);
-  }, [records, status]);
-
-  useEffect(() => {
-    if (status !== "ready") return;
     const normalized = normalizePattern(debouncedPattern);
     if (!normalized) {
       setResults([]);
       setTotalCount(0);
       return;
     }
-    const run = runQuery(records, normalized, topN, activeProcedure, sortMode);
+    const run = runQuery(records, normalized, topN, activeProcedure, sortKey, sortDirection);
     setResults(run.results);
     setTotalCount(run.total);
-  }, [records, debouncedPattern, status, activeProcedure, topN, sortMode]);
+  }, [records, debouncedPattern, status, activeProcedure, topN, sortKey, sortDirection]);
 
   useEffect(() => {
     if (!showHints || status !== "ready") {
@@ -304,7 +275,7 @@ export function WordsWordsApp() {
     let cancelled = false;
     const run = () => {
       const next = alphabetLetters().map((letter) => {
-        const res = runQuery(records, base + letter, topN, activeProcedure, sortMode);
+        const res = runQuery(records, base + letter, topN, activeProcedure, sortKey, sortDirection);
         return { letter, total: res.total };
       });
       if (!cancelled) setHints(next);
@@ -314,7 +285,21 @@ export function WordsWordsApp() {
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [debouncedPattern, records, showHints, status, activeProcedure, topN, sortMode]);
+  }, [debouncedPattern, records, showHints, status, activeProcedure, topN, sortKey, sortDirection]);
+
+  const toggleSort = (nextKey: SortKey) => {
+    if (sortKey === nextKey) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(nextKey);
+      setSortDirection(nextKey === "zipf" ? "desc" : "asc");
+    }
+  };
+
+  const sortLabel = (key: SortKey) => {
+    if (sortKey !== key) return "";
+    return sortDirection === "asc" ? " ▲" : " ▼";
+  };
 
   const listHeight = 420;
   const rowHeight = 44;
@@ -384,29 +369,6 @@ export function WordsWordsApp() {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                 <div style={{ fontSize: 13, color: "#94a3b8" }}>{`Matches: ${formatNumber(totalCount)} | Showing ${results.length}`}</div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8" }}>Procedure</label>
-                  <select
-                    value={procedureMode}
-                    onChange={(event) => setProcedureMode(event.target.value as "auto" | Procedure)}
-                    style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.4)", background: "rgba(2,6,23,0.8)", color: "#f8fafc" }}
-                  >
-                    <option value="auto">Auto</option>
-                    <option value="baseline">Baseline scan</option>
-                    <option value="automaton">NextPos automaton</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8" }}>Sort</label>
-                  <select
-                    value={sortMode}
-                    onChange={(event) => setSortMode(event.target.value as SortMode)}
-                    style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid rgba(148,163,184,0.4)", background: "rgba(2,6,23,0.8)", color: "#f8fafc" }}
-                  >
-                    <option value="gap">Gap first</option>
-                    <option value="zipf">Zipf first</option>
-                  </select>
-                </div>
                 <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: "#94a3b8" }}>
                   <input type="checkbox" checked={showHints} onChange={(event) => setShowHints(event.target.checked)} />
                   Next-letter hints
@@ -448,9 +410,27 @@ export function WordsWordsApp() {
             <div style={{ borderRadius: 18, overflow: "hidden", border: "1px solid rgba(148,163,184,0.35)", background: "rgba(2,6,23,0.7)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "70px 1fr 80px 70px", padding: "10px 12px", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", color: "#94a3b8", borderBottom: "1px solid rgba(148,163,184,0.25)" }}>
                 <div>#</div>
-                <div>Word</div>
-                <div style={{ textAlign: "right" }}>Zipf</div>
-                <div style={{ textAlign: "right" }}>Gap</div>
+                <button
+                  type="button"
+                  onClick={() => toggleSort("word")}
+                  style={{ background: "none", border: "none", color: "inherit", textAlign: "left", cursor: "pointer", padding: 0, font: "inherit" }}
+                >
+                  {`Word${sortLabel("word")}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleSort("zipf")}
+                  style={{ background: "none", border: "none", color: "inherit", textAlign: "right", cursor: "pointer", padding: 0, font: "inherit" }}
+                >
+                  {`Zipf${sortLabel("zipf")}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleSort("gap")}
+                  style={{ background: "none", border: "none", color: "inherit", textAlign: "right", cursor: "pointer", padding: 0, font: "inherit" }}
+                >
+                  {`Gap${sortLabel("gap")}`}
+                </button>
               </div>
               <div
                 ref={listRef}
@@ -469,28 +449,7 @@ export function WordsWordsApp() {
           </div>
 
           <aside style={{ display: "grid", gap: 14, alignContent: "start" }}>
-            <div style={{ padding: 16, borderRadius: 16, border: "1px solid rgba(148,163,184,0.35)", background: "linear-gradient(120deg, rgba(56,189,248,0.12), rgba(14,116,144,0.18), rgba(15,23,42,0.6))", backgroundSize: "200% 200%", animation: "shimmer 8s ease infinite" }}>
-              <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#94a3b8" }}>Benchmark</div>
-              <div style={{ marginTop: 8, fontWeight: 800, fontSize: 18 }}>Procedure bakeoff</div>
-              <div style={{ color: "#cbd5f5", fontSize: 13, marginTop: 6 }}>
-                Warmup: {BENCHMARK_OPTIONS.warmupIters} · Measured: {BENCHMARK_OPTIONS.measuredIters} · Top N: {BENCHMARK_TOP_N}
-              </div>
-              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                {report ? (
-                  report.results.map((entry) => (
-                    <div key={entry.procedure} style={{ padding: 10, borderRadius: 12, background: "rgba(15,23,42,0.6)", border: "1px solid rgba(148,163,184,0.25)" }}>
-                      <div style={{ fontWeight: 800, color: entry.procedure === report.bestProcedure ? "#38bdf8" : "#f8fafc" }}>{entry.procedure}</div>
-                      <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{`median ${entry.medianMsPerQuery.toFixed(3)} ms/query · avg ${entry.avgMsPerQuery.toFixed(3)} ms/query`}</div>
-                      <div style={{ fontSize: 12, color: "#94a3b8" }}>{`median matches ${formatNumber(entry.medianMatches)} · avg ${formatNumber(entry.avgMatches)}`}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ fontSize: 13, color: "#94a3b8" }}>Benchmark pending.</div>
-                )}
-              </div>
-            </div>
-
-            <LogPanel metrics={metrics} report={report} />
+            <LogPanel metrics={metrics} />
 
             <div style={{ padding: 16, borderRadius: 14, border: "1px solid rgba(148,163,184,0.35)", background: "rgba(15,23,42,0.6)" }}>
               <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", color: "#94a3b8" }}>Assets</div>

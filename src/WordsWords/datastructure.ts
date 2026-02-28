@@ -1,5 +1,6 @@
 export type Procedure = "baseline" | "automaton";
-export type SortMode = "gap" | "zipf";
+export type SortKey = "word" | "zipf" | "gap";
+export type SortDirection = "asc" | "desc";
 
 export type WordRecord = {
 	word: string;
@@ -19,23 +20,6 @@ export type RankedWord = {
 export type QueryRun = {
 	results: RankedWord[];
 	total: number;
-};
-
-export type ProcedureBenchmark = {
-	procedure: Procedure;
-	warmupIters: number;
-	measuredIters: number;
-	patternCount: number;
-	avgMsPerQuery: number;
-	medianMsPerQuery: number;
-	avgMatches: number;
-	medianMatches: number;
-};
-
-export type BenchmarkReport = {
-	patterns: string[];
-	results: ProcedureBenchmark[];
-	bestProcedure: Procedure;
 };
 
 export const DEFAULT_ZIPF = -12;
@@ -125,28 +109,23 @@ export function buildIndexes(records: WordRecord[]) {
 	}
 }
 
-function compareRank(a: RankedWord, b: RankedWord): number {
+function compareRank(a: RankedWord, b: RankedWord, key: SortKey, dir: SortDirection): number {
+	let primary = 0;
+	if (key === "word") {
+		primary = a.word < b.word ? -1 : a.word > b.word ? 1 : 0;
+	} else if (key === "zipf") {
+		primary = a.zipf < b.zipf ? -1 : a.zipf > b.zipf ? 1 : 0;
+	} else {
+		primary = a.gap < b.gap ? -1 : a.gap > b.gap ? 1 : 0;
+	}
+	if (dir === "desc") primary *= -1;
+	if (primary !== 0) return primary;
+
 	if (a.zipf !== b.zipf) return a.zipf < b.zipf ? -1 : 1;
 	if (a.gap !== b.gap) return a.gap > b.gap ? -1 : 1;
 	if (a.len !== b.len) return a.len > b.len ? -1 : 1;
 	if (a.word === b.word) return 0;
 	return a.word > b.word ? -1 : 1;
-}
-
-function compareRankByGap(a: RankedWord, b: RankedWord): number {
-	if (a.gap !== b.gap) return a.gap > b.gap ? -1 : 1;
-	if (a.len !== b.len) return a.len > b.len ? -1 : 1;
-	if (a.zipf !== b.zipf) return a.zipf < b.zipf ? -1 : 1;
-	if (a.word === b.word) return 0;
-	return a.word > b.word ? -1 : 1;
-}
-
-function compareRankByZipf(a: RankedWord, b: RankedWord): number {
-	return compareRank(a, b);
-}
-
-function getComparator(sortMode: SortMode) {
-	return sortMode === "gap" ? compareRankByGap : compareRankByZipf;
 }
 
 class MinHeap<T> {
@@ -225,11 +204,12 @@ export function runQuery(
 	patternRaw: string,
 	topN: number,
 	procedure: Procedure,
-	sortMode: SortMode
+	sortKey: SortKey,
+	sortDirection: SortDirection
 ): QueryRun {
 	const pattern = normalizePattern(patternRaw);
 	if (!pattern) return { results: [], total: 0 };
-	const comparator = getComparator(sortMode);
+	const comparator = (a: RankedWord, b: RankedWord) => compareRank(a, b, sortKey, sortDirection);
 	const heap = new MinHeap<RankedWord>(comparator);
 	const patternMask = computeLetterMask(pattern);
 	let total = 0;
@@ -264,104 +244,6 @@ export function runQuery(
 
 	const results = heap.toArray().sort((a, b) => -comparator(a, b));
 	return { results, total };
-}
-
-export function buildBenchmarkPatterns(records: WordRecord[]): string[] {
-	const candidates = records.filter((r) => r.len >= 6).map((r) => r.word);
-	if (candidates.length === 0) return ["ace", "bake", "cable", "react", "story", "planet"];
-
-	let seed = 1337;
-	const nextRand = () => {
-		seed ^= seed << 13;
-		seed ^= seed >> 17;
-		seed ^= seed << 5;
-		return Math.abs(seed) / 0x7fffffff;
-	};
-
-	const patterns: string[] = [];
-	const pickSubsequence = (word: string, len: number) => {
-		const indices: number[] = [];
-		let prev = -1;
-		for (let i = 0; i < len; i += 1) {
-			const remaining = len - i - 1;
-			const minPos = prev + 1;
-			const maxPos = word.length - remaining - 1;
-			const choice = Math.floor(minPos + nextRand() * (maxPos - minPos + 1));
-			indices.push(choice);
-			prev = choice;
-		}
-		return indices.map((i) => word[i]).join("");
-	};
-
-	for (let targetLen = 3; targetLen <= 6; targetLen += 1) {
-		for (let i = 0; i < 10; i += 1) {
-			const word = candidates[Math.floor(nextRand() * candidates.length)];
-			patterns.push(pickSubsequence(word, targetLen));
-		}
-	}
-	return patterns;
-}
-
-export function runBenchmark(
-	records: WordRecord[],
-	patterns: string[],
-	options: { warmupIters: number; measuredIters: number; topN: number; procedures: Procedure[] }
-): BenchmarkReport {
-	const results: ProcedureBenchmark[] = [];
-	let best: Procedure = options.procedures[0] ?? "baseline";
-	let bestMedian = Number.POSITIVE_INFINITY;
-
-	for (const procedure of options.procedures) {
-		for (let i = 0; i < options.warmupIters; i += 1) {
-			for (const pattern of patterns) {
-				runQuery(records, pattern, options.topN, procedure, "zipf");
-			}
-		}
-
-		const perQueryTimes: number[] = [];
-		const matchCounts: number[] = [];
-		for (let i = 0; i < options.measuredIters; i += 1) {
-			const start = performance.now();
-			let totalMatches = 0;
-			for (const pattern of patterns) {
-				totalMatches += runQuery(records, pattern, options.topN, procedure, "zipf").total;
-			}
-			const elapsed = performance.now() - start;
-			perQueryTimes.push(elapsed / patterns.length);
-			matchCounts.push(totalMatches);
-		}
-
-		const avgMsPerQuery = perQueryTimes.reduce((sum, v) => sum + v, 0) / perQueryTimes.length;
-		const avgMatches = matchCounts.reduce((sum, v) => sum + v, 0) / matchCounts.length;
-		const medianMsPerQuery = median(perQueryTimes);
-		const medianMatches = median(matchCounts);
-
-		results.push({
-			procedure,
-			warmupIters: options.warmupIters,
-			measuredIters: options.measuredIters,
-			patternCount: patterns.length,
-			avgMsPerQuery,
-			medianMsPerQuery,
-			avgMatches,
-			medianMatches,
-		});
-
-		if (medianMsPerQuery < bestMedian) {
-			bestMedian = medianMsPerQuery;
-			best = procedure;
-		}
-	}
-
-	return { patterns, results, bestProcedure: best };
-}
-
-function median(values: number[]): number {
-	if (values.length === 0) return 0;
-	const sorted = [...values].sort((a, b) => a - b);
-	const mid = Math.floor(sorted.length / 2);
-	if (sorted.length % 2 === 1) return sorted[mid];
-	return (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 export function formatNumber(value: number): string {
