@@ -2,12 +2,57 @@ export type Procedure = "baseline" | "automaton";
 export type SortKey = "word" | "zipf" | "gap";
 export type SortDirection = "asc" | "desc";
 
+export type PatternTopWord = {
+	word: string;
+	zipf: number;
+};
+
+export type PatternStats = {
+	pattern: string;
+	count: number;
+	topWords: PatternTopWord[];
+	bestGap: number;
+	bestGapWord: string;
+	medianGap: number;
+	branchMask: number;
+	branchCount: number;
+	topZipf: number;
+	dominance: number;
+	structure: string;
+	vowelCount: number;
+	vcPattern: string;
+	isAlternating: boolean;
+	hasRare: boolean;
+	gapCounts?: Uint16Array;
+};
+
+export type AnalysisResult = {
+	byN: Record<number, PatternStats[]>;
+	maxN: number;
+	maxLen: number;
+	totalPatterns: Record<number, number>;
+	nonZeroPatterns: Record<number, number>;
+};
+
+export type AnalysisStage = "init" | "collect" | "branch" | "finalize";
+
+export type AnalysisProgressUpdate = {
+	stage: AnalysisStage;
+	progress: number;
+	processed?: number;
+	total?: number;
+	patternsFound?: number;
+	branchPrefixes?: number;
+	currentWord?: string;
+};
+
 export type WordRecord = {
 	word: string;
 	zipf: number;
 	len: number;
 	mask: number;
 	nextPos: Int16Array;
+	firstPos: Int16Array;
 };
 
 export type RankedWord = {
@@ -98,6 +143,7 @@ export function buildWordRecords(words: string[], zipfMap: Map<string, number>):
 			len: word.length,
 			mask: 0,
 			nextPos: new Int16Array(0),
+			firstPos: new Int16Array(0),
 		};
 	});
 }
@@ -106,7 +152,18 @@ export function buildIndexes(records: WordRecord[]) {
 	for (const record of records) {
 		record.mask = computeLetterMask(record.word);
 		record.nextPos = buildNextPos(record.word);
+		record.firstPos = buildFirstPos(record.word);
 	}
+}
+
+export function buildFirstPos(word: string): Int16Array {
+	const first = new Int16Array(26);
+	for (let i = 0; i < 26; i += 1) first[i] = -1;
+	for (let i = 0; i < word.length; i += 1) {
+		const code = word.charCodeAt(i) - 97;
+		if (code >= 0 && code < 26 && first[code] === -1) first[code] = i;
+	}
+	return first;
 }
 
 function compareRank(a: RankedWord, b: RankedWord, key: SortKey, dir: SortDirection): number {
@@ -205,7 +262,8 @@ export function runQuery(
 	topN: number,
 	procedure: Procedure,
 	sortKey: SortKey,
-	sortDirection: SortDirection
+	sortDirection: SortDirection,
+	restrictive: boolean
 ): QueryRun {
 	const pattern = normalizePattern(patternRaw);
 	if (!pattern) return { results: [], total: 0 };
@@ -219,6 +277,7 @@ export function runQuery(
 		if (record.len < pattern.length) continue;
 		if (procedure === "automaton") {
 			if ((patternMask & ~record.mask) !== 0) continue;
+			if (restrictive && !passesRestrictive(record, pattern)) continue;
 			if (!isSubsequenceAutomaton(pattern, record)) continue;
 		} else {
 			if (!isSubsequenceBaseline(pattern, record.word)) continue;
@@ -244,6 +303,239 @@ export function runQuery(
 
 	const results = heap.toArray().sort((a, b) => -comparator(a, b));
 	return { results, total };
+}
+
+function passesRestrictive(record: WordRecord, pattern: string): boolean {
+	let lastFirst = -1;
+	for (let i = 0; i < pattern.length; i += 1) {
+		const code = pattern.charCodeAt(i) - 97;
+		if (code < 0 || code >= 26) return false;
+		const pos = record.firstPos[code];
+		if (pos === -1) return false;
+		if (pos < lastFirst) return false;
+		lastFirst = pos;
+	}
+	return true;
+}
+
+export async function analyzePatternsWithProgress(
+	records: WordRecord[],
+	n: number,
+	onProgress?: (update: AnalysisProgressUpdate) => void
+): Promise<AnalysisResult> {
+	const vowels = new Set(["a", "e", "i", "o", "u"]);
+	const rare = new Set(["j", "q", "x", "z"]);
+	const maxLen = records.reduce((acc, r) => Math.max(acc, r.len), 0);
+	const byNMap = new Map<string, PatternStats>();
+	const totalPatterns: Record<number, number> = { [n]: Math.pow(26, n) };
+	const nonZeroPatterns: Record<number, number> = { [n]: 0 };
+	const yieldToBrowser = () => new Promise((resolve) => window.setTimeout(resolve, 0));
+	const emit = (update: AnalysisProgressUpdate) => {
+		onProgress?.(update);
+	};
+
+	emit({ stage: "init", progress: 0 });
+	emit({ stage: "init", progress: 1 });
+
+	emit({ stage: "collect", progress: 0, processed: 0, total: records.length });
+
+	for (let r = 0; r < records.length; r += 1) {
+		const record = records[r];
+		const word = record.word;
+		if (record.len >= n) {
+			const set = collectSubsequencePatterns(word, n);
+			const gap = record.len - n;
+			for (const pattern of set) {
+				let stats = byNMap.get(pattern);
+				if (!stats) {
+					stats = initPatternStats(pattern, maxLen - n, vowels, rare);
+					byNMap.set(pattern, stats);
+				}
+				stats.count += 1;
+				if (stats.gapCounts) stats.gapCounts[gap] += 1;
+				if (gap < stats.bestGap) {
+					stats.bestGap = gap;
+					stats.bestGapWord = word;
+				} else if (gap === stats.bestGap && record.zipf > stats.topZipf) {
+					stats.bestGapWord = word;
+				}
+				updateTopWords(stats.topWords, word, record.zipf);
+			}
+		}
+		if (r % 120 === 0) {
+			const progress = (r + 1) / records.length;
+			emit({
+				stage: "collect",
+				progress,
+				processed: r + 1,
+				total: records.length,
+				patternsFound: byNMap.size,
+				currentWord: word,
+			});
+			await yieldToBrowser();
+		}
+	}
+	emit({ stage: "collect", progress: 1, processed: records.length, total: records.length });
+
+	nonZeroPatterns[n] = byNMap.size;
+
+	emit({ stage: "branch", progress: 0 });
+	if (n + 1 <= maxLen) {
+		for (const stats of byNMap.values()) {
+			stats.branchMask = 0;
+		}
+		for (const record of records) {
+			if (record.len < n + 1) continue;
+			const setN1 = collectSubsequencePatterns(record.word, n + 1);
+			for (const pattern of setN1) {
+				const prefix = pattern.slice(0, n);
+				let stats = byNMap.get(prefix);
+				if (!stats) {
+					stats = initPatternStats(prefix, maxLen - n, vowels, rare);
+					byNMap.set(prefix, stats);
+				}
+				const code = pattern.charCodeAt(n) - 97;
+				if (code >= 0 && code < 26) stats.branchMask |= 1 << code;
+			}
+		}
+		for (const stats of byNMap.values()) {
+			stats.branchCount = popcount(stats.branchMask);
+		}
+	}
+	emit({ stage: "branch", progress: 1, branchPrefixes: byNMap.size });
+
+	let finalizeTotal = byNMap.size;
+	let finalizeDone = 0;
+	emit({ stage: "finalize", progress: 0, processed: 0, total: finalizeTotal });
+	for (const stats of byNMap.values()) {
+		stats.topWords.sort((a, b) => b.zipf - a.zipf);
+		stats.topZipf = stats.topWords[0]?.zipf ?? DEFAULT_ZIPF;
+		stats.dominance = stats.topWords.length >= 3 ? stats.topWords[0].zipf - stats.topWords[2].zipf : 0;
+		if (stats.gapCounts) {
+			stats.medianGap = computeMedianGap(stats.gapCounts, stats.count);
+			delete stats.gapCounts;
+		}
+		finalizeDone += 1;
+		if (finalizeDone % 2000 === 0) {
+			emit({ stage: "finalize", progress: finalizeDone / finalizeTotal, processed: finalizeDone, total: finalizeTotal });
+			await yieldToBrowser();
+		}
+	}
+	emit({ stage: "finalize", progress: 1, processed: finalizeDone, total: finalizeTotal });
+
+	const byN: Record<number, PatternStats[]> = { [n]: Array.from(byNMap.values()) };
+
+	return {
+		byN,
+		maxN: n,
+		maxLen,
+		totalPatterns,
+		nonZeroPatterns,
+	};
+}
+
+function initPatternStats(pattern: string, maxGap: number, vowels: Set<string>, rare: Set<string>): PatternStats {
+	const structure = canonicalPattern(pattern);
+	let vowelCount = 0;
+	let vcPattern = "";
+	let hasRare = false;
+	for (const ch of pattern) {
+		const isVowel = vowels.has(ch);
+		if (isVowel) vowelCount += 1;
+		vcPattern += isVowel ? "V" : "C";
+		if (rare.has(ch)) hasRare = true;
+	}
+	let isAlternating = true;
+	for (let i = 1; i < vcPattern.length; i += 1) {
+		if (vcPattern[i] === vcPattern[i - 1]) {
+			isAlternating = false;
+			break;
+		}
+	}
+	return {
+		pattern,
+		count: 0,
+		topWords: [],
+		bestGap: Number.POSITIVE_INFINITY,
+		bestGapWord: "",
+		medianGap: 0,
+		branchMask: 0,
+		branchCount: 0,
+		topZipf: DEFAULT_ZIPF,
+		dominance: 0,
+		structure,
+		vowelCount,
+		vcPattern,
+		isAlternating,
+		hasRare,
+		gapCounts: new Uint16Array(maxGap + 1),
+	};
+}
+
+function collectSubsequencePatterns(word: string, n: number): Set<string> {
+	const set = new Set<string>();
+	const letters = word.split("");
+	const len = letters.length;
+	if (n <= 0 || n > len) return set;
+	const indices = new Array<number>(n);
+	const build = (start: number, depth: number) => {
+		if (depth === n) {
+			let out = "";
+			for (let i = 0; i < n; i += 1) out += letters[indices[i]];
+			set.add(out);
+			return;
+		}
+		for (let i = start; i <= len - (n - depth); i += 1) {
+			indices[depth] = i;
+			build(i + 1, depth + 1);
+		}
+	};
+	build(0, 0);
+	return set;
+}
+
+function updateTopWords(list: PatternTopWord[], word: string, zipf: number) {
+	if (list.find((item) => item.word === word)) return;
+	list.push({ word, zipf });
+	list.sort((a, b) => b.zipf - a.zipf);
+	if (list.length > 3) list.length = 3;
+}
+
+function canonicalPattern(pattern: string): string {
+	const map = new Map<string, string>();
+	let nextCode = 65;
+	let out = "";
+	for (const ch of pattern) {
+		let label = map.get(ch);
+		if (!label) {
+			label = String.fromCharCode(nextCode);
+			nextCode += 1;
+			map.set(ch, label);
+		}
+		out += label;
+	}
+	return out;
+}
+
+function computeMedianGap(counts: Uint16Array, total: number): number {
+	if (total === 0) return 0;
+	const target = Math.floor((total - 1) / 2);
+	let acc = 0;
+	for (let i = 0; i < counts.length; i += 1) {
+		acc += counts[i];
+		if (acc > target) return i;
+	}
+	return counts.length - 1;
+}
+
+function popcount(value: number): number {
+	let v = value;
+	let count = 0;
+	while (v) {
+		v &= v - 1;
+		count += 1;
+	}
+	return count;
 }
 
 export function formatNumber(value: number): string {
