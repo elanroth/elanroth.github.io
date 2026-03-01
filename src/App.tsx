@@ -211,12 +211,14 @@ const GAME_CARDS: GameCard[] = [
     id: "wordswords",
     title: "WordsWords",
     description: "Zipf-ranked subsequence search and benchmarking lab.",
+    imageUrl: "/images/WordsWords_Photo.png",
     onOpen: openWordsWordsInNewTab,
   },
   {
     id: "guitar",
     title: "Guitar Explorer",
     description: "Place fingers on a fretboard, drag capos, and discover chords.",
+    imageUrl: "/images/Guitar_Photo.png",
     onOpen: openGuitarInNewTab,
   },
 ];

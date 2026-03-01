@@ -110,50 +110,53 @@ function detectChord(soundingMidis: number[]): string {
   return "";
 }
 
-// ─────────────────────────── LAYOUT CONSTANTS ───────────────────────────
+// ─────────────────────────── LAYOUT CONSTANTS (horizontal fretboard) ───────────────────────────
 
-// Fretboard SVG dimensions
-const S_GAP = 52;     // spacing between strings
-const F_GAP = 50;     // spacing between frets
-const ML = 48;        // margin left (inside fretboard SVG)
-const MT = 68;        // margin top (space above fret 1)
-const NUT_H = 10;     // nut height in px
-const SVG_W = ML + S_GAP * (NUM_STRINGS - 1) + ML;   // ~360
-const SVG_H = MT + F_GAP * NUM_FRETS + 40;            // ~718
+const H_S_GAP = 46;    // vertical spacing between strings
+const H_F_GAP = 54;    // horizontal spacing between frets
+const H_ML = 66;       // left margin (string labels + mute buttons inside SVG)
+const H_MT = 26;       // top margin
+const H_MB = 30;       // bottom margin (fret numbers)
+const H_MR = 22;       // right margin
+const H_NUT_W = 14;    // nut width
+const SVG_W = H_ML + H_NUT_W + H_F_GAP * NUM_FRETS + H_MR;
+const SVG_H = H_MT + H_S_GAP * (NUM_STRINGS - 1) + H_MB;
 
-function sX(s: number) { return ML + s * S_GAP; }   // x coord for string s
-function fY(f: number) { return MT + f * F_GAP; }    // y coord between frets (fY(0)=top nut line, fY(12)=bottom)
-
-// Center of a fret slot (between fret f-1 and fret f wire):
-function slotCX(s: number) { return sX(s); }
-function slotCY(f: number) { return MT + (f - 0.5) * F_GAP; }
+// String s → y-coordinate (string 0 = low E at bottom, string 5 = high e at top)
+function sY(s: number) { return H_MT + (NUM_STRINGS - 1 - s) * H_S_GAP; }
+// Fret f → x-coordinate of fret wire
+function fX(f: number) { return H_ML + H_NUT_W + f * H_F_GAP; }
+// Center of a fret slot:
+function slotCX(f: number) { return H_ML + H_NUT_W + (f - 0.5) * H_F_GAP; }
+function slotCY(s: number) { return sY(s); }
 
 // ─────────────────────────── COLORS ───────────────────────────
 
 const C = {
-  bg: "#F8EDD4",
-  panel: "#F0DDB0",
-  board: "#1E0C02",
-  boardSide: "#2E1008",
-  fret: "#D4A83A",
-  fretGlow: "#C8A84B",
-  nutColor: "#F5E6A0",
-  dot: "rgba(245, 225, 160, 0.65)",
-  dotDouble: "rgba(245, 225, 160, 0.85)",
-  str: (s: number) => (s < 3 ? "#C4A862" : "#E8D8A4"), // wound vs plain
-  finger: "#B83232",
-  fingerText: "#FFF5EE",
-  fingerShadow: "rgba(90,10,10,0.45)",
-  openNote: "#2E6E2E",
-  mutedColor: "#9B2020",
-  capoBar: "rgba(90, 50, 16, 0.92)",
-  capoBarBand: "#D4A83A",
-  capoOnStand: "#8B5E3C",
-  text: "#3D1205",
-  textLight: "#7B4F28",
-  accent: "#7B3A00",
-  tag: "#F5CCA0",
-  tagText: "#5A2800",
+  bg: "#F1F5F9",
+  panel: "#FFFFFF",
+  panelBorder: "#E2E8F0",
+  board: "#1E293B",
+  boardSide: "#0F172A",
+  fret: "#94A3B8",
+  fretGlow: "#64748B",
+  nutColor: "#E2E8F0",
+  dot: "rgba(148,163,184,0.55)",
+  dotDouble: "rgba(203,213,225,0.85)",
+  str: (s: number) => (s < 3 ? "#F59E0B" : "#CBD5E1"), // wound = amber, plain = silver
+  finger: "#4F46E5",
+  fingerText: "#FFFFFF",
+  fingerShadow: "rgba(79,70,229,0.45)",
+  openNote: "#10B981",
+  mutedColor: "#EF4444",
+  capoBar: "#374151",
+  capoBarBand: "#94A3B8",
+  capoOnStand: "#4B5563",
+  text: "#0F172A",
+  textLight: "#64748B",
+  accent: "#4F46E5",
+  tag: "#EEF2FF",
+  tagText: "#3730A3",
 };
 
 // ─────────────────────────── TYPES ───────────────────────────
@@ -336,14 +339,13 @@ export function GuitarApp() {
         const rect = fretboardRef.current.getBoundingClientRect();
         const relX = e.clientX - rect.left;
         const relY = e.clientY - rect.top;
-        // Determine fret from Y position
-        const scaleFactor = rect.height / SVG_H;
-        const svgY = relY / scaleFactor;
-        // Check if within fretboard X bounds
-        const svgX = relX / scaleFactor;
-        if (svgX >= ML - 20 && svgX <= ML + S_GAP * (NUM_STRINGS - 1) + 20) {
-          // Compute fret slot
-          const rawFret = Math.round((svgY - MT + F_GAP * 0.5) / F_GAP);
+        // Horizontal fretboard: fret determined by X, string range checked by Y
+        const scaleX = SVG_W / rect.width;
+        const scaleY = SVG_H / rect.height;
+        const svgX = relX * scaleX;
+        const svgY = relY * scaleY;
+        if (svgY >= H_MT - 20 && svgY <= H_MT + H_S_GAP * (NUM_STRINGS - 1) + 20) {
+          const rawFret = Math.round((svgX - (H_ML + H_NUT_W) + H_F_GAP * 0.5) / H_F_GAP);
           if (rawFret >= 1 && rawFret <= NUM_FRETS) {
             // Check no other capo is at this fret
             if (!capos.some((c) => c.fret === rawFret)) {
@@ -354,7 +356,7 @@ export function GuitarApp() {
           }
         }
       }
-      // Return to stand (fret stays null from when drag started)
+      // Return to stand
       setDrag(null);
     };
     window.addEventListener("mousemove", handleMove);
@@ -395,16 +397,16 @@ export function GuitarApp() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: `linear-gradient(160deg, #F8EDD4 0%, #F0D8A8 100%)`,
-      fontFamily: "'Georgia', 'Times New Roman', serif",
+      background: "linear-gradient(160deg, #F1F5F9 0%, #E2E8F0 100%)",
+      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
       color: C.text,
       paddingBottom: 60,
     }}>
       {/* ── Header ── */}
       <div style={{
-        background: `linear-gradient(135deg, #3D1205 0%, #6D3A00 60%, #8B5E3C 100%)`,
+        background: "linear-gradient(135deg, #0F172A 0%, #1E293B 60%, #334155 100%)",
         padding: "22px 32px 18px",
-        boxShadow: "0 4px 18px rgba(61,18,5,0.35)",
+        boxShadow: "0 4px 18px rgba(15,23,42,0.35)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -433,8 +435,8 @@ export function GuitarApp() {
               padding: "8px 18px",
               borderRadius: 8,
               border: "none",
-              background: mode === m.id ? C.fret : "transparent",
-              color: mode === m.id ? C.board : "#F5E0B5",
+              background: mode === m.id ? "#6366F1" : "transparent",
+              color: mode === m.id ? "#FFFFFF" : "#CBD5E1",
               fontWeight: 700,
               fontSize: 13,
               cursor: "pointer",
@@ -451,49 +453,50 @@ export function GuitarApp() {
 
       {/* ── Main Content ── */}
       {mode === "play" && (
-        <div style={{ display: "flex", gap: 24, padding: "28px 24px", justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "24px 24px", alignItems: "center" }}>
 
           {/* ── Capo Stand ── */}
           <div ref={standRef} style={{
-            background: `linear-gradient(160deg, #F0DDB0, #E8CF90)`,
-            border: "2px solid #C8A84B",
-            borderRadius: 16,
-            padding: "18px 16px",
-            minWidth: 110,
-            boxShadow: "0 4px 16px rgba(61,18,5,0.18)",
+            background: "#FFFFFF",
+            border: "1px solid #E2E8F0",
+            borderRadius: 14,
+            padding: "12px 16px",
+            width: "100%",
+            maxWidth: SVG_W,
+            boxShadow: "0 2px 10px rgba(15,23,42,0.08)",
             display: "flex",
-            flexDirection: "column",
+            flexDirection: "row",
             alignItems: "center",
-            gap: 12,
+            gap: 16,
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, letterSpacing: 1, textTransform: "uppercase", textAlign: "center", marginBottom: 4 }}>
-              Capo<br />Stand
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.textLight, letterSpacing: 1, textTransform: "uppercase", textAlign: "center", whiteSpace: "nowrap" }}>
+              Capo Stand
             </div>
-            {/* Vertical peg to hang capos */}
-            <div style={{ position: "relative", width: 12, height: standCapos.length * 56 + 16, background: "linear-gradient(to right, #A07040, #C8A860, #A07040)", borderRadius: 6, margin: "0 auto" }}>
+            {/* Horizontal rail to hang capos */}
+            <div style={{ position: "relative", height: 12, flex: 1, background: "linear-gradient(to bottom, #94A3B8, #CBD5E1, #94A3B8)", borderRadius: 6, margin: "0 8px" }}>
               {standCapos.map((capo, idx) => (
                 <CapoShape
                   key={capo.id}
                   onStand
-                  style={{ position: "absolute", top: idx * 56, left: "50%", transform: "translateX(-50%)" }}
+                  style={{ position: "absolute", top: "50%", left: idx * 56 + 14, transform: "translateY(-50%) rotate(90deg)", transformOrigin: "center center" }}
                   onMouseDown={(e) => startCapoDrag(capo.id, e)}
                 />
               ))}
             </div>
 
             {standCapos.length === 0 && (
-              <div style={{ textAlign: "center", color: C.textLight, fontSize: 11, fontStyle: "italic" }}>
+              <div style={{ textAlign: "center", color: C.textLight, fontSize: 11, fontStyle: "italic", whiteSpace: "nowrap" }}>
                 All capos placed!
               </div>
             )}
 
-            <div style={{ marginTop: 8, fontSize: 11, color: C.textLight, textAlign: "center", lineHeight: 1.5 }}>
-              Drag a capo<br />to the fretboard
+            <div style={{ fontSize: 11, color: C.textLight, textAlign: "center", lineHeight: 1.5, whiteSpace: "nowrap" }}>
+              Drag to fretboard
             </div>
 
             {/* Return buttons for placed capos */}
             {placedCapos.length > 0 && (
-              <div style={{ width: "100%", borderTop: `1px solid #C8A84B`, paddingTop: 10, marginTop: 4 }}>
+              <div style={{ width: "100%", borderTop: "1px solid #E2E8F0", paddingTop: 10, marginTop: 4 }}>
                 <div style={{ fontSize: 10, color: C.textLight, marginBottom: 6, textAlign: "center", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Placed</div>
                 {placedCapos.map((c) => (
                   <button
@@ -501,8 +504,8 @@ export function GuitarApp() {
                     onClick={() => setCapos((prev) => prev.map((x) => x.id === c.id ? { ...x, fret: null } : x))}
                     style={{
                       display: "block", width: "100%", marginBottom: 6,
-                      padding: "5px 8px", borderRadius: 8, border: "1px solid #C8A84B",
-                      background: "#8B5E3C", color: "#F8EDD4", fontSize: 11,
+                      padding: "5px 8px", borderRadius: 8, border: "1px solid #E2E8F0",
+                      background: "#4F46E5", color: "#FFFFFF", fontSize: 11,
                       cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
                     }}
                     title="Return capo to stand"
@@ -515,7 +518,7 @@ export function GuitarApp() {
           </div>
 
           {/* ── Fretboard ── */}
-          <div style={{ position: "relative" }}>
+          <div style={{ position: "relative", width: "100%", maxWidth: SVG_W, overflowX: "auto" }}>
             {/* Dragging capo overlay */}
             {drag && (
               <div style={{
@@ -525,7 +528,7 @@ export function GuitarApp() {
                 pointerEvents: "none",
                 zIndex: 999,
                 opacity: 0.92,
-                filter: "drop-shadow(0 4px 14px rgba(61,18,5,0.45))",
+                filter: "drop-shadow(0 4px 14px rgba(15,23,42,0.35))",
               }}>
                 <CapoShape dragging />
               </div>
@@ -534,116 +537,106 @@ export function GuitarApp() {
             <svg
               ref={fretboardRef}
               viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-              width={Math.min(SVG_W, 380)}
-              height={Math.min(SVG_H, 760)}
-              style={{ display: "block", borderRadius: 18, boxShadow: "0 8px 32px rgba(30,12,2,0.45), 0 2px 8px rgba(30,12,2,0.3)", cursor: "default" }}
+              style={{ display: "block", borderRadius: 12, boxShadow: "0 6px 28px rgba(15,23,42,0.38), 0 2px 8px rgba(15,23,42,0.18)", cursor: "default", width: SVG_W, height: SVG_H }}
             >
               <defs>
-                <linearGradient id="boardGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#2E1008" />
-                  <stop offset="4%" stopColor="#1E0C02" />
-                  <stop offset="96%" stopColor="#1E0C02" />
-                  <stop offset="100%" stopColor="#2E1008" />
+                <linearGradient id="boardGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0F172A" />
+                  <stop offset="8%" stopColor="#1E293B" />
+                  <stop offset="92%" stopColor="#1E293B" />
+                  <stop offset="100%" stopColor="#0F172A" />
                 </linearGradient>
                 <filter id="fretGlow">
-                  <feDropShadow dx="0" dy="0" stdDeviation="1.5" floodColor="#D4A83A" floodOpacity="0.6" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="1" floodColor="#94A3B8" floodOpacity="0.5" />
                 </filter>
                 <filter id="dotGlow">
-                  <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#F5E6A0" floodOpacity="0.5" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#CBD5E1" floodOpacity="0.5" />
                 </filter>
                 <filter id="fingerShadow">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#600" floodOpacity="0.5" />
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#1E1B4B" floodOpacity="0.6" />
                 </filter>
                 <filter id="capoShadow">
                   <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000" floodOpacity="0.4" />
                 </filter>
                 <radialGradient id="fingerGrad" cx="38%" cy="32%">
-                  <stop offset="0%" stopColor="#E05050" />
-                  <stop offset="100%" stopColor="#8B1C1C" />
+                  <stop offset="0%" stopColor="#A5B4FC" />
+                  <stop offset="100%" stopColor="#4338CA" />
                 </radialGradient>
               </defs>
 
               {/* Fretboard background */}
-              <rect x={ML - 22} y={MT - NUT_H - 4} width={S_GAP * (NUM_STRINGS - 1) + 44}
-                height={F_GAP * NUM_FRETS + NUT_H + 20} rx={8} fill="url(#boardGrad)" />
+              <rect x={H_ML} y={H_MT - 6}
+                width={H_NUT_W + H_F_GAP * NUM_FRETS + H_MR - 12}
+                height={H_S_GAP * (NUM_STRINGS - 1) + 12}
+                rx={6} fill="url(#boardGrad)" />
 
-              {/* Subtle wood grain lines */}
-              {Array.from({ length: 6 }, (_, i) => (
-                <line key={`grain${i}`}
-                  x1={ML - 18 + i * 14} y1={MT - NUT_H}
-                  x2={ML - 14 + i * 14} y2={MT + F_GAP * NUM_FRETS + 10}
-                  stroke="rgba(255,200,100,0.04)" strokeWidth={3} />
-              ))}
-
-              {/* Position markers (dots) */}
+              {/* Position markers (horizontal layout: dots between strings at fret slots) */}
               {Array.from({ length: NUM_FRETS }, (_, i) => {
                 const f = i + 1;
                 if (!POSITION_MARKERS.has(f)) return null;
-                const cy = slotCY(f);
+                const cx = slotCX(f);
+                const midY = (sY(2) + sY(3)) / 2;
                 if (f === 12) {
                   return (
                     <g key={`marker${f}`}>
-                      <circle cx={sX(1) + S_GAP * 0.5} cy={cy} r={7} fill={C.dotDouble} filter="url(#dotGlow)" />
-                      <circle cx={sX(3) + S_GAP * 0.5} cy={cy} r={7} fill={C.dotDouble} filter="url(#dotGlow)" />
+                      <circle cx={cx} cy={(sY(0) + sY(1)) / 2} r={7} fill={C.dotDouble} filter="url(#dotGlow)" />
+                      <circle cx={cx} cy={(sY(4) + sY(5)) / 2} r={7} fill={C.dotDouble} filter="url(#dotGlow)" />
                     </g>
                   );
                 }
-                return (
-                  <circle key={`marker${f}`} cx={SVG_W / 2} cy={cy} r={7} fill={C.dot} filter="url(#dotGlow)" />
-                );
+                return <circle key={`marker${f}`} cx={cx} cy={midY} r={7} fill={C.dot} filter="url(#dotGlow)" />;
               })}
 
-              {/* Fret position numbers on the left edge */}
+              {/* Fret numbers (bottom) */}
               {Array.from({ length: NUM_FRETS }, (_, i) => {
                 const f = i + 1;
                 return (
-                  <text key={`fnum${f}`} x={ML - 28} y={slotCY(f) + 5}
-                    textAnchor="middle" fontSize="11" fill="rgba(200,168,74,0.7)" fontWeight="600">
+                  <text key={`fnum${f}`} x={slotCX(f)} y={H_MT + H_S_GAP * (NUM_STRINGS - 1) + H_MB - 4}
+                    textAnchor="middle" fontSize="11" fill={C.fretGlow} fontWeight="600">
                     {f}
                   </text>
                 );
               })}
 
-              {/* Fret wires */}
+              {/* Fret wires (vertical lines) */}
               {Array.from({ length: NUM_FRETS + 1 }, (_, i) => {
-                const y = fY(i);
+                const x = fX(i);
                 return (
                   <g key={`fret${i}`}>
-                    <line x1={ML - 3} x2={ML + S_GAP * (NUM_STRINGS - 1) + 3}
-                      y1={y} y2={y}
-                      stroke={C.fretGlow} strokeWidth={2.5}
+                    <line x1={x} x2={x}
+                      y1={H_MT - 5} y2={H_MT + H_S_GAP * (NUM_STRINGS - 1) + 5}
+                      stroke={C.fretGlow} strokeWidth={i === 0 ? 1.5 : 2}
                       filter="url(#fretGlow)" />
                   </g>
                 );
               })}
 
-              {/* Nut */}
-              <rect x={ML - 6} y={MT - NUT_H - 1}
-                width={S_GAP * (NUM_STRINGS - 1) + 12} height={NUT_H + 2}
+              {/* Nut (vertical bar on left) */}
+              <rect x={H_ML} y={H_MT - 6}
+                width={H_NUT_W} height={H_S_GAP * (NUM_STRINGS - 1) + 12}
                 rx={3} fill={C.nutColor}
-                style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" }} />
+                style={{ filter: "drop-shadow(2px 0 4px rgba(0,0,0,0.35))" }} />
 
-              {/* Strings */}
+              {/* Strings (horizontal lines) */}
               {Array.from({ length: NUM_STRINGS }, (_, s) => (
                 <g key={`str${s}`}>
-                  <line x1={sX(s)} x2={sX(s)}
-                    y1={MT - NUT_H} y2={MT + F_GAP * NUM_FRETS + 12}
+                  <line x1={H_ML + H_NUT_W} x2={fX(NUM_FRETS)}
+                    y1={sY(s)} y2={sY(s)}
                     stroke={C.str(s)}
                     strokeWidth={s === 0 ? 3.2 : s === 1 ? 2.7 : s === 2 ? 2.2 : s === 3 ? 1.8 : s === 4 ? 1.4 : 1.1}
                     opacity={0.9} />
                 </g>
               ))}
 
-              {/* String head labels (at top) with open/muted indicators */}
+              {/* String labels + mute buttons (left side) */}
               {Array.from({ length: NUM_STRINGS }, (_, s) => {
-                const x = sX(s);
+                const y = sY(s);
                 const isMuted = mutedStrings.has(s);
-                const hasCapo = capFret > 0 && !fingers.find((f) => f.stringIdx === s);
                 return (
                   <g key={`head${s}`}>
-                    <circle cx={x} cy={MT - NUT_H - 22} r={12}
-                      fill={hoveredMute === s ? (isMuted ? "#D44" : "rgba(240,220,160,0.6)") : (isMuted ? "#C82" : "rgba(240,220,160,0.35)")}
-                      stroke={isMuted ? C.mutedColor : C.fret}
+                    <circle cx={H_ML - 28} cy={y} r={13}
+                      fill={hoveredMute === s ? (isMuted ? "#DC2626" : "rgba(99,102,241,0.3)") : (isMuted ? C.mutedColor : "rgba(99,102,241,0.15)")}
+                      stroke={isMuted ? C.mutedColor : C.accent}
                       strokeWidth={1.5}
                       style={{ cursor: "pointer", transition: "fill 0.15s" }}
                       onClick={() => handleMuteClick(s)}
@@ -652,11 +645,11 @@ export function GuitarApp() {
                     />
                     {isMuted ? (
                       <g style={{ pointerEvents: "none" }}>
-                        <line x1={x - 6} y1={MT - NUT_H - 28} x2={x + 6} y2={MT - NUT_H - 16} stroke={C.mutedColor} strokeWidth={2.5} strokeLinecap="round" />
-                        <line x1={x + 6} y1={MT - NUT_H - 28} x2={x - 6} y2={MT - NUT_H - 16} stroke={C.mutedColor} strokeWidth={2.5} strokeLinecap="round" />
+                        <line x1={H_ML - 34} y1={y - 6} x2={H_ML - 22} y2={y + 6} stroke={C.mutedColor} strokeWidth={2.5} strokeLinecap="round" />
+                        <line x1={H_ML - 22} y1={y - 6} x2={H_ML - 34} y2={y + 6} stroke={C.mutedColor} strokeWidth={2.5} strokeLinecap="round" />
                       </g>
                     ) : (
-                      <text x={x} y={MT - NUT_H - 17} textAnchor="middle" fontSize="10" fill={C.fret} fontWeight="800" style={{ pointerEvents: "none" }}>
+                      <text x={H_ML - 28} y={y + 4} textAnchor="middle" fontSize="11" fill="#FFFFFF" fontWeight="800" style={{ pointerEvents: "none" }}>
                         {STRING_LABELS[s]}
                       </text>
                     )}
@@ -668,15 +661,15 @@ export function GuitarApp() {
               {Array.from({ length: NUM_STRINGS }, (_, s) =>
                 Array.from({ length: NUM_FRETS }, (_, fi) => {
                   const f = fi + 1;
-                  const cx = slotCX(s);
-                  const cy = slotCY(f);
+                  const cx = slotCX(f);
+                  const cy = slotCY(s);
                   const isHovered = hoveredSlot?.s === s && hoveredSlot?.f === f;
                   const hasCapoHere = capos.some((c) => c.fret === f);
                   const isDisabled = f < capFret;
                   return (
                     <circle key={`slot${s}-${f}`}
                       cx={cx} cy={cy} r={20}
-                      fill={isHovered && !isDisabled ? "rgba(232,120,90,0.12)" : "transparent"}
+                      fill={isHovered && !isDisabled ? "rgba(99,102,241,0.18)" : "transparent"}
                       style={{ cursor: isDisabled || hasCapoHere ? "not-allowed" : "pointer" }}
                       onClick={() => !isDisabled && !hasCapoHere && handleSlotClick(s, f)}
                       onMouseEnter={() => !isDisabled && !hasCapoHere && setHoveredSlot({ s, f })}
@@ -686,49 +679,47 @@ export function GuitarApp() {
                 })
               )}
 
-              {/* Capos on fretboard */}
+              {/* Capos on fretboard (vertical bars in horizontal layout) */}
               {placedCapos.map((c) => {
                 if (c.fret === null) return null;
-                const y = slotCY(c.fret);
-                const x1 = ML - 16;
-                const x2 = ML + S_GAP * (NUM_STRINGS - 1) + 16;
+                const x = slotCX(c.fret);
+                const y1 = sY(NUM_STRINGS - 1) - 16;
+                const y2 = sY(0) + 16;
+                const midY = (y1 + y2) / 2;
                 return (
                   <g key={`capo${c.id}`} style={{ cursor: "grab" }}
                     onMouseDown={(e) => startCapoDrag(c.id, e as unknown as React.MouseEvent)}
                     filter="url(#capoShadow)">
-                    {/* Capo body */}
-                    <rect x={x1} y={y - 14} width={x2 - x1} height={28} rx={10}
-                      fill="url(#capoBodyGrad)" stroke="rgba(0,0,0,0.3)" strokeWidth={1.5} />
-                    {/* Capo wood grain */}
-                    <rect x={x1 + 4} y={y - 10} width={x2 - x1 - 8} height={20} rx={8}
-                      fill="rgba(255,210,140,0.15)" />
-                    {/* Capo clamp bar (metal band) */}
-                    <rect x={x1 - 4} y={y - 6} width={x2 - x1 + 8} height={12} rx={6}
-                      fill={C.capoBar} stroke={C.capoBarBand} strokeWidth={2} />
-                    {/* Fret label */}
-                    <text x={(x1 + x2) / 2} y={y + 5} textAnchor="middle"
-                      fontSize="11" fill="#F8EDD4" fontWeight="800"
-                      style={{ pointerEvents: "none", letterSpacing: 0.5 }}>
-                      CAPO {c.fret}
-                    </text>
-                    {/* Screw bolts */}
-                    <circle cx={x1 + 12} cy={y} r={5} fill="#C8A84B" stroke="#8B6914" strokeWidth={1.5} />
-                    <circle cx={x2 - 12} cy={y} r={5} fill="#C8A84B" stroke="#8B6914" strokeWidth={1.5} />
                     <defs>
-                      <linearGradient id="capoBodyGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#A07848" />
-                        <stop offset="40%" stopColor="#7A5230" />
-                        <stop offset="100%" stopColor="#5A3818" />
+                      <linearGradient id={`capoBodyGrad${c.id}`} x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#475569" />
+                        <stop offset="50%" stopColor="#334155" />
+                        <stop offset="100%" stopColor="#475569" />
                       </linearGradient>
                     </defs>
+                    {/* Capo body */}
+                    <rect x={x - 14} y={y1} width={28} height={y2 - y1} rx={10}
+                      fill={`url(#capoBodyGrad${c.id})`} stroke="rgba(0,0,0,0.3)" strokeWidth={1.5} />
+                    {/* Metal band */}
+                    <rect x={x - 6} y={y1 - 4} width={12} height={y2 - y1 + 8} rx={6}
+                      fill={C.capoBar} stroke={C.capoBarBand} strokeWidth={2} />
+                    {/* Fret label */}
+                    <text x={x} y={midY + 4} textAnchor="middle"
+                      fontSize="10" fill="#F1F5F9" fontWeight="800"
+                      style={{ pointerEvents: "none", letterSpacing: 0.5 }}>
+                      {c.fret}
+                    </text>
+                    {/* Bolts */}
+                    <circle cx={x} cy={y1 + 10} r={5} fill="#94A3B8" stroke="#64748B" strokeWidth={1.5} />
+                    <circle cx={x} cy={y2 - 10} r={5} fill="#94A3B8" stroke="#64748B" strokeWidth={1.5} />
                   </g>
                 );
               })}
 
               {/* Finger dots */}
               {fingers.map((f) => {
-                const cx = slotCX(f.stringIdx);
-                const cy = slotCY(f.fret);
+                const cx = slotCX(f.fret);
+                const cy = slotCY(f.stringIdx);
                 const midi = TUNING_MIDI[f.stringIdx] + f.fret;
                 const noteName = midiToNoteName(midi);
                 return (
@@ -738,7 +729,7 @@ export function GuitarApp() {
                     <circle cx={cx} cy={cy} r={19} fill="url(#fingerGrad)" filter="url(#fingerShadow)" />
                     <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle"
                       fontSize="12" fontWeight="800" fill={C.fingerText}
-                      style={{ pointerEvents: "none", fontFamily: "Georgia, serif", letterSpacing: 0.2 }}>
+                      style={{ pointerEvents: "none", letterSpacing: 0.2 }}>
                       {noteName}
                     </text>
                   </g>
@@ -747,37 +738,37 @@ export function GuitarApp() {
             </svg>
           </div>
 
-          {/* ── Info Panel ── */}
-          <div style={{ minWidth: 180, maxWidth: 240, display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* ── Info Panel (horizontal row below fretboard) ── */}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", width: "100%", maxWidth: SVG_W, alignItems: "flex-start" }}>
 
             {/* Chord / Notes display */}
             <div style={{
-              background: `linear-gradient(160deg, #F0DDB0, #E8CF90)`,
-              border: "2px solid #C8A84B",
-              borderRadius: 16,
-              padding: "18px 16px",
-              boxShadow: "0 4px 16px rgba(61,18,5,0.18)",
+              background: "#FFFFFF",
+              border: "1px solid #E2E8F0",
+              borderRadius: 14,
+              padding: "16px 18px",
+              boxShadow: "0 2px 10px rgba(15,23,42,0.08)",
+              minWidth: 150,
             }}>
               {chordName ? (
                 <>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.textLight, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Chord</div>
-                  <div style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: 1, lineHeight: 1, marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.textLight, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>Chord</div>
+                  <div style={{ fontSize: 34, fontWeight: 900, color: C.accent, letterSpacing: 1, lineHeight: 1, marginBottom: 4 }}>
                     {chordName}
                   </div>
                 </>
               ) : (
-                <div style={{ fontSize: 14, color: C.textLight, fontStyle: "italic", textAlign: "center", padding: "8px 0" }}>
-                  {midis.length === 0 ? "No strings\nplaying" : "Notes not found\nin chord library"}
+                <div style={{ fontSize: 13, color: C.textLight, fontStyle: "italic", textAlign: "center", padding: "6px 0" }}>
+                  {midis.length === 0 ? "No strings playing" : "Notes not in library"}
                 </div>
               )}
               {midis.length > 0 && (
-                <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
                   {midis.map((m, i) => (
                     <span key={i} style={{
-                      padding: "3px 9px", borderRadius: 999,
+                      padding: "2px 8px", borderRadius: 999,
                       background: C.finger, color: C.fingerText,
-                      fontSize: 12, fontWeight: 700,
-                      boxShadow: "0 2px 6px rgba(90,10,10,0.25)",
+                      fontSize: 11, fontWeight: 700,
                     }}>
                       {midiToNoteName(m)}
                     </span>
@@ -789,31 +780,33 @@ export function GuitarApp() {
             {/* Capo info */}
             {capFret > 0 && (
               <div style={{
-                background: "linear-gradient(160deg, #E8CF90, #D4B870)",
-                border: "1.5px solid #C8A84B",
+                background: "#EEF2FF",
+                border: "1px solid #C7D2FE",
                 borderRadius: 12,
-                padding: "10px 14px",
+                padding: "12px 16px",
                 fontSize: 13,
                 color: C.accent,
                 fontWeight: 700,
               }}>
                 🎚️ Capo at fret {capFret}
                 <div style={{ fontWeight: 400, fontSize: 11, color: C.textLight, marginTop: 3 }}>
-                  Open strings now sound {capFret} semitone{capFret !== 1 ? "s" : ""} higher
+                  +{capFret} semitone{capFret !== 1 ? "s" : ""}
                 </div>
               </div>
             )}
 
             {/* Per-string notes */}
             <div style={{
-              background: `linear-gradient(160deg, #F0DDB0, #E8CF90)`,
-              border: "2px solid #C8A84B",
-              borderRadius: 16,
-              padding: "14px 14px",
-              boxShadow: "0 4px 16px rgba(61,18,5,0.14)",
+              background: "#FFFFFF",
+              border: "1px solid #E2E8F0",
+              borderRadius: 14,
+              padding: "14px 16px",
+              boxShadow: "0 2px 10px rgba(15,23,42,0.08)",
+              flex: 1,
+              minWidth: 220,
             }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.textLight, letterSpacing: 1, textTransform: "uppercase", marginBottom: 10 }}>Strings</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.textLight, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>Strings</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {Array.from({ length: NUM_STRINGS }, (_, s) => {
                   const isMuted = mutedStrings.has(s);
                   const finger = fingers.find((f) => f.stringIdx === s);
@@ -823,21 +816,21 @@ export function GuitarApp() {
                   const noteName = midiToNoteName(midi);
                   return (
                     <div key={s} style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      opacity: isMuted || belowCapo ? 0.4 : 1,
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                      opacity: isMuted || belowCapo ? 0.35 : 1,
                     }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: C.fret, width: 12 }}>{STRING_LABELS[s]}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: C.textLight }}>{STRING_LABELS[s]}</span>
                       <span style={{
-                        fontSize: 11, color: C.textLight,
-                        background: "rgba(0,0,0,0.06)", borderRadius: 4, padding: "1px 5px",
-                        minWidth: 28, textAlign: "center",
+                        fontSize: 10, color: C.textLight,
+                        background: "#F1F5F9", borderRadius: 4, padding: "1px 5px",
+                        minWidth: 22, textAlign: "center",
                       }}>
                         {finger ? `${finger.fret}` : capFret > 0 ? `${capFret}` : "0"}
                       </span>
                       {isMuted || belowCapo ? (
-                        <span style={{ fontSize: 13, color: C.mutedColor }}>✕</span>
+                        <span style={{ fontSize: 12, color: C.mutedColor }}>✕</span>
                       ) : (
-                        <span style={{ fontSize: 14, fontWeight: 800, color: C.finger, minWidth: 24 }}>{noteName}</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: C.finger, minWidth: 20, textAlign: "center" }}>{noteName}</span>
                       )}
                     </div>
                   );
@@ -847,21 +840,22 @@ export function GuitarApp() {
 
             {/* Clear button */}
             <button onClick={() => { setFingers([]); setMutedStrings(new Set()); }} style={{
-              padding: "10px 16px",
+              padding: "10px 18px",
               borderRadius: 10,
-              border: "1.5px solid #C8A84B",
-              background: "transparent",
-              color: C.accent,
+              border: "1px solid #E2E8F0",
+              background: "#FFFFFF",
+              color: C.textLight,
               fontWeight: 700,
               fontSize: 13,
               cursor: "pointer",
               fontFamily: "inherit",
-              transition: "background 0.15s, color 0.15s",
+              alignSelf: "flex-start",
+              transition: "all 0.15s",
             }}
-              onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = C.accent; (e.currentTarget as HTMLButtonElement).style.color = "#F8EDD4"; }}
-              onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = C.accent; }}
+              onMouseOver={(e) => { (e.currentTarget as HTMLButtonElement).style.background = C.accent; (e.currentTarget as HTMLButtonElement).style.color = "#FFFFFF"; (e.currentTarget as HTMLButtonElement).style.borderColor = C.accent; }}
+              onMouseOut={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#FFFFFF"; (e.currentTarget as HTMLButtonElement).style.color = C.textLight; (e.currentTarget as HTMLButtonElement).style.borderColor = "#E2E8F0"; }}
             >
-              Clear fingers
+              Clear
             </button>
           </div>
         </div>
@@ -873,22 +867,22 @@ export function GuitarApp() {
           {/* Selectors */}
           <div style={{
             display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center",
-            background: "linear-gradient(160deg, #F0DDB0, #E8CF90)",
-            border: "2px solid #C8A84B", borderRadius: 16, padding: "20px 24px",
+            background: "#FFFFFF",
+            border: "1px solid #E2E8F0", borderRadius: 14, padding: "20px 24px",
             marginBottom: 28,
-            boxShadow: "0 4px 16px rgba(61,18,5,0.14)",
+            boxShadow: "0 2px 10px rgba(15,23,42,0.07)",
           }}>
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: C.textLight, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Root Note</label>
               <select value={lookupRoot} onChange={(e) => { setLookupRoot(e.target.value); setLookupVoicingIdx(0); }}
-                style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #C8A84B", background: "#F8EDD4", color: C.text, fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+                style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", color: C.text, fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
                 {NOTE_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: C.textLight, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Quality</label>
               <select value={lookupQuality} onChange={(e) => { setLookupQuality(e.target.value as ChordQuality); setLookupVoicingIdx(0); }}
-                style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #C8A84B", background: "#F8EDD4", color: C.text, fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
+                style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", color: C.text, fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>
                 {(Object.keys(CHORD_INTERVALS) as ChordQuality[]).map((q) => (
                   <option key={q} value={q}>{q === "maj" ? "Major" : q === "min" ? "Minor" : q === "7" ? "Dominant 7" : q === "maj7" ? "Major 7" : q === "min7" ? "Minor 7" : q === "dim" ? "Diminished" : q === "aug" ? "Augmented" : q === "sus2" ? "Sus 2" : q === "sus4" ? "Sus 4" : "Add 9"}</option>
                 ))}
@@ -904,9 +898,8 @@ export function GuitarApp() {
                   return (
                     <span key={interval} style={{
                       padding: "4px 10px", borderRadius: 999,
-                      background: C.finger, color: "#FFF5EE",
+                      background: C.finger, color: "#FFFFFF",
                       fontSize: 13, fontWeight: 700,
-                      boxShadow: "0 2px 6px rgba(90,10,10,0.2)",
                     }}>
                       {NOTE_NAMES[noteIdx]}
                     </span>
@@ -920,8 +913,8 @@ export function GuitarApp() {
           {lookupVoicings.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "40px 20px",
-              background: "linear-gradient(160deg, #F0DDB0, #E8CF90)",
-              border: "2px solid #C8A84B", borderRadius: 16,
+              background: "#FFFFFF",
+              border: "1px solid #E2E8F0", borderRadius: 14,
               color: C.textLight, fontSize: 16, fontStyle: "italic",
             }}>
               No voicings stored for {lookupRoot}{CHORD_LABEL[lookupQuality]} yet.
@@ -932,11 +925,11 @@ export function GuitarApp() {
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
               {lookupVoicings.map((v, idx) => (
                 <div key={idx} style={{
-                  background: "linear-gradient(160deg, #F0DDB0, #E8CF90)",
-                  border: `2.5px solid ${idx === lookupVoicingIdx ? C.finger : "#C8A84B"}`,
-                  borderRadius: 18,
+                  background: "#FFFFFF",
+                  border: `2px solid ${idx === lookupVoicingIdx ? C.accent : "#E2E8F0"}`,
+                  borderRadius: 16,
                   padding: "20px 18px",
-                  boxShadow: idx === lookupVoicingIdx ? `0 6px 20px rgba(184,50,50,0.22)` : "0 4px 14px rgba(61,18,5,0.14)",
+                  boxShadow: idx === lookupVoicingIdx ? `0 4px 18px rgba(79,70,229,0.2)` : "0 2px 10px rgba(15,23,42,0.07)",
                   cursor: "pointer",
                   transition: "border-color 0.15s, box-shadow 0.15s",
                   display: "flex",
@@ -974,9 +967,9 @@ export function GuitarApp() {
 
                   <button onClick={(e) => { e.stopPropagation(); applyVoicing(v); }} style={{
                     padding: "8px 18px", borderRadius: 10, border: "none",
-                    background: C.finger, color: "#FFF5EE",
+                    background: C.finger, color: "#FFFFFF",
                     fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
-                    boxShadow: "0 2px 8px rgba(184,50,50,0.25)",
+                    boxShadow: "0 2px 8px rgba(79,70,229,0.3)",
                     letterSpacing: 0.5,
                   }}>
                     Play this shape →
@@ -989,12 +982,12 @@ export function GuitarApp() {
           {/* Tips */}
           <div style={{
             marginTop: 28, padding: "16px 20px",
-            background: "rgba(200,168,74,0.15)", border: "1px solid rgba(200,168,74,0.4)",
+            background: "#EEF2FF", border: "1px solid #C7D2FE",
             borderRadius: 12, fontSize: 13, color: C.textLight, lineHeight: 1.7,
           }}>
             <strong style={{ color: C.accent }}>💡 Tips:</strong> Click <em>"Play this shape →"</em> to switch to Play mode with the fingering applied.
             Use capos on the Play tab to transpose any chord shape.
-            The {" "}<span style={{ fontWeight: 700, color: C.finger }}>red dots</span> show finger placement, {" "}
+            The {" "}<span style={{ fontWeight: 700, color: C.finger }}>indigo dots</span> show finger placement, {" "}
             <span style={{ fontWeight: 700, color: C.openNote }}>○</span> means open string, and{" "}
             <span style={{ fontWeight: 700, color: C.mutedColor }}>✕</span> means muted.
           </div>
@@ -1041,21 +1034,21 @@ function CapoShape({
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
         <defs>
           <linearGradient id={`capoStandGrad${onStand ? "s" : "d"}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#A07848" />
-            <stop offset="40%" stopColor="#7A5230" />
-            <stop offset="100%" stopColor="#5A3818" />
+            <stop offset="0%" stopColor="#475569" />
+            <stop offset="40%" stopColor="#334155" />
+            <stop offset="100%" stopColor="#1E293B" />
           </linearGradient>
         </defs>
         {/* Body */}
         <rect x={2} y={2} width={w - 4} height={h - 4} rx={10} fill={`url(#capoStandGrad${onStand ? "s" : "d"})`} stroke="rgba(0,0,0,0.25)" strokeWidth={1.5} />
         {/* Metal band */}
-        <rect x={0} y={8} width={w} height={12} rx={6} fill="#5A3210" stroke="#C8A84B" strokeWidth={2} />
+        <rect x={0} y={8} width={w} height={12} rx={6} fill="#334155" stroke="#94A3B8" strokeWidth={2} />
         {/* Bolt left */}
-        <circle cx={12} cy={14} r={4} fill="#C8A84B" stroke="#8B6914" strokeWidth={1.5} />
+        <circle cx={12} cy={14} r={4} fill="#94A3B8" stroke="#64748B" strokeWidth={1.5} />
         {/* Bolt right */}
-        <circle cx={w - 12} cy={14} r={4} fill="#C8A84B" stroke="#8B6914" strokeWidth={1.5} />
+        <circle cx={w - 12} cy={14} r={4} fill="#94A3B8" stroke="#64748B" strokeWidth={1.5} />
         {/* Label */}
-        <text x={w / 2} y={17} textAnchor="middle" fontSize="9" fill="#F8EDD4" fontWeight="800" letterSpacing="0.5">
+        <text x={w / 2} y={17} textAnchor="middle" fontSize="9" fill="#F8FAFC" fontWeight="800" letterSpacing="0.5">
           CAPO
         </text>
       </svg>
