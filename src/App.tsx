@@ -735,7 +735,7 @@ export default function App() {
 
         {activeTab === "games" && (
           <section style={{ display: "grid", gap: 16, justifyItems: "center" }}>
-            <div style={{ display: "grid", gap: 16, width: "80%", maxWidth: 1120, margin: "0 auto" }}>
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(2, 1fr)", width: "80%", maxWidth: 1120, margin: "0 auto" }}>
               {GAME_CARDS.map((game) => (
                 <button
                   key={game.id}
