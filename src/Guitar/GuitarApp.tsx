@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { SongIdeas } from "./SongIdeas";
 
 // ─────────────────────────── MUSIC THEORY ───────────────────────────
 
@@ -243,7 +244,7 @@ function MiniChordDiagram({ voicing }: { voicing: Voicing }) {
 // ─────────────────────────── GUITAR APP ───────────────────────────
 
 export function GuitarApp() {
-  const [mode, setMode] = useState<"play" | "lookup">("play");
+  const [mode, setMode] = useState<"play" | "lookup" | "ideas">("play");
   const [fingers, setFingers] = useState<Finger[]>([]);
   const [mutedStrings, setMutedStrings] = useState<Set<number>>(new Set());
   const [capos, setCapos] = useState<CapoItem[]>([
@@ -422,30 +423,34 @@ export function GuitarApp() {
           </div>
         </div>
         {/* Mode toggle */}
-        <div style={{ display: "flex", gap: 6, background: "rgba(0,0,0,0.25)", padding: "4px", borderRadius: 10 }}>
-          {(["play", "lookup"] as const).map((m) => (
-            <button key={m} onClick={() => setMode(m)} style={{
-              padding: "8px 22px",
+        <div style={{ display: "flex", gap: 6, background: "rgba(0,0,0,0.25)", padding: "4px", borderRadius: 10, flexWrap: "wrap" }}>
+          {([
+            { id: "play", label: "🎵 Play" },
+            { id: "lookup", label: "📖 Chord Lookup" },
+            { id: "ideas", label: "🎼 Song Ideas" },
+          ] as const).map((m) => (
+            <button key={m.id} onClick={() => setMode(m.id)} style={{
+              padding: "8px 18px",
               borderRadius: 8,
               border: "none",
-              background: mode === m ? C.fret : "transparent",
-              color: mode === m ? C.board : "#F5E0B5",
+              background: mode === m.id ? C.fret : "transparent",
+              color: mode === m.id ? C.board : "#F5E0B5",
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: 13,
               cursor: "pointer",
               fontFamily: "inherit",
               letterSpacing: 0.5,
               transition: "all 0.18s",
-              boxShadow: mode === m ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
+              boxShadow: mode === m.id ? "0 2px 8px rgba(0,0,0,0.3)" : "none",
             }}>
-              {m === "play" ? "🎵 Play" : "📖 Chord Lookup"}
+              {m.label}
             </button>
           ))}
         </div>
       </div>
 
       {/* ── Main Content ── */}
-      {mode === "play" ? (
+      {mode === "play" && (
         <div style={{ display: "flex", gap: 24, padding: "28px 24px", justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap" }}>
 
           {/* ── Capo Stand ── */}
@@ -860,7 +865,8 @@ export function GuitarApp() {
             </button>
           </div>
         </div>
-      ) : (
+      )}
+      {mode === "lookup" && (
         /* ─────── LOOKUP MODE ─────── */
         <div style={{ padding: "28px 24px", maxWidth: 840, margin: "0 auto" }}>
 
@@ -994,6 +1000,9 @@ export function GuitarApp() {
           </div>
         </div>
       )}
+
+      {/* ── Song Ideas Mode ── */}
+      {mode === "ideas" && <SongIdeas />}
 
       {/* ── Footer tip ── */}
       {mode === "play" && (
