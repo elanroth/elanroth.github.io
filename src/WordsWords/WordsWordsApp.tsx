@@ -662,27 +662,21 @@ export function WordsWordsApp() {
                         const isReady = loadState?.status === "ready";
                         const isLoading = loadState?.status === "loading";
                         const isError = loadState?.status === "error";
-                        const progress = Math.max(0, Math.min(1, loadState?.progress ?? 0));
-                        const ringColor = isError ? "#f87171" : "#38bdf8";
-                        const ringBg = isReady ? ringColor : `conic-gradient(${ringColor} ${progress * 360}deg, rgba(148,163,184,0.25) 0deg)`;
+                        const isSelected = analysisN === value;
+                        const dotColor = isError ? "#f87171" : isReady ? "#38bdf8" : isLoading ? "#fbbf24" : "rgba(148,163,184,0.35)";
                         return (
                           <button
                             key={value}
                             type="button"
-                            onClick={() => {
-                              if (!isReady) return;
-                              setAnalysisN(value);
-                            }}
-                            disabled={!isReady}
+                            onClick={() => setAnalysisN(value)}
                             style={{
                               padding: "6px 10px",
                               borderRadius: 10,
-                              border: "1px solid rgba(148,163,184,0.4)",
-                              background: analysisN === value ? "rgba(56,189,248,0.25)" : "rgba(2,6,23,0.8)",
-                              color: analysisN === value ? "#f8fafc" : "#94a3b8",
+                              border: isSelected ? "1px solid rgba(56,189,248,0.6)" : "1px solid rgba(148,163,184,0.3)",
+                              background: isSelected ? "rgba(56,189,248,0.25)" : "rgba(2,6,23,0.8)",
+                              color: isSelected ? "#f8fafc" : "#94a3b8",
                               fontWeight: 800,
-                              cursor: isReady ? "pointer" : "not-allowed",
-                              opacity: isReady ? 1 : 0.6,
+                              cursor: "pointer",
                               display: "flex",
                               alignItems: "center",
                               gap: 6,
@@ -690,14 +684,14 @@ export function WordsWordsApp() {
                           >
                             <span
                               style={{
-                                width: 10,
-                                height: 10,
+                                width: 8,
+                                height: 8,
                                 borderRadius: "50%",
-                                background: ringBg,
-                                border: "1px solid rgba(148,163,184,0.35)",
-                                boxShadow: isReady ? "0 0 6px rgba(56,189,248,0.5)" : "none",
+                                background: dotColor,
+                                boxShadow: isReady ? "0 0 6px rgba(56,189,248,0.5)" : isLoading ? "0 0 6px rgba(251,191,36,0.5)" : "none",
+                                flexShrink: 0,
                               }}
-                              title={isLoading ? "Loading" : isReady ? "Ready" : isError ? "Error" : "Queued"}
+                              title={isLoading ? "Loading…" : isReady ? "Ready" : isError ? "Error" : "Click to load"}
                             />
                             {`n=${value}`}
                           </button>
