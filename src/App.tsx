@@ -9,8 +9,9 @@ import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGat
 import React from "react";
 import BlogView from "./Blog/BlogView";
 import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
+import { GuitarApp } from "./Guitar/GuitarApp";
 
-type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "god";
+type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "guitar" | "god";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
@@ -212,6 +213,12 @@ const GAME_CARDS: GameCard[] = [
     description: "Zipf-ranked subsequence search and benchmarking lab.",
     onOpen: openWordsWordsInNewTab,
   },
+  {
+    id: "guitar",
+    title: "Guitar Explorer",
+    description: "Place fingers on a fretboard, drag capos, and discover chords.",
+    onOpen: openGuitarInNewTab,
+  },
 ];
 
 const talks = [
@@ -351,6 +358,17 @@ function openGodInNewTab() {
   window.open("https://open.spotify.com/show/7hUT0A4fQYB4TgmEZt8BjV?si=5d1633640fe34b97", "_blank", "noopener,noreferrer");
 }
 
+function openGuitarInNewTab() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "guitar");
+    url.searchParams.set("full", "1");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+  } catch {
+    window.open("?tab=guitar&full=1", "_blank", "noopener,noreferrer");
+  }
+}
+
 const initialNav = (() => {
   try {
     const url = new URL(window.location.href);
@@ -363,21 +381,24 @@ const initialNav = (() => {
         fullBanagrams: false,
         fullSeqnc: false,
         fullAnagrams: false,
+        fullWordsWords: false,
+        fullGuitar: false,
       };
     }
-    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords") {
+    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords" || t === "guitar") {
       return {
         tab: t as TabId,
         fullBanagrams: full && t === "banagrams",
         fullSeqnc: full && t === "seqnc",
         fullAnagrams: full && t === "anagrams",
         fullWordsWords: full && t === "wordswords",
+        fullGuitar: full && t === "guitar",
       };
     }
   } catch {
     /* ignore */
   }
-  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false, fullWordsWords: false };
+  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false, fullWordsWords: false, fullGuitar: false };
 })();
 
 export default function App() {
@@ -386,6 +407,7 @@ export default function App() {
   const [fullSeqnc] = useState<boolean>(initialNav.fullSeqnc);
   const [fullAnagrams] = useState<boolean>(initialNav.fullAnagrams);
   const [fullWordsWords] = useState<boolean>(initialNav.fullWordsWords);
+  const [fullGuitar] = useState<boolean>(initialNav.fullGuitar);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
   const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
@@ -466,6 +488,14 @@ export default function App() {
     return (
       <div style={{ minHeight: "100vh", background: "#020617", color: "#e2e8f0" }}>
         <WordsWordsApp />
+      </div>
+    );
+  }
+
+  if (fullGuitar && activeTab === "guitar") {
+    return (
+      <div style={{ minHeight: "100vh" }}>
+        <GuitarApp />
       </div>
     );
   }
