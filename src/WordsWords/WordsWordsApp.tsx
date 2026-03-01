@@ -1,21 +1,59 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   alphabetLetters,
-  analyzePatternsWithProgress,
   buildIndexes,
   buildWordRecords,
   formatNumber,
   normalizePattern,
   normalizeWord,
   runQuery,
-  type AnalysisProgressUpdate,
-  type AnalysisResult,
   type PatternStats,
   type RankedWord,
   type SortDirection,
   type SortKey,
   type WordRecord,
 } from "./datastructure";
+
+// ── Precomputed analysis types ────────────────────────────────
+type PrecomputedMeta = { n: number; totalPatterns: number; nonZeroPatterns: number; maxLen: number; computedAt: string };
+type PrecomputedAnalysis = {
+  meta: PrecomputedMeta;
+  categories: {
+    topByCount: PatternStats[];
+    fewestNonZero: PatternStats[];
+    topByZipf: PatternStats[];
+    hardest: PatternStats[];
+    rareLetters: PatternStats[];
+    branchOne: PatternStats[];
+    branchHigh: PatternStats[];
+    alternating: PatternStats[];
+  };
+  structureBuckets: Record<string, PatternStats[]>;
+  vowelBuckets: Record<string, PatternStats[]>;
+};
+
+/** JSON stores null for Infinity; restore it after loading. */
+function normalizePrecomputed(raw: any): PrecomputedAnalysis {
+  const fix = (arr: any[]): PatternStats[] =>
+    arr.map((s) => ({ ...s, bestGap: s.bestGap === null ? Number.POSITIVE_INFINITY : s.bestGap }));
+  const fixRecord = (obj: Record<string, any[]>) =>
+    Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fix(v)]));
+  return {
+    meta: raw.meta,
+    categories: {
+      topByCount: fix(raw.categories.topByCount ?? []),
+      fewestNonZero: fix(raw.categories.fewestNonZero ?? []),
+      topByZipf: fix(raw.categories.topByZipf ?? []),
+      hardest: fix(raw.categories.hardest ?? []),
+      rareLetters: fix(raw.categories.rareLetters ?? []),
+      branchOne: fix(raw.categories.branchOne ?? []),
+      branchHigh: fix(raw.categories.branchHigh ?? []),
+      alternating: fix(raw.categories.alternating ?? []),
+    },
+    structureBuckets: fixRecord(raw.structureBuckets ?? {}),
+    vowelBuckets: fixRecord(raw.vowelBuckets ?? {}),
+  };
+}
 
 type LoadMetrics = {
   wordFetchMs: number;
@@ -191,9 +229,7 @@ export function WordsWordsApp() {
   const [scrollTop, setScrollTop] = useState(0);
   const [analysisN, setAnalysisN] = useState(3);
   const [analysisStatus, setAnalysisStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [analysisCache, setAnalysisCache] = useState<Record<number, AnalysisResult>>({});
-  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgressUpdate>({ stage: "init", progress: 0 });
+  const [precomputedCache, setPrecomputedCache] = useState<Record<number, PrecomputedAnalysis>>({});
   const [analysisLoadState, setAnalysisLoadState] = useState<Record<number, { status: "idle" | "loading" | "ready" | "error"; progress: number }>>(() => {
     const initial: Record<number, { status: "idle" | "loading" | "ready" | "error"; progress: number }> = {};
     for (let n = 1; n <= ANALYSIS_MAX_N; n += 1) {
@@ -201,6 +237,7 @@ export function WordsWordsApp() {
     }
     return initial;
   });
+  const fetchedNRef = useRef<Set<number>>(new Set());
 
   const activeProcedure = "automaton";
 
@@ -293,76 +330,46 @@ export function WordsWordsApp() {
     };
   }, []);
 
+  // Lazy-load: fetch only the selected n (+ adjacent ±1 as prefetch).
+  // This avoids pulling the 21MB n=8 file when you only want n=3.
   useEffect(() => {
     if (activeTab !== "analysis") return;
-    if (status !== "ready" || records.length === 0) return;
-    let cancelled = false;
-
-    const runQueue = async () => {
-      for (let n = 1; n <= ANALYSIS_MAX_N; n += 1) {
-        if (cancelled) return;
-        if (analysisCache[n]) continue;
-        setAnalysisLoadState((prev) => ({
-          ...prev,
-          [n]: { status: "loading", progress: 0 },
-        }));
-        if (analysisN === n) {
-          setAnalysisStatus("loading");
-          setAnalysisProgress({ stage: "init", progress: 0 });
-        }
-        try {
-          const result = await analyzePatternsWithProgress(records, n, (update) => {
-            if (cancelled) return;
-            if (analysisN === n) setAnalysisProgress(update);
-            setAnalysisLoadState((prev) => ({
-              ...prev,
-              [n]: { status: "loading", progress: update.progress },
-            }));
-          });
-          if (cancelled) return;
-          setAnalysisCache((prev) => ({ ...prev, [n]: result }));
-          setAnalysisLoadState((prev) => ({
-            ...prev,
-            [n]: { status: "ready", progress: 1 },
-          }));
-          if (analysisN === n) {
-            setAnalysis(result);
-            setAnalysisStatus("ready");
-          }
-        } catch (err) {
-          console.log("[wordswords:analysis-error]", { error: String(err) });
-          if (cancelled) return;
-          setAnalysisLoadState((prev) => ({
-            ...prev,
-            [n]: { status: "error", progress: 0 },
-          }));
-          if (analysisN === n) setAnalysisStatus("error");
-        }
-      }
-    };
-
-    runQueue();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, analysisCache, analysisN, records, status]);
+    const toFetch = [analysisN, analysisN - 1, analysisN + 1].filter(
+      (n) => n >= 1 && n <= ANALYSIS_MAX_N
+    );
+    for (const n of toFetch) {
+      if (fetchedNRef.current.has(n)) continue;
+      fetchedNRef.current.add(n);
+      const localN = n;
+      setAnalysisLoadState((prev) => ({ ...prev, [localN]: { status: "loading", progress: 0.5 } }));
+      fetch(getAssetUrl(`wordswords/analysis-n${localN}.json`))
+        .then((resp) => {
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          return resp.json();
+        })
+        .then((raw) => {
+          const data = normalizePrecomputed(raw);
+          setPrecomputedCache((prev) => ({ ...prev, [localN]: data }));
+          setAnalysisLoadState((prev) => ({ ...prev, [localN]: { status: "ready", progress: 1 } }));
+        })
+        .catch((err) => {
+          console.error(`[wordswords:analysis] n=${localN} fetch error`, String(err));
+          fetchedNRef.current.delete(localN);
+          setAnalysisLoadState((prev) => ({ ...prev, [localN]: { status: "error", progress: 0 } }));
+        });
+    }
+  }, [activeTab, analysisN]);
 
   useEffect(() => {
-    const cached = analysisCache[analysisN];
-    if (cached) {
-      setAnalysis(cached);
+    if (precomputedCache[analysisN]) {
       setAnalysisStatus("ready");
-      return;
-    }
-    const state = analysisLoadState[analysisN];
-    if (state?.status === "loading") {
-      setAnalysisStatus("loading");
-    } else if (state?.status === "error") {
-      setAnalysisStatus("error");
     } else {
-      setAnalysisStatus("idle");
+      const state = analysisLoadState[analysisN];
+      if (state?.status === "loading") setAnalysisStatus("loading");
+      else if (state?.status === "error") setAnalysisStatus("error");
+      else setAnalysisStatus("idle");
     }
-  }, [analysisCache, analysisLoadState, analysisN]);
+  }, [precomputedCache, analysisLoadState, analysisN]);
 
   useEffect(() => {
     if (status !== "ready") return;
@@ -431,63 +438,32 @@ export function WordsWordsApp() {
     return "Subsequence search with a rank-aware heap.";
   }, [status, records.length]);
 
-  const analysisStageOrder: Array<AnalysisProgressUpdate["stage"]> = ["init", "collect", "branch", "finalize"];
-  const analysisStageLabels: Record<AnalysisProgressUpdate["stage"], string> = {
-    init: "Initialize pattern buckets",
-    collect: "Scan words + build counts",
-    branch: "Compute branching factors",
-    finalize: "Finalize stats + rankings",
-  };
-  const analysisStageIndex = analysisStageOrder.indexOf(analysisProgress.stage);
-  const analysisOverall = Math.min(
-    1,
-    Math.max(0, (analysisStageIndex + analysisProgress.progress) / analysisStageOrder.length)
-  );
-  const analysisPatternsFound = analysisProgress.patternsFound ?? 0;
+  const precomputed = precomputedCache[analysisN] ?? null;
+  const totalPatterns = precomputed?.meta.totalPatterns ?? 0;
+  const nonZeroPatterns = precomputed?.meta.nonZeroPatterns ?? 0;
 
-  const analysisStats = analysis?.byN[analysisN] ?? [];
-  const totalPatterns = analysis?.totalPatterns[analysisN] ?? 0;
-  const nonZeroPatterns = analysis?.nonZeroPatterns[analysisN] ?? 0;
+  const topByCount = precomputed?.categories.topByCount.slice(0, 5) ?? [];
+  const fewestNonZero = precomputed?.categories.fewestNonZero.slice(0, 5) ?? [];
+  const topByZipf = precomputed?.categories.topByZipf.slice(0, 5) ?? [];
+  const hardest = precomputed?.categories.hardest.slice(0, 5) ?? [];
+  const rareLetterPatterns = precomputed?.categories.rareLetters.slice(0, 5) ?? [];
+  const branchingOne = precomputed?.categories.branchOne.slice(0, 5) ?? [];
+  const branchingHigh = precomputed?.categories.branchHigh.slice(0, 5) ?? [];
+  const alternating = precomputed?.categories.alternating.slice(0, 5) ?? [];
 
-  const topByCount = [...analysisStats].sort((a, b) => b.count - a.count).slice(0, 5);
-  const fewestNonZero = [...analysisStats].sort((a, b) => a.count - b.count).slice(0, 5);
-  const topByZipf = [...analysisStats].sort((a, b) => b.topZipf - a.topZipf).slice(0, 5);
-  const hardest = [...analysisStats]
-    .sort((a, b) => (a.count !== b.count ? a.count - b.count : a.topZipf - b.topZipf))
-    .slice(0, 5);
-  const rareLetterPatterns = [...analysisStats].filter((s) => s.hasRare).sort((a, b) => b.count - a.count).slice(0, 5);
-  const branchingOne = [...analysisStats].filter((s) => s.branchCount === 1).sort((a, b) => a.count - b.count).slice(0, 5);
-  const branchingHigh = [...analysisStats].sort((a, b) => b.branchCount - a.branchCount).slice(0, 5);
-  const alternating = [...analysisStats].filter((s) => s.isAlternating).sort((a, b) => b.count - a.count).slice(0, 5);
-
-  const vowelBuckets = useMemo(() => {
-    const buckets: Record<number, PatternStats[]> = {};
-    for (const stats of analysisStats) {
-      if (!buckets[stats.vowelCount]) buckets[stats.vowelCount] = [];
-      buckets[stats.vowelCount].push(stats);
-    }
-    for (const key of Object.keys(buckets)) {
-      buckets[Number(key)].sort((a, b) => b.count - a.count);
-    }
-    return buckets;
-  }, [analysisStats]);
-
-  const structureBuckets = useMemo(() => {
-    const buckets = new Map<string, PatternStats[]>();
-    for (const stats of analysisStats) {
-      const list = buckets.get(stats.structure) ?? [];
-      list.push(stats);
-      buckets.set(stats.structure, list);
-    }
-    for (const list of buckets.values()) {
-      list.sort((a, b) => b.count - a.count);
-    }
-    return buckets;
-  }, [analysisStats]);
+  const vowelBuckets = useMemo((): Record<number, PatternStats[]> => {
+    const raw = precomputed?.vowelBuckets ?? {};
+    return Object.fromEntries(Object.entries(raw).map(([k, v]) => [Number(k), v]));
+  }, [precomputed]);
 
   const renderPatternRow = (stats: PatternStats) => {
     const topWord = stats.topWords[0]?.word ?? "-";
-    const bestGap = stats.bestGap === Number.POSITIVE_INFINITY ? "—" : stats.bestGap;
+    const zipf = stats.topWords[0]?.zipf ?? stats.topZipf ?? 0;
+    const bestGap = stats.bestGap === Number.POSITIVE_INFINITY ? null : stats.bestGap;
+    // Zipf colour: green ≥4, amber 2–4, slate <2
+    const zipfColor = zipf >= 4 ? "#4ade80" : zipf >= 2 ? "#fbbf24" : "#94a3b8";
+    // Bar width: zipf typically 0–8 scale
+    const zipfPct = Math.min(100, Math.max(0, (zipf / 7) * 100));
     return (
       <button
         key={stats.pattern}
@@ -498,45 +474,85 @@ export function WordsWordsApp() {
           setDebouncedPattern(stats.pattern);
         }}
         style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 4,
-          padding: "8px 12px",
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          gap: "4px 12px",
+          padding: "10px 12px",
           borderRadius: 10,
-          background: "rgba(15,23,42,0.45)",
-          border: "1px solid rgba(148,163,184,0.25)",
+          background: "rgba(2,6,23,0.5)",
+          border: "1px solid rgba(148,163,184,0.18)",
           textAlign: "left",
           cursor: "pointer",
           width: "100%",
           boxSizing: "border-box",
+          transition: "border-color 0.15s, background 0.15s",
         }}
       >
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-          <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: "0.08em", color: "#e2e8f0" }}>{stats.pattern.toUpperCase()}</span>
-          <span style={{ fontSize: 12, color: "#94a3b8" }}>→</span>
-          <span style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic" }}>{topWord}</span>
+        {/* Left: pattern + top word */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+          <span style={{
+            fontWeight: 800, fontSize: 14, letterSpacing: "0.12em",
+            color: "#e2e8f0", fontFamily: "'Space Grotesk', monospace",
+            flexShrink: 0,
+          }}>{stats.pattern.toUpperCase()}</span>
+          <span style={{ fontSize: 12, color: "#cbd5e1", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topWord}</span>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px" }}>
-          <span style={{ fontSize: 11, color: "#64748b" }}>{`${formatNumber(stats.count)} matches`}</span>
-          <span style={{ fontSize: 11, color: "#64748b" }}>{`median gap ${stats.medianGap}`}</span>
-          <span style={{ fontSize: 11, color: "#64748b" }}>{`best gap ${bestGap}`}</span>
-          <span style={{ fontSize: 11, color: stats.branchCount === 1 ? "#fbbf24" : "#64748b", fontWeight: stats.branchCount === 1 ? 700 : 400 }}>
-            {`${stats.branchCount} branch${stats.branchCount === 1 ? "" : "es"}`}
+        {/* Right: match count */}
+        <div style={{ fontSize: 11, color: "#64748b", whiteSpace: "nowrap", alignSelf: "center" }}>
+          {formatNumber(stats.count)}
+        </div>
+        {/* Bottom-left: gap stats */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {bestGap !== null && (
+            <span style={{ fontSize: 11, color: "#64748b" }}>gap {bestGap}</span>
+          )}
+          <span style={{ fontSize: 11, color: "#64748b" }}>avg {stats.medianGap}</span>
+          {stats.isAlternating && (
+            <span style={{ fontSize: 10, color: "#818cf8", fontWeight: 700 }}>VC</span>
+          )}
+          {stats.hasRare && (
+            <span style={{ fontSize: 10, color: "#fb923c", fontWeight: 700 }}>RARE</span>
+          )}
+        </div>
+        {/* Bottom-right: zipf mini-bar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <div style={{ width: 44, height: 4, borderRadius: 2, background: "rgba(148,163,184,0.15)", overflow: "hidden" }}>
+            <div style={{ width: `${zipfPct}%`, height: "100%", background: zipfColor, borderRadius: 2 }} />
+          </div>
+          <span style={{ fontSize: 10, color: zipfColor, fontWeight: 700, minWidth: 24, textAlign: "right" }}>
+            {zipf.toFixed(1)}
           </span>
         </div>
       </button>
     );
   };
 
-  const renderSection = (title: string, items: PatternStats[], subtitle?: string) => (
-    <section style={{ display: "grid", gap: 10, padding: 12, borderRadius: 14, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(148,163,184,0.2)" }}>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
-        <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>{title}</h3>
-        {subtitle && <span style={{ fontSize: 12, color: "#94a3b8" }}>{subtitle}</span>}
-      </div>
-      <div style={{ display: "grid", gap: 6 }}>{items.slice(0, 5).map(renderPatternRow)}</div>
-    </section>
-  );
+  const SECTION_ACCENTS: Record<string, string> = {
+    "Most matches":       "#38bdf8",
+    "Fewest non-zero":    "#818cf8",
+    "Highest Zipf":       "#4ade80",
+    "Hardest":            "#f87171",
+    "Rare letters":       "#fb923c",
+    "Alternating VC":     "#a78bfa",
+  };
+
+  const renderSection = (title: string, items: PatternStats[], subtitle?: string) => {
+    const accent = SECTION_ACCENTS[title] ?? "#94a3b8";
+    return (
+      <section style={{
+        display: "grid", gap: 8, padding: "12px 14px",
+        borderRadius: 14, background: "rgba(15,23,42,0.45)",
+        border: `1px solid ${accent}33`,
+        borderLeft: `3px solid ${accent}`,
+      }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+          <h3 style={{ fontSize: 13, fontWeight: 800, margin: 0, color: accent, textTransform: "uppercase", letterSpacing: "0.08em" }}>{title}</h3>
+          {subtitle && <span style={{ fontSize: 11, color: "#64748b" }}>{subtitle}</span>}
+        </div>
+        <div style={{ display: "grid", gap: 5 }}>{items.slice(0, 5).map(renderPatternRow)}</div>
+      </section>
+    );
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 10% 10%, rgba(56,189,248,0.35), transparent 45%), radial-gradient(circle at 80% 0%, rgba(251,191,36,0.25), transparent 40%), linear-gradient(180deg, #0f172a 0%, #020617 100%)", color: "#e2e8f0", fontFamily: "'Space Grotesk', 'IBM Plex Sans', system-ui, sans-serif" }}>
@@ -690,43 +706,12 @@ export function WordsWordsApp() {
                   </div>
                 </div>
                 {analysisStatus === "loading" && (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    <div style={{ height: 10, borderRadius: 999, background: "rgba(148,163,184,0.2)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${(analysisOverall * 100).toFixed(1)}%`, background: "linear-gradient(90deg, #38bdf8, #fbbf24)", transition: "width 120ms ease" }} />
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12 }}>
-                      <div style={{ padding: "4px 10px", borderRadius: 999, background: "rgba(15,23,42,0.6)", border: "1px solid rgba(148,163,184,0.35)", color: "#cbd5f5" }}>
-                        {`Patterns found: ${formatNumber(analysisPatternsFound)}`}
-                      </div>
-                      {analysisProgress.branchPrefixes !== undefined && (
-                        <div style={{ padding: "4px 10px", borderRadius: 999, background: "rgba(15,23,42,0.6)", border: "1px solid rgba(148,163,184,0.35)", color: "#cbd5f5" }}>
-                          {`Branch prefixes: ${formatNumber(analysisProgress.branchPrefixes)}`}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#94a3b8" }}>
-                      {analysisStageOrder.map((stage, index) => {
-                        const statusLabel = index < analysisStageIndex ? "[x]" : index === analysisStageIndex ? "[>]" : "[ ]";
-                        const active = index === analysisStageIndex;
-                        const meta = active && analysisProgress.total ? ` (${formatNumber(analysisProgress.processed ?? 0)}/${formatNumber(analysisProgress.total)})` : "";
-                        return (
-                          <div key={stage} style={{ display: "flex", justifyContent: "space-between", gap: 10, color: active ? "#f8fafc" : "#94a3b8" }}>
-                            <span>{`${statusLabel} ${analysisStageLabels[stage]}`}</span>
-                            <span>{active ? `${Math.round(analysisProgress.progress * 100)}%${meta}` : ""}</span>
-                          </div>
-                        );
-                      })}
-                      {analysisProgress.currentWord && analysisProgress.stage === "collect" && (
-                        <div style={{ color: "#cbd5f5" }}>{`Scanning: ${analysisProgress.currentWord}`}</div>
-                      )}
-                    </div>
-                  </div>
+                  <div style={{ fontSize: 13, color: "#94a3b8" }}>Loading precomputed data…</div>
                 )}
                 {analysisStatus === "ready" && (
                   <div style={{ display: "grid", gap: 6, fontSize: 12, color: "#94a3b8" }}>
-                    <div>Legend: Most matches = highest count; Fewest non-zero = smallest non-zero count.</div>
-                    <div>Highest top Zipf = most common top word; Hardest = low count + low top Zipf.</div>
-                    <div>Rare letters = contains J/Q/X/Z; Branch = valid next-letter count; Alternating VC = vowel/consonant alternation.</div>
+                    <div>Colour bar = Zipf score (green ≥4 common, amber 2–4, grey low). Click any pattern to search it in Finder.</div>
+                    <div>Hardest = low count + low Zipf. Alternating VC = vowel/consonant alternation. Branch data only for n≤4.</div>
                   </div>
                 )}
               </div>
@@ -833,37 +818,59 @@ export function WordsWordsApp() {
             )}
 
             {activeTab === "analysis" && analysisStatus === "ready" && (
-              <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
-                {renderSection("Most matches", topByCount)}
-                {renderSection("Fewest non-zero", fewestNonZero, "Includes singletons")}
-                {renderSection("Highest top Zipf", topByZipf)}
-                {renderSection("Hardest patterns", hardest, "Low count + low top Zipf")}
-                {renderSection("Rare letters", rareLetterPatterns, "J / Q / X / Z")}
-                {renderSection("Branch = 1", branchingOne)}
-                {renderSection("Highest branching", branchingHigh)}
-                {renderSection("Alternating VC", alternating)}
-                <section style={{ display: "grid", gap: 10, padding: 12, borderRadius: 14, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(148,163,184,0.2)" }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>Structure buckets</h3>
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {Array.from(structureBuckets.entries()).map(([key, list]) => (
-                      <div key={key} style={{ display: "grid", gap: 8 }}>
-                        <div style={{ fontSize: 12, color: "#94a3b8" }}>{key}</div>
-                        <div style={{ display: "grid", gap: 8 }}>{list.slice(0, 5).map(renderPatternRow)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-                <section style={{ display: "grid", gap: 10, padding: 12, borderRadius: 14, background: "rgba(15,23,42,0.4)", border: "1px solid rgba(148,163,184,0.2)" }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0 }}>Vowel count buckets</h3>
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {Object.keys(vowelBuckets).map((key) => (
-                      <div key={key} style={{ display: "grid", gap: 8 }}>
-                        <div style={{ fontSize: 12, color: "#94a3b8" }}>{`${key} vowels`}</div>
-                        <div style={{ display: "grid", gap: 8 }}>{vowelBuckets[Number(key)].slice(0, 5).map(renderPatternRow)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+              <div style={{ display: "grid", gap: 12 }}>
+                {/* Stats bar */}
+                <div style={{
+                  display: "flex", flexWrap: "wrap", gap: 8,
+                  padding: "10px 14px", borderRadius: 12,
+                  background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.2)",
+                }}>
+                  <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                    <strong style={{ color: "#e2e8f0" }}>{formatNumber(nonZeroPatterns)}</strong> patterns found
+                  </span>
+                  <span style={{ color: "rgba(148,163,184,0.4)" }}>·</span>
+                  <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                    out of <strong style={{ color: "#e2e8f0" }}>{formatNumber(totalPatterns)}</strong> possible
+                  </span>
+                  <span style={{ color: "rgba(148,163,184,0.4)" }}>·</span>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>click any pattern to search it</span>
+                </div>
+                {/* Category grid — 2 cols on wide, 1 col on narrow */}
+                <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
+                  {renderSection("Most matches", topByCount)}
+                  {renderSection("Fewest non-zero", fewestNonZero, "singletons & near-singletons")}
+                  {renderSection("Highest Zipf", topByZipf, "most common top word")}
+                  {renderSection("Hardest", hardest, "low count + low Zipf")}
+                  {renderSection("Rare letters", rareLetterPatterns, "J · Q · X · Z")}
+                  {renderSection("Alternating VC", alternating, "vowel-consonant alternation")}
+                  {branchingOne.length > 0 && renderSection("Dead ends (branch=1)", branchingOne, "only one valid continuation")}
+                  {branchingHigh.length > 0 && renderSection("High branching", branchingHigh, "most valid continuations")}
+                </div>
+                {/* Vowel split — compact horizontal tabs */}
+                {Object.keys(vowelBuckets).length > 0 && (
+                  <details style={{ borderRadius: 12, border: "1px solid rgba(148,163,184,0.2)", overflow: "hidden" }}>
+                    <summary style={{
+                      padding: "10px 14px", cursor: "pointer",
+                      fontWeight: 800, fontSize: 12, textTransform: "uppercase",
+                      letterSpacing: "0.08em", color: "#94a3b8",
+                      background: "rgba(15,23,42,0.5)",
+                      listStyle: "none",
+                    }}>&#9654; By vowel count</summary>
+                    <div style={{ display: "grid", gap: 12, padding: 14, background: "rgba(15,23,42,0.35)",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+                      {Object.keys(vowelBuckets).sort((a, b) => Number(a) - Number(b)).map((key) => (
+                        <div key={key} style={{ display: "grid", gap: 6 }}>
+                          <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                            {key} vowel{Number(key) !== 1 ? "s" : ""}
+                          </div>
+                          <div style={{ display: "grid", gap: 4 }}>
+                            {vowelBuckets[Number(key)].slice(0, 3).map(renderPatternRow)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )}
           </div>
