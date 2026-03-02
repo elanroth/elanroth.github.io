@@ -1,5 +1,15 @@
 # Understanding Equality Homotopy Style
 
+## Poem
+
+Holding hands
+Across on open space
+Together running side by side
+Iff
+Topological invariants remain
+Agreeing upon groups
+Homotopically
+
 ## Motivation
 
 To be honest, when I applied to Penn as a logic major, I thought I knew what logic was. Four years later, I can now acknowledge that I had no idea what was going on. I liked philosophy and I liked math, so it seemed like a nice intersection. In my sophomore year, I took my first proof-based course... loved it. Quite captiving the way Queen Math fights only for truth and yields proof as her weapon. In my junior year, I enrolled in an introduction to logic course taught by proof theorist, Dr. Henry Towsner. Abstraction of truth. The (capital T) Truth of a statement had become reliant on the world in which it is being perceived. To know if the statements $x+0=x$ or $2x=1$ are true, we need more context. Is $x$ a whole number? Can $x = \frac{1}{2}$? What values can $x$ take on? What does "$=$" mean here? What is $2$?
