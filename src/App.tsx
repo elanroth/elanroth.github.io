@@ -10,8 +10,9 @@ import React from "react";
 import BlogView from "./Blog/BlogView";
 import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
 import { GuitarApp } from "./Guitar/GuitarApp";
+import { MovieTriviaApp } from "./MovieTrivia/MovieTriviaApp";
 
-type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "guitar" | "god";
+type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "guitar" | "movie-trivia" | "god";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
@@ -221,6 +222,12 @@ const GAME_CARDS: GameCard[] = [
     imageUrl: "/images/Guitar_Photo.png",
     onOpen: openGuitarInNewTab,
   },
+  {
+    id: "movie-trivia",
+    title: "Movie Trivia",
+    description: "Endless multiple-choice movie trivia powered by Open Trivia DB. See how far you can go!",
+    onOpen: openMovieTriviaInNewTab,
+  },
 ];
 
 const talks = [
@@ -371,6 +378,17 @@ function openGuitarInNewTab() {
   }
 }
 
+function openMovieTriviaInNewTab() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", "movie-trivia");
+    url.searchParams.set("full", "1");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+  } catch {
+    window.open("?tab=movie-trivia&full=1", "_blank", "noopener,noreferrer");
+  }
+}
+
 const initialNav = (() => {
   try {
     const url = new URL(window.location.href);
@@ -387,7 +405,7 @@ const initialNav = (() => {
         fullGuitar: false,
       };
     }
-    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords" || t === "guitar") {
+    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords" || t === "guitar" || t === "movie-trivia") {
       return {
         tab: t as TabId,
         fullBanagrams: full && t === "banagrams",
@@ -395,12 +413,13 @@ const initialNav = (() => {
         fullAnagrams: full && t === "anagrams",
         fullWordsWords: full && t === "wordswords",
         fullGuitar: full && t === "guitar",
+        fullMovieTrivia: full && t === "movie-trivia",
       };
     }
   } catch {
     /* ignore */
   }
-  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false, fullWordsWords: false, fullGuitar: false };
+  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false, fullWordsWords: false, fullGuitar: false, fullMovieTrivia: false };
 })();
 
 export default function App() {
@@ -410,6 +429,7 @@ export default function App() {
   const [fullAnagrams] = useState<boolean>(initialNav.fullAnagrams);
   const [fullWordsWords] = useState<boolean>(initialNav.fullWordsWords);
   const [fullGuitar] = useState<boolean>(initialNav.fullGuitar);
+  const [fullMovieTrivia] = useState<boolean>(initialNav.fullMovieTrivia);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
   const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
@@ -500,6 +520,10 @@ export default function App() {
         <GuitarApp />
       </div>
     );
+  }
+
+  if (fullMovieTrivia && activeTab === "movie-trivia") {
+    return <MovieTriviaApp />;
   }
 
   return (

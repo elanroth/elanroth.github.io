@@ -105,3 +105,13 @@
 	border-top: 1px solid #e5e7eb;
 	margin: 20px 0;
 }
+
+@keyframes confettiFall {
+	0%   { transform: translateY(0)   rotate(0deg);   opacity: 1; }
+	100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to   { transform: rotate(360deg); }
+}
