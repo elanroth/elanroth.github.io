@@ -1,14 +1,9 @@
-11:34:18.666 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
-11:34:18.724 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
-11:34:18.945 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - undefined-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 42ms, init: 0ms
-11:34:18.972 [NamespaceSystem-blocking-namespace-operation-dispatcher-6] INFO com.firebase.core.namespace.StateManager - Namespace undefined-default-rtdb status Active to Active
-11:34:49.825 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+23:18:47.414 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
+23:18:47.480 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
+23:18:47.657 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - undefined-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 45ms, init: 0ms
+23:18:47.681 [NamespaceSystem-blocking-namespace-operation-dispatcher-6] INFO com.firebase.core.namespace.StateManager - Namespace undefined-default-rtdb status Active to Active
+23:18:48.826 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
 namespace demo-bananagrams, but the emulator is configured for undefined-default-rtdb. To 
 opt-out of single project mode add/set the singleProjectMode: false property in 
 the firebase.json emulators config. 
-11:34:49.829 [NamespaceSystem-akka.actor.default-dispatcher-8] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 3ms, init: 0ms
-11:39:26.140 [Thread-0] INFO com.firebase.server.forge.App$ - Attempting graceful shutdown.
-11:39:26.144 [NamespaceSystem-akka.actor.default-dispatcher-8] INFO com.firebase.core.namespace.Terminator$Terminator - 2 actors left to terminate: undefined-default-rtdb, demo-bananagrams
-11:39:26.146 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - stopped namespace actor for undefined-default-rtdb
-11:39:26.146 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - stopped namespace actor for demo-bananagrams
-11:39:26.148 [Thread-0] INFO com.firebase.server.forge.App$ - Graceful shutdown complete.
+23:18:48.831 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 2ms, init: 0ms

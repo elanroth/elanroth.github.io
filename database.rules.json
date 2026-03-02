@@ -28,6 +28,12 @@
     "anagramsMeta": {
       ".read": true,
       ".write": true
+    },
+    "movieTrivia": {
+      "leaderboard": {
+        ".read": true,
+        "$entryId": { ".write": true }
+      }
     }
   }
 }

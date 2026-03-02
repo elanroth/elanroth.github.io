@@ -171,10 +171,10 @@ function MiniChordDiagram({ voicing }: { voicing: Voicing }) {
   const showFrets = 5;
   const sm = 34; // string margin
   const fm = 28; // fret margin
-  const width = sm + S_GAP * 0.8 * (NUM_STRINGS - 1) + sm;
-  const height = fm + F_GAP * 0.8 * showFrets + fm;
-  const sg = S_GAP * 0.8;
-  const fg = F_GAP * 0.8;
+  const width = sm + H_S_GAP * 0.8 * (NUM_STRINGS - 1) + sm;
+  const height = fm + H_F_GAP * 0.8 * showFrets + fm;
+  const sg = H_S_GAP * 0.8;
+  const fg = H_F_GAP * 0.8;
   const sx = (s: number) => sm + s * sg;
   const topY = fm;
 
