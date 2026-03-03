@@ -32,6 +32,7 @@
     "movieTrivia": {
       "leaderboard": {
         ".read": true,
+        ".indexOn": ["score"],
         "$entryId": { ".write": true }
       }
     }

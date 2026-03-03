@@ -207,6 +207,7 @@ const GAME_CARDS: GameCard[] = [
     title: "Anagrams",
     description: "Sometimes called Snatch, just a game I grew up playing.",
     onOpen: openAnagramsInNewTab,
+    disabled: true,
   },
   {
     id: "wordswords",
