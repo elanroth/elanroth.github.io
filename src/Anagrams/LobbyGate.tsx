@@ -18,6 +18,15 @@ type Props = {
   onEnter: (choice: AnagramsLobbyChoice) => void;
 };
 
+function describeLobbyError(fallback: string, err: unknown): string {
+  const code = typeof err === "object" && err !== null && "code" in err && typeof (err as { code?: unknown }).code === "string"
+    ? (err as { code: string }).code
+    : "";
+  const message = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  const details = [code, message].filter(Boolean).join(" ");
+  return details ? `${fallback}: ${details}` : fallback;
+}
+
 function getOrCreatePlayerId(): string {
   const url = new URL(window.location.href);
   const fromQuery = url.searchParams.get("user");
@@ -101,7 +110,8 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
       localStorage.setItem("anagrams_nick", nick);
       onEnter({ gameId: lobby.gameId, playerId, nickname: nick });
     } catch (err) {
-      setError("Could not join lobby");
+      console.error("[anagrams] joinLobby failed", err);
+      setError(describeLobbyError("Could not join lobby", err));
     } finally {
       setBusy(false);
     }
@@ -126,7 +136,8 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
       localStorage.setItem("anagrams_nick", nick);
       onEnter({ gameId, playerId, nickname: nick });
     } catch (err) {
-      setError("Could not create lobby");
+      console.error("[anagrams] createLobby failed", err);
+      setError(describeLobbyError("Could not create lobby", err));
     } finally {
       setBusy(false);
     }
@@ -145,7 +156,8 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
       localStorage.setItem("anagrams_nick", nick);
       onEnter({ gameId, playerId, nickname: nick });
     } catch (err) {
-      setError("Could not create test lobby");
+      console.error("[anagrams] createTestLobby failed", err);
+      setError(describeLobbyError("Could not create test lobby", err));
     } finally {
       setBusy(false);
     }
