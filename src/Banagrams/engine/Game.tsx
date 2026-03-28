@@ -5,7 +5,7 @@ import { reducer } from "./reducer";
 import { useBoardSync } from "./hooks/useBoardSync";
 import type { GameOptions, GameState, TileId, TileState, TilesById } from "./types";
 import { boardBounds, getValidWords, tilesInWorldRect } from "./board";
-import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis, saveFinalSnapshot, ensureNextLobby, joinLobby, createTileRequest, resolveTileRequest } from "./firebase/rtdb";
+import { takeFromBag, setGameStatus, pushGrants, dumpAndDraw, saveGameAnalysis, saveGameSnapshot, saveFinalSnapshot, ensureNextLobby, joinLobby, createTileRequest, resolveTileRequest } from "./firebase/rtdb";
 type GameProps = { gameId: string; playerId: string; nickname: string; onExitToLobby?: (next: { gameId: string; playerId: string; nickname: string }) => void };
 import { DEFAULT_OPTIONS } from "./utils";
 import { advanceCursorUntilOpen, boardTileAt, canPlaceAt, findRackTileForLetter, initialTypingModeState, moveCursor, normalizeLetterKey } from "./typingMode";
@@ -65,6 +65,81 @@ function boardTileStyle(tileSize: number): React.CSSProperties {
   };
 }
 
+const AUTO_ANALYSIS_SNAPSHOT_DEBOUNCE_MS = 1500;
+const AUTO_ANALYSIS_SNAPSHOT_MIN_INTERVAL_MS = 5000;
+
+function compactBoard(tiles: TilesById, rackIds: TileId[]) {
+  const tilesArr = Object.values(tiles || {})
+    .map((t) => ({ l: t.letter, x: t.pos.x, y: t.pos.y, loc: t.location, owner: t.owner }))
+    .sort((a, b) =>
+      a.loc.localeCompare(b.loc) ||
+      a.y - b.y ||
+      a.x - b.x ||
+      a.l.localeCompare(b.l) ||
+      a.owner.localeCompare(b.owner)
+    );
+  const rackLetters = rackIds.map((id) => tiles[id]?.letter).filter(Boolean) as string[];
+  return {
+    tiles: tilesArr,
+    rack: rackLetters,
+    boardTileCount: tilesArr.filter((t) => t.loc === "board").length,
+    rackCount: rackLetters.length,
+  };
+}
+
+function compactPlayers(players: GameState["players"]) {
+  return Object.entries(players || {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([pid, info]) => ({
+      pid,
+      nickname: info.nickname,
+      joinedAt: info.joinedAt,
+    }));
+}
+
+function compactRequests(requests: GameState["requests"]) {
+  return Object.entries(requests || {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, req]) => ({
+      id,
+      from: req.from,
+      want: req.want,
+      offer: req.offer ?? null,
+      createdAt: req.createdAt,
+      expiresAt: req.expiresAt ?? null,
+      status: req.status,
+      acceptedBy: req.acceptedBy ?? null,
+      resolvedAt: req.resolvedAt ?? null,
+    }));
+}
+
+function compactAllBoards(state: GameState) {
+  const allBoards: Record<string, { tiles: TilesById; rack: TileId[] }> = {
+    [state.selfId]: { tiles: state.tiles, rack: state.rack },
+    ...state.remoteBoards,
+  };
+
+  return Object.entries(allBoards)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([pid, board]) => ({
+      pid,
+      ...compactBoard(board.tiles ?? {}, board.rack ?? []),
+    }));
+}
+
+function buildAutoSnapshot(state: GameState) {
+  return {
+    phase: state.status.phase,
+    winnerId: state.status.winnerId ?? null,
+    bag: [...state.bag],
+    bagRemaining: state.bag.length,
+    options: { ...state.options },
+    players: compactPlayers(state.players),
+    boards: compactAllBoards(state),
+    requests: compactRequests(state.requests),
+  };
+}
+
 // ---------- Component ----------
 
 export default function Game({ gameId, playerId, nickname: _nickname, onExitToLobby }: GameProps) {
@@ -87,6 +162,8 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
   const [showSpectatePicker, setShowSpectatePicker] = useState(false);
   const lastAutoCenterRef = useRef(0);
   const savedAnalysisRef = useRef(false);
+  const lastAutoSnapshotSignatureRef = useRef<string | null>(null);
+  const lastAutoSnapshotAtRef = useRef(0);
   const gameEndedRef = useRef(false);
   const [typingMode, setTypingMode] = useState(() => initialTypingModeState());
   const [requestInput, setRequestInput] = useState("");
@@ -155,22 +232,7 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
     savedAnalysisRef.current = true;
 
     const winnerId = state.status.winnerId ?? null;
-
-    function compactBoard(tiles: TilesById, rackIds: TileId[]) {
-      const tilesArr = Object.values(tiles || {}).map((t) => ({ l: t.letter, x: t.pos.x, y: t.pos.y, loc: t.location, owner: t.owner }));
-      const rackLetters = rackIds.map((id) => tiles[id]?.letter).filter(Boolean) as string[];
-      return { tiles: tilesArr, rack: rackLetters };
-    }
-
-    const allBoards: Record<string, { tiles: TilesById; rack: TileId[] }> = {
-      [state.selfId]: { tiles: state.tiles, rack: state.rack },
-      ...state.remoteBoards,
-    };
-
-    const compacted = Object.entries(allBoards).map(([pid, b]) => ({
-      pid,
-      ...compactBoard(b.tiles ?? {}, b.rack ?? []),
-    }));
+    const compacted = compactAllBoards(state);
 
     const winnerBoard = winnerId ? compacted.find((b) => b.pid === winnerId) : undefined;
     const others = compacted.filter((b) => !winnerId || b.pid !== winnerId);
@@ -198,6 +260,46 @@ export default function Game({ gameId, playerId, nickname: _nickname, onExitToLo
         savedAnalysisRef.current = false; // allow retry on failure
       });
   }, [gameId, state.bag.length, state.options, state.players, state.rack, state.remoteBoards, state.status.phase, state.status.winnerId, state.tiles]);
+
+  const autoSnapshotPayload = useMemo(
+    () => buildAutoSnapshot(state),
+    [state.bag, state.options, state.players, state.rack, state.remoteBoards, state.requests, state.status.phase, state.status.winnerId, state.tiles]
+  );
+
+  useEffect(() => {
+    if (state.status.phase !== "active" && state.status.phase !== "banana-split") return;
+
+    const signature = JSON.stringify(autoSnapshotPayload);
+    if (signature === lastAutoSnapshotSignatureRef.current) return;
+
+    const now = Date.now();
+    const sinceLastSave = now - lastAutoSnapshotAtRef.current;
+    const minIntervalDelay = Math.max(0, AUTO_ANALYSIS_SNAPSHOT_MIN_INTERVAL_MS - sinceLastSave);
+    const delay = state.status.phase === "banana-split"
+      ? 0
+      : Math.max(AUTO_ANALYSIS_SNAPSHOT_DEBOUNCE_MS, minIntervalDelay);
+
+    const timer = window.setTimeout(() => {
+      const capturedAt = Date.now();
+      saveGameSnapshot(gameId, state.selfId, { ...autoSnapshotPayload, capturedAt })
+        .then(() => {
+          lastAutoSnapshotSignatureRef.current = signature;
+          lastAutoSnapshotAtRef.current = capturedAt;
+          console.debug("[banagrams] auto snapshot saved", {
+            gameId,
+            observerId: state.selfId,
+            capturedAt,
+            phase: state.status.phase,
+            boardCount: autoSnapshotPayload.boards.length,
+          });
+        })
+        .catch((err) => {
+          console.error("saveGameSnapshot failed", err);
+        });
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [autoSnapshotPayload, gameId, state.selfId, state.status.phase]);
 
   // Collapse celebration badge after a moment so board is visible
   useEffect(() => {

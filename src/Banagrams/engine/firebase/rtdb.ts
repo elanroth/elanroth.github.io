@@ -54,6 +54,9 @@ const finalPath = (gameId: string, userId: string, ts: number) => `${gamePath(ga
 const metaRoot = `gamesMeta`;
 const metaPath = (gameId: string) => `${metaRoot}/${cleanSegment("gameId", gameId)}`;
 const analysisPath = (gameId: string) => `gameAnalyses/${cleanSegment("gameId", gameId)}`;
+const analysisSummaryPath = (gameId: string) => `${analysisPath(gameId)}/summary`;
+const analysisSnapshotPath = (gameId: string, userId: string, ts: number) =>
+  `${analysisPath(gameId)}/snapshots/${cleanSegment("userId", userId)}/${ts}`;
 const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
 
 const lobbyDateKey = (meta: any, gameId: string): string | null => {
@@ -347,9 +350,21 @@ export async function setGameStatus(gameId: string, status: GameStatus): Promise
 }
 
 export async function saveGameAnalysis(gameId: string, payload: Record<string, unknown>): Promise<void> {
-  const path = analysisPath(gameId);
+  const savedAt = Date.now();
+  const path = analysisSummaryPath(gameId);
   logWrite("set", path);
-  await set(ref(db, path), payload);
+  await set(ref(db, path), { ...payload, savedAt });
+}
+
+export async function saveGameSnapshot(
+  gameId: string,
+  userId: string,
+  payload: Record<string, unknown> & { capturedAt?: number }
+): Promise<void> {
+  const capturedAt = typeof payload.capturedAt === "number" ? payload.capturedAt : Date.now();
+  const path = analysisSnapshotPath(gameId, userId, capturedAt);
+  logWrite("set", path);
+  await set(ref(db, path), { ...payload, capturedAt, observerId: userId });
 }
 
 export async function saveFinalSnapshot(
