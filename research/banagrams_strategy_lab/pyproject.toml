@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "banagrams-strategy-lab"
+version = "0.1.0"
+description = "Offline strategy-learning lab for Banagrams using interpretable heuristics."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+banagrams-strategy-lab = "banagrams_strategy_lab.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["banagrams_strategy_lab*"]
