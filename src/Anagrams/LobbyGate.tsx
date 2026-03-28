@@ -23,6 +23,10 @@ function describeLobbyError(fallback: string, err: unknown): string {
     ? (err as { code: string }).code
     : "";
   const message = err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  const normalized = `${code} ${message}`.toLowerCase();
+  if (normalized.includes("permission_denied") || normalized.includes("permission denied")) {
+    return `${fallback}: Firebase denied the write. The live Realtime Database rules for this project probably have not been deployed yet.`;
+  }
   const details = [code, message].filter(Boolean).join(" ");
   return details ? `${fallback}: ${details}` : fallback;
 }
