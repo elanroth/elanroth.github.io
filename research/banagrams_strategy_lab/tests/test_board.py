@@ -32,6 +32,16 @@ class BoardValidationTests(unittest.TestCase):
     result = validate_board(board, self.bank.dictionary)
     self.assertFalse(result.valid_board)
 
+  def test_invalid_word_is_reported(self) -> None:
+    board = {
+      (0, 0): "Q",
+      (1, 0): "A",
+      (2, 0): "T",
+    }
+    result = validate_board(board, self.bank.dictionary)
+    self.assertFalse(result.valid_board)
+    self.assertIn("QAT", result.invalid_words)
+
 
 if __name__ == "__main__":
   unittest.main()

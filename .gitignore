@@ -8,6 +8,9 @@ COMMANDS.md
 database-debug.log
 firebase-debug.log
 research/banagrams_strategy_lab/artifacts/
+build-strategy-lab/
+__pycache__/
+*.pyc
 
 # Editor directories and files
 .vscode/*

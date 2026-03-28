@@ -70,11 +70,15 @@
       "scripts": {
             "dev": "vite",
             "build": "vite build",
+            "preview": "vite preview",
             "predeploy": "npm run build",
             "deploy": "gh-pages -d build",
             "test": "vitest",
             "test:anagrams": "vitest src/Anagrams/tests",
             "anagrams:play": "tsx scripts/anagrams-play.ts",
-            "wordswords:build-zipf": "python3 scripts/wordswords-build-zipf.py"
+            "wordswords:build-zipf": "python3 scripts/wordswords-build-zipf.py",
+            "strategy-lab:dev": "vite --config vite.strategy-lab.config.js",
+            "strategy-lab:build": "vite build --config vite.strategy-lab.config.js",
+            "strategy-lab:preview": "vite preview --config vite.strategy-lab.config.js"
       }
 }

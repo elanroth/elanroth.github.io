@@ -50,6 +50,31 @@ class EnvironmentTests(unittest.TestCase):
     self.assertEqual(strategy_move.word, "XCAT")
     self.assertEqual(frequency_move.word, "CAT")
 
+  def test_dump_not_generated_when_bag_is_too_small(self) -> None:
+    state = EpisodeState(board={(0, 0): "A"}, rack=list("QQ"), bag=list("BC"))
+    moves = self.env.legal_moves(state)
+    self.assertFalse(any(isinstance(move, DumpMove) for move in moves))
+
+  def test_preview_place_does_not_mutate_original_state(self) -> None:
+    state = EpisodeState(board={(0, 0): "A"}, rack=list("CT"), bag=[])
+    move = next(move for move in self.env.legal_moves(state) if isinstance(move, PlaceMove) and move.word == "CAT")
+
+    preview = self.env.preview_place(state, move)
+
+    self.assertEqual(state.board, {(0, 0): "A"})
+    self.assertEqual(state.rack, list("CT"))
+    self.assertEqual(preview.rack, [])
+    self.assertGreater(len(preview.board), len(state.board))
+
+  def test_run_episode_is_deterministic_for_seed(self) -> None:
+    result_a = self.env.run_episode(frequency_aware_policy(), 11)
+    result_b = self.env.run_episode(frequency_aware_policy(), 11)
+
+    self.assertEqual(result_a.turns, result_b.turns)
+    self.assertEqual(result_a.dumps_used, result_b.dumps_used)
+    self.assertEqual(result_a.words_played, result_b.words_played)
+    self.assertEqual(result_a.history, result_b.history)
+
 
 if __name__ == "__main__":
   unittest.main()

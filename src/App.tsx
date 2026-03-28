@@ -404,6 +404,7 @@ const initialNav = (() => {
         fullAnagrams: false,
         fullWordsWords: false,
         fullGuitar: false,
+        fullMovieTrivia: false,
       };
     }
     if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords" || t === "guitar" || t === "movie-trivia") {
@@ -792,7 +793,7 @@ export default function App() {
 
         {activeTab === "games" && (
           <section style={{ display: "grid", gap: 16, justifyItems: "center" }}>
-            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(2, 1fr)", width: "80%", maxWidth: 1120, margin: "0 auto" }}>
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", width: "100%", maxWidth: 1120, margin: "0 auto" }}>
               {GAME_CARDS.map((game) => (
                 <button
                   key={game.id}
@@ -846,8 +847,8 @@ export default function App() {
                       color: "#94a3b8",
                       fontSize: 44,
                     }}
-                  >
-                    {game.disabled && !game.imageUrl ? "🚧" : ""}
+                    >
+                    {!game.imageUrl ? (game.disabled ? "SOON" : game.title.split(" ").map((word) => word[0]).join("").slice(0, 4)) : ""}
                   </div>
                   <div style={{ padding: 14, display: "grid", gap: 8, textAlign: "center" }}>
                     <div style={{ color: "#4b5563", lineHeight: 1.5 }}>{game.description}</div>
