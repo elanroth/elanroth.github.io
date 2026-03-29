@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import random
 from statistics import mean
+import sys
+import time
+from typing import Any, Callable, TextIO
 
 from .environment import EpisodeResult, SinglePlayerBanagramsEnvironment
 from .policy import FEATURE_NAMES, HeuristicPolicy, frequency_aware_policy, strategy_only_policy
@@ -24,12 +27,128 @@ class GAResult:
   baselines: list[PolicyEvaluation]
 
 
+class ProgressTracker:
+  def __init__(
+    self,
+    *,
+    total_units: int,
+    label: str,
+    stream: TextIO | None = None,
+    target_seconds: float | None = None,
+    on_event: Callable[[dict[str, Any]], None] | None = None,
+  ) -> None:
+    self.total_units = max(1, total_units)
+    self.label = label
+    self.stream = stream or sys.stderr
+    self.target_seconds = target_seconds
+    self.on_event = on_event
+    self.completed_units = 0
+    self.phase = "starting"
+    self.detail = ""
+    self.started_at = time.monotonic()
+    self.last_render_at = 0.0
+
+  def set_phase(self, phase: str) -> None:
+    self.phase = phase
+    self._render(force=True)
+    self._emit({"type": "phase", **self.snapshot()})
+
+  def advance(self, units: int = 1, *, detail: str = "") -> None:
+    self.completed_units = min(self.total_units, self.completed_units + units)
+    self.detail = detail
+    self._render()
+    self._emit({"type": "progress", **self.snapshot()})
+
+  def log(self, message: str) -> None:
+    self._clear_line()
+    print(message, file=self.stream, flush=True)
+    self._emit({"type": "log", "label": self.label, "message": message, **self.snapshot()})
+    self._render(force=True)
+
+  def finish(self, *, message: str | None = None, complete: bool = True) -> None:
+    if complete:
+      self.completed_units = self.total_units
+    if message is not None:
+      self.detail = message
+    self._render(force=True)
+    self.stream.write("\n")
+    self.stream.flush()
+    self._emit({"type": "finished", **self.snapshot()})
+
+  def snapshot(self) -> dict[str, Any]:
+    elapsed = time.monotonic() - self.started_at
+    unit_ratio = self.completed_units / self.total_units
+    if self.target_seconds is not None and self.target_seconds > 0:
+      ratio = min(1.0, elapsed / self.target_seconds)
+      eta = max(0.0, self.target_seconds - elapsed)
+      progress_text = f"{format_seconds(elapsed)}/{format_seconds(self.target_seconds)}"
+    else:
+      ratio = unit_ratio
+      eta = ((elapsed / self.completed_units) * (self.total_units - self.completed_units)) if self.completed_units else 0.0
+      progress_text = f"{self.completed_units}/{self.total_units}"
+    return {
+      "label": self.label,
+      "phase": self.phase,
+      "detail": self.detail,
+      "completed_units": self.completed_units,
+      "total_units": self.total_units,
+      "ratio": ratio,
+      "elapsed_seconds": elapsed,
+      "eta_seconds": eta,
+      "target_seconds": self.target_seconds,
+      "progress_text": progress_text,
+    }
+
+  def _render(self, *, force: bool = False) -> None:
+    now = time.monotonic()
+    if not force and self.completed_units < self.total_units and (now - self.last_render_at) < 0.1:
+      return
+    self.last_render_at = now
+    elapsed = now - self.started_at
+    unit_ratio = self.completed_units / self.total_units
+    if self.target_seconds is not None and self.target_seconds > 0:
+      ratio = min(1.0, elapsed / self.target_seconds)
+      progress_text = f"{format_seconds(elapsed)}/{format_seconds(self.target_seconds)}"
+      eta = max(0.0, self.target_seconds - elapsed)
+      tail = f" evals {self.completed_units}/{self.total_units}"
+    else:
+      ratio = unit_ratio
+      progress_text = f"{self.completed_units}/{self.total_units}"
+      eta = ((elapsed / self.completed_units) * (self.total_units - self.completed_units)) if self.completed_units else 0.0
+      tail = ""
+    filled = int(ratio * 24)
+    bar = "#" * filled + "-" * (24 - filled)
+    line = (
+      f"[{self.label}] [{bar}] {progress_text} "
+      f"{ratio * 100:5.1f}% eta {format_seconds(eta)} {self.phase}{tail}"
+    )
+    if self.detail:
+      line += f" | {self.detail}"
+    self.stream.write("\r" + line)
+    self.stream.flush()
+
+  def _clear_line(self) -> None:
+    self.stream.write("\r" + (" " * 180) + "\r")
+    self.stream.flush()
+
+  def _emit(self, payload: dict[str, Any]) -> None:
+    if self.on_event is not None:
+      self.on_event(payload)
+
+
 def evaluate_policy(
   policy: HeuristicPolicy,
   env: SinglePlayerBanagramsEnvironment,
   seeds: list[int],
+  *,
+  progress: ProgressTracker | None = None,
+  progress_label: str | None = None,
 ) -> PolicyEvaluation:
-  episodes = [env.run_episode(policy, seed) for seed in seeds]
+  episodes: list[EpisodeResult] = []
+  for index, seed in enumerate(seeds, start=1):
+    episodes.append(env.run_episode(policy, seed))
+    if progress is not None:
+      progress.advance(detail=f"{progress_label or policy.name} episode {index}/{len(seeds)}")
   metrics = summarize_episodes(episodes)
   return PolicyEvaluation(
     name=policy.name,
@@ -43,21 +162,31 @@ def evaluate_policy(
 def evaluate_baselines(
   env: SinglePlayerBanagramsEnvironment,
   seeds: list[int],
+  *,
+  progress: ProgressTracker | None = None,
 ) -> list[PolicyEvaluation]:
   from .policy import RandomPolicy
+
+  if progress is not None:
+    progress.set_phase("baselines")
 
   random_eval = PolicyEvaluation(
     name="baseline-random",
     fitness=0.0,
     metrics={},
-    episodes=[env.run_episode(RandomPolicy(), seed) for seed in seeds],
+    episodes=[],
     weights=None,
   )
+  random_policy = RandomPolicy()
+  for index, seed in enumerate(seeds, start=1):
+    random_eval.episodes.append(env.run_episode(random_policy, seed))
+    if progress is not None:
+      progress.advance(detail=f"{random_eval.name} episode {index}/{len(seeds)}")
   random_eval.metrics = summarize_episodes(random_eval.episodes)
   random_eval.fitness = fitness_from_metrics(random_eval.metrics)
 
-  strategy_eval = evaluate_policy(strategy_only_policy(), env, seeds)
-  frequency_eval = evaluate_policy(frequency_aware_policy(), env, seeds)
+  strategy_eval = evaluate_policy(strategy_only_policy(), env, seeds, progress=progress)
+  frequency_eval = evaluate_policy(frequency_aware_policy(), env, seeds, progress=progress)
   return [random_eval, strategy_eval, frequency_eval]
 
 
@@ -68,10 +197,13 @@ def run_genetic_search(
   generations: int,
   population_size: int,
   episodes_per_eval: int,
+  progress: ProgressTracker | None = None,
+  time_budget_seconds: float | None = None,
 ) -> GAResult:
   rng = random.Random(seed)
   evaluation_seeds = [seed * 1000 + idx for idx in range(episodes_per_eval)]
-  baselines = evaluate_baselines(env, evaluation_seeds)
+  deadline = (time.monotonic() + time_budget_seconds) if time_budget_seconds is not None else None
+  baselines = evaluate_baselines(env, evaluation_seeds, progress=progress)
 
   base = frequency_aware_policy()
   population: list[HeuristicPolicy] = [
@@ -87,9 +219,31 @@ def run_genetic_search(
 
   history: list[dict[str, float]] = []
   best_eval = max(baselines, key=lambda item: item.fitness)
+  stopped_on_budget = False
 
   for generation in range(generations):
-    evaluated = [evaluate_policy(policy, env, evaluation_seeds) for policy in population]
+    if deadline is not None and time.monotonic() >= deadline:
+      stopped_on_budget = True
+      break
+    if progress is not None:
+      progress.set_phase(f"generation {generation + 1}/{generations}")
+    evaluated: list[PolicyEvaluation] = []
+    for policy in population:
+      if deadline is not None and time.monotonic() >= deadline and evaluated:
+        stopped_on_budget = True
+        break
+      evaluated.append(
+        evaluate_policy(
+          policy,
+          env,
+          evaluation_seeds,
+          progress=progress,
+          progress_label=f"g{generation + 1}:{policy.name}",
+        )
+      )
+    if not evaluated:
+      stopped_on_budget = True
+      break
     evaluated.sort(key=lambda item: item.fitness, reverse=True)
 
     history.append(
@@ -104,6 +258,15 @@ def run_genetic_search(
 
     if evaluated[0].fitness > best_eval.fitness:
       best_eval = evaluated[0]
+
+    if progress is not None:
+      progress.log(
+        f"[train_ga] generation {generation + 1}/{generations} "
+        f"best={evaluated[0].fitness:.3f} mean={history[-1]['mean_fitness']:.3f} "
+        f"success={evaluated[0].metrics['success_rate']:.3f} avg_turns={evaluated[0].metrics['avg_turns']:.2f}"
+      )
+    if stopped_on_budget:
+      break
 
     elite_count = max(2, population_size // 4)
     elites = evaluated[:elite_count]
@@ -122,6 +285,12 @@ def run_genetic_search(
       )
 
     population = next_population
+
+  if stopped_on_budget and progress is not None and time_budget_seconds is not None:
+    progress.log(
+      f"[train_ga] stopped at the {format_seconds(time_budget_seconds)} budget with "
+      f"{len(history)} generation summaries recorded"
+    )
 
   return GAResult(best=best_eval, history=history, baselines=baselines)
 
@@ -193,3 +362,12 @@ def mutate_weights(
     if rng.random() < mutation_rate:
       mutated[name] = mutated.get(name, 0.0) + rng.gauss(0.0, mutation_scale)
   return mutated
+
+
+def format_seconds(seconds: float) -> str:
+  whole = max(0, int(seconds))
+  minutes, secs = divmod(whole, 60)
+  hours, minutes = divmod(minutes, 60)
+  if hours > 0:
+    return f"{hours:d}:{minutes:02d}:{secs:02d}"
+  return f"{minutes:02d}:{secs:02d}"

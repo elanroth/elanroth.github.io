@@ -12,10 +12,18 @@ from .ga import GAResult, PolicyEvaluation
 from .paths import artifacts_root
 
 
-def make_run_dir(prefix: str, output_dir: Path | None = None) -> Path:
-  root = output_dir or artifacts_root()
-  stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
-  run_dir = root / f"{prefix}-{stamp}"
+UPLOAD_ME_FILENAME = "Upload me!.json"
+
+
+def make_run_dir(label: str, output_dir: Path | None = None) -> Path:
+  root = output_dir or (artifacts_root() / "saved_runs")
+  stamp = time.strftime("%m-%d-%y %H-%M", time.localtime())
+  base_name = f"{sanitize_label(label)} - {stamp}"
+  run_dir = root / base_name
+  suffix = 2
+  while run_dir.exists():
+    run_dir = root / f"{base_name} ({suffix})"
+    suffix += 1
   run_dir.mkdir(parents=True, exist_ok=True)
   return run_dir
 
@@ -23,6 +31,10 @@ def make_run_dir(prefix: str, output_dir: Path | None = None) -> Path:
 def write_json(path: Path, payload: Any) -> None:
   path.parent.mkdir(parents=True, exist_ok=True)
   path.write_text(json.dumps(to_jsonable(payload), indent=2, sort_keys=True) + "\n", "utf8")
+
+
+def write_upload_json(run_dir: Path, payload: Any) -> None:
+  write_json(run_dir / UPLOAD_ME_FILENAME, payload)
 
 
 def to_jsonable(value: Any) -> Any:
@@ -115,3 +127,9 @@ def render_episode_insights(evaluation: PolicyEvaluation) -> list[str]:
     f"- failure mix: `{dict(failure_counter)}`",
   ]
   return lines
+
+
+def sanitize_label(label: str) -> str:
+  cleaned = "".join(ch if ch.isalnum() or ch in {" ", "-", "_"} else "-" for ch in label.strip().lower())
+  compact = " ".join(cleaned.replace("_", " ").split())
+  return compact or "run"

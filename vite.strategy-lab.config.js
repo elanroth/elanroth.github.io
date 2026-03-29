@@ -1,10 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { strategyLabRunApiPlugin } from "./strategy-lab/runApiPlugin.js";
 
 export default defineConfig({
   root: path.resolve(__dirname, "strategy-lab"),
-  plugins: [react()],
+  plugins: [react(), strategyLabRunApiPlugin()],
   base: "/",
   resolve: {
     extensions: [".js", ".jsx", ".ts", ".tsx", ".json"],
