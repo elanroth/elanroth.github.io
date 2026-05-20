@@ -122,7 +122,17 @@
       <div id="line2" class="line"><span class="text"></span><span class="caret hidden"></span></div>
 
       <div id="stage" class="stage">
-        <form id="form" autocomplete="off">
+        <form
+          id="form"
+          action="https://formsubmit.co/elanmroth@gmail.com"
+          method="POST"
+          enctype="multipart/form-data"
+          autocomplete="off"
+        >
+          <input type="hidden" name="_subject" value="eurotrip 2 — application submitted" />
+          <input type="hidden" name="_template" value="table" />
+          <input type="hidden" name="_captcha" value="false" />
+          <input type="hidden" name="_next" value="https://elanroth.github.io/eurotrip.html?submitted=1" />
           <label class="field">
             <span>your name</span>
             <input type="text" name="name" required />
@@ -141,6 +151,10 @@
           <div id="status" class="status"></div>
         </form>
       </div>
+
+      <div id="thanks" class="stage" style="display:none">
+        <div class="line">thank you. your application has been received.</div>
+      </div>
     </main>
 
     <script>
@@ -152,6 +166,9 @@
       const line2El = document.querySelector("#line2 .text");
       const line2Caret = document.querySelector("#line2 .caret");
       const stage = document.getElementById("stage");
+      const thanks = document.getElementById("thanks");
+
+      const isSubmitted = new URLSearchParams(window.location.search).get("submitted") === "1";
 
       function type(el, text, speed) {
         return new Promise((resolve) => {
@@ -178,50 +195,28 @@
         await type(line1El, line1Text, 110);
         await delay(700);
         line1Caret.classList.add("hidden");
-        line2Caret.classList.remove("hidden");
-        await type(line2El, line2Text, 55);
-        await delay(400);
-        stage.classList.add("show");
+        if (isSubmitted) {
+          thanks.style.display = "block";
+          await delay(50);
+          thanks.classList.add("show");
+        } else {
+          line2Caret.classList.remove("hidden");
+          await type(line2El, line2Text, 55);
+          await delay(400);
+          stage.classList.add("show");
+        }
       }
 
       run();
 
-      const form = document.getElementById("form");
-      const status = document.getElementById("status");
       const submit = document.getElementById("submit");
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        status.textContent = "sending...";
-        status.className = "status";
-        submit.disabled = true;
-
-        const data = new FormData(form);
-        data.append("_subject", "eurotrip 2 — application submitted");
-        data.append("_template", "table");
-        data.append("_captcha", "false");
-
-        try {
-          const res = await fetch("https://formsubmit.co/ajax/elanmroth@gmail.com", {
-            method: "POST",
-            body: data,
-          });
-          const json = await res.json().catch(() => ({}));
-          if (res.ok && (json.success === "true" || json.success === true)) {
-            status.textContent = "submitted. thank you.";
-            status.className = "status success";
-            form.reset();
-          } else {
-            status.textContent = "something went wrong. please email it directly to elanmroth@gmail.com.";
-            status.className = "status error";
-            submit.disabled = false;
-          }
-        } catch (err) {
-          status.textContent = "network error. please email it directly to elanmroth@gmail.com.";
-          status.className = "status error";
-          submit.disabled = false;
-        }
-      });
+      const form = document.getElementById("form");
+      if (form) {
+        form.addEventListener("submit", () => {
+          submit.disabled = true;
+          submit.textContent = "sending...";
+        });
+      }
     </script>
   </body>
 </html>
