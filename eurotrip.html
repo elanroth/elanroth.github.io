@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Application</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #fafaf7;
+        color: #111;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      main {
+        width: 100%;
+        max-width: 560px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .line {
+        font-size: 22px;
+        line-height: 1.4;
+        min-height: 1.4em;
+        white-space: pre-wrap;
+      }
+      .caret {
+        display: inline-block;
+        width: 0.55ch;
+        background: #111;
+        margin-left: 2px;
+        animation: blink 1s steps(1) infinite;
+      }
+      .caret.hidden { display: none; }
+      @keyframes blink {
+        50% { background: transparent; }
+      }
+      .stage {
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 600ms ease, transform 600ms ease;
+      }
+      .stage.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      label.field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 13px;
+        color: #555;
+      }
+      input[type="text"],
+      input[type="email"] {
+        font: inherit;
+        font-size: 15px;
+        padding: 10px 12px;
+        border: 1px solid #d4d4d0;
+        border-radius: 6px;
+        background: #fff;
+        color: #111;
+        outline: none;
+      }
+      input[type="text"]:focus,
+      input[type="email"]:focus {
+        border-color: #111;
+      }
+      .file-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      input[type="file"] {
+        font: inherit;
+        font-size: 14px;
+      }
+      button {
+        font: inherit;
+        font-size: 15px;
+        padding: 10px 16px;
+        border: 1px solid #111;
+        background: #111;
+        color: #fafaf7;
+        border-radius: 6px;
+        cursor: pointer;
+        align-self: flex-start;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .status {
+        font-size: 14px;
+        color: #555;
+        min-height: 1.2em;
+      }
+      .status.error { color: #b00020; }
+      .status.success { color: #0a7a3b; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div id="line1" class="line"><span class="text"></span><span class="caret"></span></div>
+      <div id="line2" class="line"><span class="text"></span><span class="caret hidden"></span></div>
+
+      <div id="stage" class="stage">
+        <form id="form" autocomplete="off">
+          <input type="hidden" name="access_key" value="e59b65bf-97fe-4fb7-afcf-11458995107a" />
+          <input type="hidden" name="subject" value="eurotrip 2 — application submitted" />
+          <input type="hidden" name="from_name" value="eurotrip 2 application" />
+          <label class="field">
+            <span>your name</span>
+            <input type="text" name="name" required />
+          </label>
+          <label class="field">
+            <span>your email</span>
+            <input type="email" name="email" required />
+          </label>
+          <label class="field">
+            <span>3-page screenplay (.pdf, .doc, .docx, .txt)</span>
+            <div class="file-row">
+              <input type="file" name="attachment" accept=".pdf,.doc,.docx,.txt,application/pdf" required />
+            </div>
+          </label>
+          <button type="submit" id="submit">submit</button>
+          <div id="status" class="status"></div>
+        </form>
+      </div>
+
+    </main>
+
+    <script>
+      const line1Text = "welcome gabrielle miri";
+      const line2Text = "please submit the application here";
+
+      const line1El = document.querySelector("#line1 .text");
+      const line1Caret = document.querySelector("#line1 .caret");
+      const line2El = document.querySelector("#line2 .text");
+      const line2Caret = document.querySelector("#line2 .caret");
+      const stage = document.getElementById("stage");
+
+      function type(el, text, speed) {
+        return new Promise((resolve) => {
+          let i = 0;
+          const tick = () => {
+            if (i <= text.length) {
+              el.textContent = text.slice(0, i);
+              i += 1;
+              setTimeout(tick, speed);
+            } else {
+              resolve();
+            }
+          };
+          tick();
+        });
+      }
+
+      function delay(ms) {
+        return new Promise((r) => setTimeout(r, ms));
+      }
+
+      async function run() {
+        await delay(400);
+        await type(line1El, line1Text, 110);
+        await delay(700);
+        line1Caret.classList.add("hidden");
+        line2Caret.classList.remove("hidden");
+        await type(line2El, line2Text, 55);
+        await delay(400);
+        stage.classList.add("show");
+      }
+
+      run();
+
+      const form = document.getElementById("form");
+      const status = document.getElementById("status");
+      const submit = document.getElementById("submit");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        status.textContent = "sending...";
+        status.className = "status";
+        submit.disabled = true;
+
+        const data = new FormData(form);
+
+        try {
+          const res = await fetch("https://api.web3forms.com/submit", {
+            method: "POST",
+            body: data,
+          });
+          const json = await res.json().catch(() => ({}));
+          console.log("web3forms response:", res.status, json);
+          if (res.ok && json.success) {
+            form.style.display = "none";
+            line2El.textContent = "thank you. your application has been received.";
+          } else {
+            const reason = json && json.message ? json.message : `status ${res.status}`;
+            status.textContent = "error: " + reason + ". please email it directly to elanmroth@gmail.com.";
+            status.className = "status error";
+            submit.disabled = false;
+          }
+        } catch (err) {
+          status.textContent = "network error. please email it directly to elanmroth@gmail.com.";
+          status.className = "status error";
+          submit.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
