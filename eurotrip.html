@@ -11,24 +11,24 @@
       html, body {
         margin: 0;
         padding: 0;
-        height: 100%;
+        min-height: 100%;
         background: #fafaf7;
         color: #111;
         font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
       }
       body {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
-        padding: 24px;
+        padding: 48px 24px;
         box-sizing: border-box;
       }
       main {
         width: 100%;
-        max-width: 560px;
+        max-width: 640px;
         display: flex;
         flex-direction: column;
-        gap: 28px;
+        gap: 32px;
       }
       .line {
         font-size: 22px;
@@ -61,33 +61,6 @@
         flex-direction: column;
         gap: 14px;
       }
-      label.field {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        font-size: 13px;
-        color: #555;
-      }
-      input[type="text"],
-      input[type="email"] {
-        font: inherit;
-        font-size: 15px;
-        padding: 10px 12px;
-        border: 1px solid #d4d4d0;
-        border-radius: 6px;
-        background: #fff;
-        color: #111;
-        outline: none;
-      }
-      input[type="text"]:focus,
-      input[type="email"]:focus {
-        border-color: #111;
-      }
-      .file-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
       input[type="file"] {
         font: inherit;
         font-size: 14px;
@@ -114,6 +87,42 @@
       }
       .status.error { color: #b00020; }
       .status.success { color: #0a7a3b; }
+      .submissions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .submissions-header {
+        font-size: 14px;
+        color: #555;
+        text-transform: lowercase;
+        letter-spacing: 0.02em;
+      }
+      .submission {
+        padding: 12px 14px;
+        border: 1px solid #d4d4d0;
+        border-radius: 6px;
+        background: #fff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      .submission a {
+        color: #111;
+        text-decoration: underline;
+        word-break: break-all;
+      }
+      .submission .meta {
+        font-size: 12px;
+        color: #888;
+        white-space: nowrap;
+      }
+      .empty {
+        font-size: 14px;
+        color: #888;
+        font-style: italic;
+      }
     </style>
   </head>
   <body>
@@ -123,31 +132,23 @@
 
       <div id="stage" class="stage">
         <form id="form" autocomplete="off">
-          <input type="hidden" name="access_key" value="e59b65bf-97fe-4fb7-afcf-11458995107a" />
-          <input type="hidden" name="subject" value="eurotrip 2 — application submitted" />
-          <input type="hidden" name="from_name" value="eurotrip 2 application" />
-          <label class="field">
-            <span>your name</span>
-            <input type="text" name="name" required />
-          </label>
-          <label class="field">
-            <span>your email</span>
-            <input type="email" name="email" required />
-          </label>
-          <label class="field">
-            <span>3-page screenplay (.pdf, .doc, .docx, .txt)</span>
-            <div class="file-row">
-              <input type="file" name="attachment" accept=".pdf,.doc,.docx,.txt,application/pdf" required />
-            </div>
-          </label>
+          <input type="file" name="attachment" required />
           <button type="submit" id="submit">submit</button>
           <div id="status" class="status"></div>
         </form>
       </div>
 
+      <div id="listStage" class="stage">
+        <div class="submissions">
+          <div class="submissions-header">submissions</div>
+          <div id="list"></div>
+        </div>
+      </div>
     </main>
 
     <script>
+      const DB_URL = "https://banagrams-66c81-default-rtdb.firebaseio.com/eurotrip.json";
+
       const line1Text = "welcome gabrielle miri";
       const line2Text = "please submit the application here";
 
@@ -156,6 +157,8 @@
       const line2El = document.querySelector("#line2 .text");
       const line2Caret = document.querySelector("#line2 .caret");
       const stage = document.getElementById("stage");
+      const listStage = document.getElementById("listStage");
+      const listEl = document.getElementById("list");
 
       function type(el, text, speed) {
         return new Promise((resolve) => {
@@ -177,6 +180,74 @@
         return new Promise((r) => setTimeout(r, ms));
       }
 
+      function formatDate(ts) {
+        const d = new Date(ts);
+        return d.toLocaleString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).toLowerCase();
+      }
+
+      function renderSubmissions(submissions) {
+        if (!submissions.length) {
+          listEl.innerHTML = '<div class="empty">no submissions yet</div>';
+          return;
+        }
+        listEl.innerHTML = "";
+        for (const s of submissions) {
+          const row = document.createElement("div");
+          row.className = "submission";
+          const left = document.createElement("div");
+          const link = document.createElement("a");
+          link.href = s.dataUrl || s.url || "#";
+          if (s.filename) link.download = s.filename;
+          link.target = "_blank";
+          link.rel = "noopener";
+          link.textContent = s.filename || "untitled";
+          left.appendChild(link);
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = formatDate(s.timestamp);
+          row.appendChild(left);
+          row.appendChild(meta);
+          listEl.appendChild(row);
+        }
+      }
+
+      async function loadSubmissions() {
+        try {
+          const res = await fetch(DB_URL);
+          if (!res.ok) {
+            listEl.innerHTML = '<div class="empty">could not load submissions</div>';
+            return;
+          }
+          const data = await res.json();
+          if (!data || typeof data !== "object") {
+            renderSubmissions([]);
+            return;
+          }
+          const arr = Object.values(data)
+            .filter((s) => s && typeof s === "object" && s.timestamp)
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          renderSubmissions(arr);
+        } catch (err) {
+          console.error(err);
+          listEl.innerHTML = '<div class="empty">could not load submissions</div>';
+        }
+      }
+
+      function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+      }
+
       async function run() {
         await delay(400);
         await type(line1El, line1Text, 110);
@@ -186,6 +257,9 @@
         await type(line2El, line2Text, 55);
         await delay(400);
         stage.classList.add("show");
+        await delay(200);
+        listStage.classList.add("show");
+        loadSubmissions();
       }
 
       run();
@@ -196,30 +270,61 @@
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        status.textContent = "sending...";
-        status.className = "status";
         submit.disabled = true;
+        status.className = "status";
 
-        const data = new FormData(form);
+        const fileInput = form.querySelector('input[type="file"]');
+        const file = fileInput.files[0];
+        if (!file) {
+          submit.disabled = false;
+          return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          status.textContent = "file too large (max 5mb).";
+          status.className = "status error";
+          submit.disabled = false;
+          return;
+        }
+
+        status.textContent = "reading...";
+
+        let dataUrl;
+        try {
+          dataUrl = await fileToDataUrl(file);
+        } catch (err) {
+          console.error(err);
+          status.textContent = "could not read file. please try again.";
+          status.className = "status error";
+          submit.disabled = false;
+          return;
+        }
+
+        status.textContent = "saving...";
 
         try {
-          const res = await fetch("https://api.web3forms.com/submit", {
+          const res = await fetch(DB_URL, {
             method: "POST",
-            body: data,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filename: file.name,
+              dataUrl: dataUrl,
+              size: file.size,
+              timestamp: Date.now(),
+            }),
           });
-          const json = await res.json().catch(() => ({}));
-          console.log("web3forms response:", res.status, json);
-          if (res.ok && json.success) {
-            form.style.display = "none";
-            line2El.textContent = "thank you. your application has been received.";
-          } else {
-            const reason = json && json.message ? json.message : `status ${res.status}`;
-            status.textContent = "error: " + reason + ". please email it directly to elanmroth@gmail.com.";
-            status.className = "status error";
-            submit.disabled = false;
+          if (!res.ok) {
+            const errBody = await res.text().catch(() => "");
+            throw new Error("save failed: " + res.status + " " + errBody);
           }
+          status.textContent = "submitted.";
+          status.className = "status success";
+          form.reset();
+          submit.disabled = false;
+          loadSubmissions();
         } catch (err) {
-          status.textContent = "network error. please email it directly to elanmroth@gmail.com.";
+          console.error(err);
+          status.textContent = "save failed. please try again.";
           status.className = "status error";
           submit.disabled = false;
         }
