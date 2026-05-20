@@ -196,24 +196,61 @@
 
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        status.textContent = "sending...";
-        status.className = "status";
         submit.disabled = true;
+        status.className = "status";
 
-        const data = new FormData(form);
+        const fileInput = form.querySelector('input[type="file"]');
+        const file = fileInput.files[0];
+        const applicantName = form.elements.name.value;
+        const applicantEmail = form.elements.email.value;
+
+        status.textContent = "uploading...";
+
+        let fileUrl;
+        try {
+          const fileData = new FormData();
+          fileData.append("reqtype", "fileupload");
+          fileData.append("fileToUpload", file);
+          const fileRes = await fetch("https://catbox.moe/user/api.php", {
+            method: "POST",
+            body: fileData,
+          });
+          const text = (await fileRes.text()).trim();
+          if (!fileRes.ok || !text.startsWith("http")) {
+            throw new Error("upload failed: " + text);
+          }
+          fileUrl = text;
+        } catch (err) {
+          console.error(err);
+          status.textContent = "file upload failed. please email it directly to elanmroth@gmail.com.";
+          status.className = "status error";
+          submit.disabled = false;
+          return;
+        }
+
+        status.textContent = "sending...";
 
         try {
+          const data = new FormData();
+          data.append("access_key", "e59b65bf-97fe-4fb7-afcf-11458995107a");
+          data.append("subject", "eurotrip 2 — application submitted");
+          data.append("from_name", "eurotrip 2 application");
+          data.append("name", applicantName);
+          data.append("email", applicantEmail);
+          data.append("filename", file.name);
+          data.append("download_link", fileUrl);
+
           const res = await fetch("https://api.web3forms.com/submit", {
             method: "POST",
             body: data,
           });
           const json = await res.json().catch(() => ({}));
-          console.log("web3forms response:", res.status, json);
           if (res.ok && json.success) {
             form.style.display = "none";
             line2El.textContent = "thank you. your application has been received.";
+            status.textContent = "";
           } else {
-            const reason = json && json.message ? json.message : `status ${res.status}`;
+            const reason = json && json.message ? json.message : "status " + res.status;
             status.textContent = "error: " + reason + ". please email it directly to elanmroth@gmail.com.";
             status.className = "status error";
             submit.disabled = false;
