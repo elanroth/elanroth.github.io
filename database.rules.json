@@ -37,6 +37,10 @@
         ".indexOn": ["score"],
         "$entryId": { ".write": true }
       }
+    },
+    "eurotrip": {
+      ".read": true,
+      ".write": true
     }
   }
 }
