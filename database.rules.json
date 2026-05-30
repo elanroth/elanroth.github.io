@@ -41,6 +41,26 @@
     "eurotrip": {
       ".read": true,
       ".write": true
+    },
+    "hilojack": {
+      "$gameId": {
+        ".read": true,
+        ".write": true,
+        "meta": { ".read": true, ".write": true },
+        "players": {
+          ".read": true,
+          "$seat": { ".read": true, ".write": true }
+        },
+        "actions": {
+          ".read": true,
+          ".indexOn": [".value"],
+          "$actionId": { ".read": true, ".write": true }
+        }
+      }
+    },
+    "hilojackMeta": {
+      ".read": true,
+      ".write": true
     }
   }
 }

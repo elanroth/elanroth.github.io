@@ -10,8 +10,9 @@ import React from "react";
 import BlogView from "./Blog/BlogView";
 import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
 import { GuitarApp } from "./Guitar/GuitarApp";
+import { HiLoJackApp } from "./HiLoJack/HiLoJackApp";
 
-type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "guitar" | "god";
+type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "guitar" | "hilojack" | "god";
 type Tab = { id: TabId; label: string };
 type LinkItem = { label: string; url: string };
 type CurrentProject = { title: string; description: string; links?: LinkItem[] };
@@ -385,9 +386,10 @@ const initialNav = (() => {
         fullAnagrams: false,
         fullWordsWords: false,
         fullGuitar: false,
+        fullHiLoJack: false,
       };
     }
-    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords" || t === "guitar") {
+    if (t === "home" || t === "about" || t === "cv" || t === "blog" || t === "games" || t === "anagrams" || t === "banagrams" || t === "seqnc" || t === "wordswords" || t === "guitar" || t === "hilojack") {
       return {
         tab: t as TabId,
         fullBanagrams: full && t === "banagrams",
@@ -395,12 +397,13 @@ const initialNav = (() => {
         fullAnagrams: full && t === "anagrams",
         fullWordsWords: full && t === "wordswords",
         fullGuitar: full && t === "guitar",
+        fullHiLoJack: full && t === "hilojack",
       };
     }
   } catch {
     /* ignore */
   }
-  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false, fullWordsWords: false, fullGuitar: false };
+  return { tab: "home" as TabId, fullBanagrams: false, fullSeqnc: false, fullAnagrams: false, fullWordsWords: false, fullGuitar: false, fullHiLoJack: false };
 })();
 
 export default function App() {
@@ -410,6 +413,7 @@ export default function App() {
   const [fullAnagrams] = useState<boolean>(initialNav.fullAnagrams);
   const [fullWordsWords] = useState<boolean>(initialNav.fullWordsWords);
   const [fullGuitar] = useState<boolean>(initialNav.fullGuitar);
+  const [fullHiLoJack] = useState<boolean>(initialNav.fullHiLoJack);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
   const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
@@ -502,7 +506,15 @@ export default function App() {
     );
   }
 
-  
+  if (fullHiLoJack && activeTab === "hilojack") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9" }}>
+        <HiLoJackApp />
+      </div>
+    );
+  }
+
+
 
   return (
     <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
