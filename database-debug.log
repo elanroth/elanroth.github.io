@@ -1,15 +1,9 @@
-10:43:30.986 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
-10:43:31.047 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
-10:43:31.204 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - banagrams-66c81-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 46ms, init: 0ms
-10:43:31.227 [NamespaceSystem-blocking-namespace-operation-dispatcher-6] INFO com.firebase.core.namespace.StateManager - Namespace banagrams-66c81-default-rtdb status Active to Active
-10:43:32.425 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
-namespace demo-bananagrams, but the emulator is configured for banagrams-66c81-default-rtdb. To 
+01:05:15.215 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
+01:05:15.280 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:9000
+01:05:15.559 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - banagrams-66c81-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 49ms, init: 0ms
+01:05:15.594 [NamespaceSystem-blocking-namespace-operation-dispatcher-6] INFO com.firebase.core.namespace.StateManager - Namespace banagrams-66c81-default-rtdb status Active to Active
+01:07:31.113 [FirebaseWorkerPool-1-4] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+namespace banagrams-66c81, but the emulator is configured for banagrams-66c81-default-rtdb. To 
 opt-out of single project mode add/set the singleProjectMode: false property in 
 the firebase.json emulators config. 
-10:43:32.431 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - demo-bananagrams successfully activated FBKV (SurveyIdle(0)) wait: 3ms, init: 0ms
-10:51:32.804 [NamespaceSystem-blocking-namespace-operation-dispatcher-21] INFO com.firebase.core.namespace.StateManager - Namespace banagrams-66c81-default-rtdb status Active to Active
-19:39:48.592 [Thread-0] INFO com.firebase.server.forge.App$ - Attempting graceful shutdown.
-19:39:48.642 [NamespaceSystem-akka.actor.default-dispatcher-35] INFO com.firebase.core.namespace.Terminator$Terminator - 2 actors left to terminate: demo-bananagrams, banagrams-66c81-default-rtdb
-19:39:48.656 [NamespaceSystem-akka.actor.default-dispatcher-39] INFO com.firebase.core.namespace.NamespaceActor - stopped namespace actor for demo-bananagrams
-19:39:48.656 [NamespaceSystem-akka.actor.default-dispatcher-37] INFO com.firebase.core.namespace.NamespaceActor - stopped namespace actor for banagrams-66c81-default-rtdb
-19:39:48.661 [Thread-0] INFO com.firebase.server.forge.App$ - Graceful shutdown complete.
+01:07:31.116 [NamespaceSystem-akka.actor.default-dispatcher-5] INFO com.firebase.core.namespace.NamespaceActor - banagrams-66c81 successfully activated FBKV (SurveyIdle(0)) wait: 2ms, init: 0ms
