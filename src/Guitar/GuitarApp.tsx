@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { SongIdeas } from "./SongIdeas";
+import { SongbookGame } from "./SongbookGame";
 
 // ─────────────────────────── MUSIC THEORY ───────────────────────────
 
@@ -247,7 +248,7 @@ function MiniChordDiagram({ voicing }: { voicing: Voicing }) {
 // ─────────────────────────── GUITAR APP ───────────────────────────
 
 export function GuitarApp() {
-  const [mode, setMode] = useState<"play" | "lookup" | "ideas">("play");
+  const [mode, setMode] = useState<"songbook" | "play" | "lookup" | "ideas">("songbook");
   const [fingers, setFingers] = useState<Finger[]>([]);
   const [mutedStrings, setMutedStrings] = useState<Set<number>>(new Set());
   const [capos, setCapos] = useState<CapoItem[]>([
@@ -427,7 +428,8 @@ export function GuitarApp() {
         {/* Mode toggle */}
         <div style={{ display: "flex", gap: 6, background: "rgba(0,0,0,0.25)", padding: "4px", borderRadius: 10, flexWrap: "wrap" }}>
           {([
-            { id: "play", label: "🎵 Play" },
+            { id: "songbook", label: "♥ Songbook" },
+            { id: "play", label: "🎵 Fretboard" },
             { id: "lookup", label: "📖 Chord Lookup" },
             { id: "ideas", label: "🎼 Song Ideas" },
           ] as const).map((m) => (
@@ -860,6 +862,7 @@ export function GuitarApp() {
           </div>
         </div>
       )}
+      {mode === "songbook" && <SongbookGame />}
       {mode === "lookup" && (
         /* ─────── LOOKUP MODE ─────── */
         <div style={{ padding: "28px 24px", maxWidth: 840, margin: "0 auto" }}>

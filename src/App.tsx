@@ -218,8 +218,8 @@ const GAME_CARDS: GameCard[] = [
   },
   {
     id: "guitar",
-    title: "Guitar Explorer",
-    description: "Place fingers on a fretboard, drag capos, and discover chords.",
+    title: "Songbook",
+    description: "Build your guitar repertoire and discover songs that fit your taste.",
     imageUrl: "/images/Guitar_Photo.png",
     onOpen: openGuitarInNewTab,
   },
