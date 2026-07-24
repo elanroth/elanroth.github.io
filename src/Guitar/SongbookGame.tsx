@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Download, Edit3, ExternalLink, Guitar, Mic, Minus, Pause, Play, Plus, Search, Settings2, Square, Upload } from "lucide-react";
+import { IMPORTED_CHORD_PLACEMENTS, type ChordPlacement } from "./importedChordPlacements";
 import { IMPORTED_CHORDS } from "./importedChords";
 import { SAVED_SONGS, type SavedSong } from "./savedSongs";
 import "./songbook.css";
@@ -73,6 +74,20 @@ function readableSyncedLyrics(value: string) {
   return value.replace(/^\[\d{2}:\d{2}(?:\.\d{2,3})?\]\s*/gm, "").trim();
 }
 
+function normalizeLyricLine(value: string) {
+  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0590-\u05ff]+/g, " ").trim();
+}
+
+function lyricFingerprint(value: string) {
+  const normalized = normalizeLyricLine(value);
+  let hash = 2166136261;
+  for (let index = 0; index < normalized.length; index++) {
+    hash ^= normalized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function formatDuration(duration: number | null) {
   if (!duration) return "";
   const seconds = Math.round(duration);
@@ -110,6 +125,41 @@ function Arrangement({ text, transpose }: { text: string; transpose: number }) {
     if (looksLikeChordLine(line)) return <div className="chords-over-lyrics" key={index}><b>{line.split(/(\s+)/).map((token) => /\s+/.test(token) ? token : transposeChord(token, transpose))}</b>{lines[index + 1] && !looksLikeChordLine(lines[index + 1]) ? null : <span>&nbsp;</span>}</div>;
     return <div className={line.trim() ? "lyric-line" : "song-space"} key={index}>{line || "\u00a0"}</div>;
   })}</div>;
+}
+
+function ChordedLyrics({ text, placements, transpose }: { text: string; placements: ChordPlacement[]; transpose: number }) {
+  const prepared = useMemo(() => {
+    const available = new Map<string, ChordPlacement[]>();
+    for (const placement of placements) {
+      const queue = available.get(placement[0]) ?? [];
+      queue.push(placement);
+      available.set(placement[0], queue);
+    }
+    let matched = 0;
+    const lines = text.replace(/\r/g, "").split("\n").map((line) => {
+      const fingerprint = line.trim() ? lyricFingerprint(line) : "";
+      const queue = fingerprint ? available.get(fingerprint) : undefined;
+      const placement = queue?.shift();
+      if (placement) matched++;
+      return { line, chords: placement?.[1] ?? [] };
+    });
+    return { lines, matched };
+  }, [text, placements]);
+
+  return <div className="fetched-lyrics chorded-lyrics">
+    {prepared.matched > 0 && <div className="alignment-summary">{prepared.matched} lyric lines aligned with your saved tab</div>}
+    {prepared.lines.map(({ line, chords }, index) => {
+      if (!line.trim()) return <div className="chorded-song-space" key={index}>&nbsp;</div>;
+      const width = Math.max(line.length, ...chords.map(([at, name]) => at + name.length), 1);
+      return <div className="chorded-line-scroll" key={index}><div className="chorded-lyric-line" style={{ minWidth: `${width}ch` }}>
+        {chords.length > 0 && <div className="chord-position-row">{chords.map(([at, name], chordIndex) =>
+          <b key={`${at}-${name}-${chordIndex}`} style={{ left: `${at}ch` }}>{transposeChord(name, transpose)}</b>
+        )}</div>}
+        <div className="chorded-lyric-text">{line}</div>
+      </div></div>;
+    })}
+    {placements.length > 0 && prepared.matched === 0 && <div className="alignment-missing">This lyric version does not match the saved tab closely enough to place chords safely. Try “Find a different recording” below.</div>}
+  </div>;
 }
 
 function makeWavBlob(chunks: Float32Array[], sampleRate: number) {
@@ -188,7 +238,7 @@ function RecordingLab({ song }: { song: SavedSong }) {
   return <section className="recording-lab">
     <div className="recording-heading"><div><strong>Practice recording</strong><span>Stays in this tab · free</span></div><a href="https://livechord.org/" target="_blank" rel="noreferrer">Analyze with LiveChord <ExternalLink size={13} /></a></div>
     {!audio ? <div className="recording-dropzone">
-      <Upload size={22} /><div><b>Give Songbook a recording</b><span>Pick MP3, WAV, FLAC or OGG—or capture audio through your microphone.</span></div>
+      <Upload size={22} /><div><b>Give STRUM a recording</b><span>Pick MP3, WAV, FLAC or OGG—or capture audio through your microphone.</span></div>
       <label className="recording-action"><input type="file" accept="audio/mpeg,audio/wav,audio/flac,audio/ogg,.mp3,.wav,.flac,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) loadAudio(file, file.name); }} />Choose audio</label>
       <button className={recording ? "recording-action is-recording" : "recording-action"} onClick={recording ? stopRecording : startRecording}>{recording ? <><Square size={13} fill="currentColor" /> Stop & use recording</> : <><Mic size={14} /> Record from microphone</>}</button>
     </div> : <div className="recording-player">
@@ -257,7 +307,7 @@ export function SongbookGame() {
     const params = new URLSearchParams({ track_name: title, artist_name: selected.artist });
     fetch(`${LRCLIB_URL}/api/search?${params}`, {
       signal: controller.signal,
-      headers: { "Lrclib-Client": "Elan-Songbook/1.0 (personal use; elanroth.github.io)" },
+      headers: { "Lrclib-Client": "STRUM/1.0 (personal use; elanroth.github.io)" },
     })
       .then(async (response) => {
         if (!response.ok) throw new Error(`LRCLIB returned ${response.status}`);
@@ -298,7 +348,7 @@ export function SongbookGame() {
         const batch = allSongs.slice(index, index + 4);
         const results = await Promise.all(batch.map(async (song) => {
           const params = new URLSearchParams({ track_name: cleanTitle(song.title), artist_name: song.artist });
-          const response = await fetch(`${LRCLIB_URL}/api/search?${params}`, { headers: { "Lrclib-Client": "Elan-Songbook/1.0 (personal offline library; elanroth.github.io)" } });
+          const response = await fetch(`${LRCLIB_URL}/api/search?${params}`, { headers: { "Lrclib-Client": "STRUM/1.0 (personal offline library; elanroth.github.io)" } });
           if (!response.ok) return undefined;
           const candidates = await response.json() as LrcLyrics[];
           const result = chooseLyricResult(song, candidates, lyricChoices);
@@ -365,14 +415,14 @@ export function SongbookGame() {
           <input type="range" min="1" max="5" value={scrollSpeed} onChange={(e) => setScrollSpeed(Number(e.target.value))} />
           <button className="scroll-button" onClick={() => setScrolling((value) => !value)}>{scrolling ? <Pause /> : <Play />} {scrolling ? "Pause" : "Start"} autoscroll</button>
           {selected.custom && <button className="remove-song" onClick={() => {
-            if (!window.confirm(`Remove ${cleanTitle(selected.title)} from your Songbook?`)) return;
+            if (!window.confirm(`Remove ${cleanTitle(selected.title)} from STRUM?`)) return;
             setCustomSongs((songs) => songs.filter((song) => song.id !== selected.id));
             setSelected(null);
           }}>Remove this song</button>}
         </aside>
         <main className="practice-page" ref={practiceRef}>
           <div className="practice-paper" style={{ fontSize: songSettings.fontSize }}>
-            <div className="song-kicker">{selected.kind} · {selected.custom ? "added to Songbook" : "saved in My Tabs"}</div>
+            <div className="song-kicker">{selected.kind} · {selected.custom ? "added to STRUM" : "saved in My Tabs"}</div>
             <h1>{cleanTitle(selected.title)}</h1><h2>{selected.artist}</h2>
             <RecordingLab key={selected.id} song={selected} />
             {transposedChords.length > 0 && <section className="known-chords">
@@ -399,7 +449,7 @@ export function SongbookGame() {
                 setLyrics({ status: "ready", result });
               }}><span><strong>{result.trackName}</strong><small>{result.artistName}{result.albumName ? ` · ${result.albumName}` : ""}</small></span><em>{formatDuration(result.duration) || "Choose"}</em></button>)}</div>}
               {lyrics.status === "ready" && <div className="selected-lyric-source">Matched to <b>{lyrics.result.trackName}</b>{lyrics.result.albumName ? ` · ${lyrics.result.albumName}` : ""}{formatDuration(lyrics.result.duration) ? ` · ${formatDuration(lyrics.result.duration)}` : ""}</div>}
-              {lyrics.status === "ready" && <div className="fetched-lyrics">{lyrics.result.plainLyrics?.trim() || readableSyncedLyrics(lyrics.result.syncedLyrics || "")}</div>}
+              {lyrics.status === "ready" && <ChordedLyrics text={lyrics.result.plainLyrics?.trim() || readableSyncedLyrics(lyrics.result.syncedLyrics || "")} placements={IMPORTED_CHORD_PLACEMENTS[selected.id] ?? []} transpose={songSettings.transpose} />}
               {lyrics.status === "ready" && <button className="change-lyrics-version" onClick={() => {
                 setLyricChoices((choices) => ({ ...choices, [selected.id]: 0 }));
                 setOfflineLyrics((current) => { const next = { ...current }; delete next[selected.id]; return next; });
@@ -424,10 +474,10 @@ export function SongbookGame() {
 
   return (
     <div className="mytabs-shell">
-      <header className="mytabs-header"><div className="mytabs-brand"><span><Guitar /></span><div><b>Songbook</b><small>Elan’s guitar library</small></div></div><div className="library-actions"><button className="offline-library" disabled={!isOnline || offlineProgress.status === "running"} onClick={saveLibraryOffline}><Download size={15} /> {offlineProgress.status === "running" ? `${offlineProgress.completed}/${offlineProgress.total}` : offlineCount ? `${offlineCount} offline` : "Save offline"}</button><button onClick={() => setAddingSong((value) => !value)}><Plus size={15} /> Add song</button><div className="library-count"><strong>{allSongs.length}</strong><span>saved songs</span></div></div></header>
+      <header className="mytabs-header"><div className="mytabs-brand"><span><Guitar /></span><div><b>STRUM</b><small>Your guitar library</small></div></div><div className="library-actions"><button className="offline-library" disabled={!isOnline || offlineProgress.status === "running"} onClick={saveLibraryOffline}><Download size={15} /> {offlineProgress.status === "running" ? `${offlineProgress.completed}/${offlineProgress.total}` : offlineCount ? `${offlineCount} offline` : "Save offline"}</button><button onClick={() => setAddingSong((value) => !value)}><Plus size={15} /> Add song</button><div className="library-count"><strong>{allSongs.length}</strong><span>saved songs</span></div></div></header>
       <main className="mytabs-main">
         <section className="library-intro"><span>Imported from My Tabs</span><h1>What do you want<br />to play?</h1><p>Your complete Ultimate Guitar collection, organized for faster practice.</p></section>
-        {offlineCount === 0 && offlineProgress.status === "idle" && <div className="offline-tip"><Download size={16} /><span><b>Taking Songbook off-grid?</b> Tap Save offline while connected, then add this site to your phone’s Home Screen.</span></div>}
+        {offlineCount === 0 && offlineProgress.status === "idle" && <div className="offline-tip"><Download size={16} /><span><b>Taking STRUM off-grid?</b> Tap Save offline while connected, then add this site to your phone’s Home Screen.</span></div>}
         {(!isOnline || offlineProgress.status !== "idle") && <div className={`offline-status ${!isOnline ? "is-offline" : ""}`}><span className="offline-dot" /><div><strong>{!isOnline ? "Offline mode" : offlineProgress.status === "running" ? "Saving your library…" : offlineProgress.status === "error" ? "Offline save needs attention" : "Offline library ready"}</strong><span>{!isOnline ? `${offlineCount} songs are stored on this device.` : offlineProgress.status === "running" ? `${offlineProgress.saved} saved · ${offlineProgress.completed} of ${offlineProgress.total} checked` : offlineProgress.message}</span></div></div>}
         {addingSong && <form className="add-song-form" onSubmit={addSong}>
           <div className="add-song-heading"><div><strong>Add a song</strong><span>Lyrics and version matching happen automatically</span></div><button type="button" onClick={() => setAddingSong(false)}>Cancel</button></div>

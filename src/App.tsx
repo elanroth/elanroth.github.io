@@ -9,7 +9,7 @@ import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGat
 import React from "react";
 import BlogView from "./Blog/BlogView";
 import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
-import { GuitarApp } from "./Guitar/GuitarApp";
+import { SongbookGame } from "./Guitar/SongbookGame";
 import { HiLoJackApp } from "./HiLoJack/HiLoJackApp";
 
 type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "guitar" | "hilojack" | "god";
@@ -218,8 +218,8 @@ const GAME_CARDS: GameCard[] = [
   },
   {
     id: "guitar",
-    title: "Songbook",
-    description: "Build your guitar repertoire and discover songs that fit your taste.",
+    title: "STRUM",
+    description: "Your offline guitar library: lyrics, chords, and practice tools.",
     imageUrl: "/images/Guitar_Photo.png",
     onOpen: openGuitarInNewTab,
   },
@@ -501,7 +501,7 @@ export default function App() {
   if (fullGuitar && activeTab === "guitar") {
     return (
       <div style={{ minHeight: "100vh" }}>
-        <GuitarApp />
+        <SongbookGame />
       </div>
     );
   }
