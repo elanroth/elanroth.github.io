@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Download, Edit3, ExternalLink, Guitar, Mic, Minus, Pause, Play, Plus, Search, Settings2, Square, Upload } from "lucide-react";
 import { IMPORTED_CHORD_PLACEMENTS, type ChordPlacement } from "./importedChordPlacements";
 import { IMPORTED_CHORDS } from "./importedChords";
+import { IMPORTED_PRACTICE_DATA, type ImportedPracticeData, type StrummingPattern } from "./importedPracticeData";
 import { SAVED_SONGS, type SavedSong } from "./savedSongs";
 import "./songbook.css";
 
@@ -78,14 +79,55 @@ function normalizeLyricLine(value: string) {
   return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0590-\u05ff]+/g, " ").trim();
 }
 
-function lyricFingerprint(value: string) {
-  const normalized = normalizeLyricLine(value);
+function textHash(value: string) {
   let hash = 2166136261;
-  for (let index = 0; index < normalized.length; index++) {
-    hash ^= normalized.charCodeAt(index);
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
   }
   return (hash >>> 0).toString(36);
+}
+
+function lyricFingerprint(value: string) {
+  return textHash(normalizeLyricLine(value));
+}
+
+function contextualWordHashes(words: string[]) {
+  return words.map((word, index) => textHash(`${words[index - 1] ?? "^"}\u0001${word}\u0001${words[index + 1] ?? "$"}`));
+}
+
+function lyricWords(text: string) {
+  const words: Array<{ value: string; line: number; at: number }> = [];
+  text.replace(/\r/g, "").split("\n").forEach((line, lineIndex) => {
+    const normalized = line.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0590-\u05ff]+/g, " ");
+    for (const match of normalized.matchAll(/[a-z0-9\u0590-\u05ff]+/g)) {
+      words.push({ value: match[0], line: lineIndex, at: match.index ?? 0 });
+    }
+  });
+  return words;
+}
+
+function alignWordHashes(source: string[], target: string[]) {
+  const rows = Array.from({ length: source.length + 1 }, () => new Uint16Array(target.length + 1));
+  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex++) {
+    for (let targetIndex = 1; targetIndex <= target.length; targetIndex++) {
+      rows[sourceIndex][targetIndex] = source[sourceIndex - 1] === target[targetIndex - 1]
+        ? rows[sourceIndex - 1][targetIndex - 1] + 1
+        : Math.max(rows[sourceIndex - 1][targetIndex], rows[sourceIndex][targetIndex - 1]);
+    }
+  }
+  const matches = new Map<number, number>();
+  let sourceIndex = source.length;
+  let targetIndex = target.length;
+  while (sourceIndex && targetIndex) {
+    if (source[sourceIndex - 1] === target[targetIndex - 1]) {
+      matches.set(sourceIndex - 1, targetIndex - 1);
+      sourceIndex--;
+      targetIndex--;
+    } else if (rows[sourceIndex - 1][targetIndex] >= rows[sourceIndex][targetIndex - 1]) sourceIndex--;
+    else targetIndex--;
+  }
+  return matches;
 }
 
 function formatDuration(duration: number | null) {
@@ -127,8 +169,46 @@ function Arrangement({ text, transpose }: { text: string; transpose: number }) {
   })}</div>;
 }
 
-function ChordedLyrics({ text, placements, transpose }: { text: string; placements: ChordPlacement[]; transpose: number }) {
+function ChordedLyrics({ text, placements, practice, transpose }: { text: string; placements: ChordPlacement[]; practice?: ImportedPracticeData; transpose: number }) {
   const prepared = useMemo(() => {
+    const rawLines = text.replace(/\r/g, "").split("\n");
+    if (practice?.wordHashes.length && practice.chordAnchors.length) {
+      const words = lyricWords(text);
+      const matches = alignWordHashes(practice.wordHashes, contextualWordHashes(words.map((word) => word.value)));
+      const chordLines = new Map<number, Array<[number, string]>>();
+      const sectionLines = new Map<number, string[]>();
+      const nearestTarget = (sourceWord: number) => {
+        if (matches.has(sourceWord)) return matches.get(sourceWord);
+        for (let distance = 1; distance <= 4; distance++) {
+          if (matches.has(sourceWord - distance)) return matches.get(sourceWord - distance);
+          if (matches.has(sourceWord + distance)) return matches.get(sourceWord + distance);
+        }
+        return undefined;
+      };
+      for (const [sourceWord, chord] of practice.chordAnchors) {
+        const targetWord = nearestTarget(sourceWord);
+        if (targetWord === undefined) continue;
+        const word = words[targetWord];
+        const lineChords = chordLines.get(word.line) ?? [];
+        lineChords.push([word.at, chord]);
+        chordLines.set(word.line, lineChords);
+      }
+      for (const [sourceWord, section] of practice.sections) {
+        const targetWord = nearestTarget(sourceWord);
+        if (targetWord === undefined) continue;
+        const line = words[targetWord].line;
+        const headings = sectionLines.get(line) ?? [];
+        if (!headings.includes(section)) headings.push(section);
+        sectionLines.set(line, headings);
+      }
+      const lines = rawLines.map((line, index) => ({
+        line,
+        chords: (chordLines.get(index) ?? []).sort((left, right) => left[0] - right[0]),
+        sections: sectionLines.get(index) ?? [],
+      }));
+      return { lines, matched: lines.filter((line) => line.chords.length).length };
+    }
+
     const available = new Map<string, ChordPlacement[]>();
     for (const placement of placements) {
       const queue = available.get(placement[0]) ?? [];
@@ -136,30 +216,101 @@ function ChordedLyrics({ text, placements, transpose }: { text: string; placemen
       available.set(placement[0], queue);
     }
     let matched = 0;
-    const lines = text.replace(/\r/g, "").split("\n").map((line) => {
+    const lines: Array<{ line: string; chords: Array<[number, string]>; sections: string[] }> = [];
+    for (let index = 0; index < rawLines.length;) {
+      const line = rawLines[index];
       const fingerprint = line.trim() ? lyricFingerprint(line) : "";
       const queue = fingerprint ? available.get(fingerprint) : undefined;
       const placement = queue?.shift();
-      if (placement) matched++;
-      return { line, chords: placement?.[1] ?? [] };
-    });
+      if (placement) {
+        matched++;
+        lines.push({ line, chords: placement[1], sections: [] });
+        index++;
+        continue;
+      }
+
+      let grouped: { count: number; placement: ChordPlacement } | undefined;
+      if (line.trim()) {
+        for (let count = 2; count <= 4 && index + count <= rawLines.length; count++) {
+          const group = rawLines.slice(index, index + count);
+          if (group.some((candidate) => !candidate.trim())) break;
+          const groupQueue = available.get(lyricFingerprint(group.join(" ")));
+          if (groupQueue?.length) {
+            grouped = { count, placement: groupQueue.shift()! };
+            break;
+          }
+        }
+      }
+      if (!grouped) {
+        lines.push({ line, chords: [], sections: [] });
+        index++;
+        continue;
+      }
+
+      const groupLines = rawLines.slice(index, index + grouped.count);
+      const starts: number[] = [];
+      groupLines.reduce((offset, candidate) => {
+        starts.push(offset);
+        return offset + candidate.length + 1;
+      }, 0);
+      groupLines.forEach((candidate, groupIndex) => {
+        const nextStart = starts[groupIndex + 1] ?? Number.POSITIVE_INFINITY;
+        const chords = grouped!.placement[1]
+          .filter(([at]) => at >= starts[groupIndex] && at < nextStart)
+          .map(([at, name]) => [Math.max(0, at - starts[groupIndex]), name] as [number, string]);
+        lines.push({ line: candidate, chords, sections: [] });
+      });
+      matched += grouped.count;
+      index += grouped.count;
+    }
     return { lines, matched };
-  }, [text, placements]);
+  }, [text, placements, practice]);
 
   return <div className="fetched-lyrics chorded-lyrics">
     {prepared.matched > 0 && <div className="alignment-summary">{prepared.matched} lyric lines aligned with your saved tab</div>}
-    {prepared.lines.map(({ line, chords }, index) => {
+    {prepared.lines.map(({ line, chords, sections }, index) => {
       if (!line.trim()) return <div className="chorded-song-space" key={index}>&nbsp;</div>;
       const width = Math.max(line.length, ...chords.map(([at, name]) => at + name.length), 1);
-      return <div className="chorded-line-scroll" key={index}><div className="chorded-lyric-line" style={{ minWidth: `${width}ch` }}>
+      return <React.Fragment key={index}>
+        {sections.map((section) => <h3 className="chorded-section-heading" key={section}>{section}</h3>)}
+        <div className="chorded-line-scroll"><div className="chorded-lyric-line" style={{ minWidth: `${width}ch` }}>
         {chords.length > 0 && <div className="chord-position-row">{chords.map(([at, name], chordIndex) =>
           <b key={`${at}-${name}-${chordIndex}`} style={{ left: `${at}ch` }}>{transposeChord(name, transpose)}</b>
         )}</div>}
         <div className="chorded-lyric-text">{line}</div>
-      </div></div>;
+        </div></div>
+      </React.Fragment>;
     })}
     {placements.length > 0 && prepared.matched === 0 && <div className="alignment-missing">This lyric version does not match the saved tab closely enough to place chords safely. Try “Find a different recording” below.</div>}
   </div>;
+}
+
+function beatLabel(index: number, pattern: StrummingPattern) {
+  const subdivision = pattern.triplet ? ["1", "&", "a"] : pattern.denominator >= 16 ? ["1", "e", "&", "a"] : ["1", "&"];
+  const beat = Math.floor(index / subdivision.length) + 1;
+  return subdivision[index % subdivision.length] === "1" ? String(beat) : subdivision[index % subdivision.length];
+}
+
+function StrummingGuide({ patterns }: { patterns: StrummingPattern[] }) {
+  if (!patterns.length) return null;
+  return <section className="strumming-guide">
+    <div className="strumming-heading"><div><strong>Strumming</strong><span>Static play-along pattern · every section supplied by the tab</span></div></div>
+    <div className="strumming-patterns">{patterns.map((pattern, patternIndex) =>
+      <div className="strumming-pattern" key={`${pattern.part}-${patternIndex}`}>
+        <div className="strumming-part"><b>{pattern.part || "All"}</b>{pattern.bpm > 0 && <span>{pattern.bpm} bpm</span>}</div>
+        <div className="strumming-scroll"><div className="strumming-beats">
+          {pattern.beats.map(([stroke, effect], beatIndex) =>
+            <div className={`strum-beat ${effect || "plain"}`} key={beatIndex} aria-label={`${beatLabel(beatIndex, pattern)} ${stroke} ${effect}`.trim()}>
+              <span className="strum-mark">{effect === "accent" && <i>›</i>}{stroke === "D" ? "↓" : stroke === "U" ? "↑" : stroke}</span>
+              <small>{effect === "mute" ? "×" : "\u00a0"}</small>
+              <b>{beatLabel(beatIndex, pattern)}</b>
+            </div>
+          )}
+        </div></div>
+      </div>
+    )}</div>
+    <p>↓ down · ↑ up · × muted · › accented · PM palm mute · — rest</p>
+  </section>;
 }
 
 function makeWavBlob(chunks: Float32Array[], sampleRate: number) {
@@ -393,6 +544,7 @@ export function SongbookGame() {
     setSettings((old) => ({ ...old, [selected.id]: { ...songSettings, ...patch } }));
   }
   const importedChordData = selected ? IMPORTED_CHORDS[selected.id] : undefined;
+  const importedPracticeData = selected ? IMPORTED_PRACTICE_DATA[selected.id] : undefined;
   const transposedChords = importedChordData?.chords.map((chord) => transposeChord(chord, songSettings.transpose)) ?? [];
 
   if (selected) return (
@@ -439,6 +591,7 @@ export function SongbookGame() {
                   : importedChordData?.author} and sourced from <a href={importedChordData?.sourceUrl} target="_blank" rel="noreferrer">Ultimate Guitar</a>. Personal practice use only.
               </p>
             </section>}
+            <StrummingGuide patterns={importedPracticeData?.strumming ?? []} />
             <section className="lrclib-section">
               <div className="lrclib-heading"><div><strong>Lyrics</strong><span>{offlineLyrics[selected.id] ? "Saved on this device · works offline" : "Downloads once · then works offline"}</span></div><a href={LRCLIB_URL} target="_blank" rel="noreferrer">Lyrics by LRCLIB <ExternalLink size={13} /></a></div>
               {(lyrics.status === "idle" || lyrics.status === "loading") && <div className="lyrics-message">Looking for this song on LRCLIB…</div>}
@@ -449,7 +602,7 @@ export function SongbookGame() {
                 setLyrics({ status: "ready", result });
               }}><span><strong>{result.trackName}</strong><small>{result.artistName}{result.albumName ? ` · ${result.albumName}` : ""}</small></span><em>{formatDuration(result.duration) || "Choose"}</em></button>)}</div>}
               {lyrics.status === "ready" && <div className="selected-lyric-source">Matched to <b>{lyrics.result.trackName}</b>{lyrics.result.albumName ? ` · ${lyrics.result.albumName}` : ""}{formatDuration(lyrics.result.duration) ? ` · ${formatDuration(lyrics.result.duration)}` : ""}</div>}
-              {lyrics.status === "ready" && <ChordedLyrics text={lyrics.result.plainLyrics?.trim() || readableSyncedLyrics(lyrics.result.syncedLyrics || "")} placements={IMPORTED_CHORD_PLACEMENTS[selected.id] ?? []} transpose={songSettings.transpose} />}
+              {lyrics.status === "ready" && <ChordedLyrics text={lyrics.result.plainLyrics?.trim() || readableSyncedLyrics(lyrics.result.syncedLyrics || "")} placements={IMPORTED_CHORD_PLACEMENTS[selected.id] ?? []} practice={importedPracticeData} transpose={songSettings.transpose} />}
               {lyrics.status === "ready" && <button className="change-lyrics-version" onClick={() => {
                 setLyricChoices((choices) => ({ ...choices, [selected.id]: 0 }));
                 setOfflineLyrics((current) => { const next = { ...current }; delete next[selected.id]; return next; });
