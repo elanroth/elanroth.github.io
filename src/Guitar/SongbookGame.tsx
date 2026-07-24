@@ -92,8 +92,8 @@ function lyricFingerprint(value: string) {
   return textHash(normalizeLyricLine(value));
 }
 
-function contextualWordHashes(words: string[]) {
-  return words.map((word, index) => textHash(`${words[index - 1] ?? "^"}\u0001${word}\u0001${words[index + 1] ?? "$"}`));
+function lyricWordHashes(words: string[]) {
+  return words.map(textHash);
 }
 
 function lyricWords(text: string) {
@@ -174,7 +174,7 @@ function ChordedLyrics({ text, placements, practice, transpose }: { text: string
     const rawLines = text.replace(/\r/g, "").split("\n");
     if (practice?.wordHashes.length && practice.chordAnchors.length) {
       const words = lyricWords(text);
-      const matches = alignWordHashes(practice.wordHashes, contextualWordHashes(words.map((word) => word.value)));
+      const matches = alignWordHashes(practice.wordHashes, lyricWordHashes(words.map((word) => word.value)));
       const chordLines = new Map<number, Array<[number, string]>>();
       const sectionLines = new Map<number, string[]>();
       const nearestTarget = (sourceWord: number) => {
@@ -206,6 +206,23 @@ function ChordedLyrics({ text, placements, practice, transpose }: { text: string
         chords: (chordLines.get(index) ?? []).sort((left, right) => left[0] - right[0]),
         sections: sectionLines.get(index) ?? [],
       }));
+      const repeatedLineChords = new Map<string, Array<{ index: number; chords: Array<[number, string]> }>>();
+      lines.forEach((line, index) => {
+        if (!line.chords.length || !line.line.trim()) return;
+        const fingerprint = lyricFingerprint(line.line);
+        const templates = repeatedLineChords.get(fingerprint) ?? [];
+        templates.push({ index, chords: line.chords });
+        repeatedLineChords.set(fingerprint, templates);
+      });
+      lines.forEach((line, index) => {
+        if (line.chords.length || !line.line.trim()) return;
+        const templates = repeatedLineChords.get(lyricFingerprint(line.line));
+        if (!templates?.length) return;
+        const nearest = templates.reduce((best, candidate) =>
+          Math.abs(candidate.index - index) < Math.abs(best.index - index) ? candidate : best
+        );
+        line.chords = nearest.chords.map(([at, chord]) => [at, chord]);
+      });
       return { lines, matched: lines.filter((line) => line.chords.length).length };
     }
 

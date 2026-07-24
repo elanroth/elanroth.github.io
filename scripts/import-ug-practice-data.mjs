@@ -36,10 +36,6 @@ function hash(value) {
   return (result >>> 0).toString(36);
 }
 
-function contextualHashes(words) {
-  return words.map((word, index) => hash(`${words[index - 1] ?? "^"}\u0001${word}\u0001${words[index + 1] ?? "$"}`));
-}
-
 function chordLine(line) {
   const chords = [];
   let visible = "";
@@ -107,7 +103,7 @@ function practiceFromWiki(content) {
     pendingChords = null;
   }
 
-  return { wordHashes: contextualHashes(rawWords), chordAnchors, sections };
+  return { wordHashes: rawWords.map(hash), chordAnchors, sections };
 }
 
 const strokeMap = {
@@ -178,7 +174,7 @@ export type ImportedPracticeData = {
 };
 
 // Generated from the saved public Ultimate Guitar tab payloads.
-// Lyric text is not stored: contextual word hashes align chords to LRCLIB at runtime.
+// Lyric text is not stored: one-way word hashes align chords to LRCLIB at runtime.
 export const IMPORTED_PRACTICE_DATA: Record<string, ImportedPracticeData> = ${JSON.stringify(data)};
 `;
 
