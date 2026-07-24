@@ -1,7 +1,7 @@
 {
-  "name": "Elan's Guitar Songbook",
-  "short_name": "Songbook",
-  "description": "An offline guitar songbook for lyrics, chords, and practice.",
+  "name": "STRUM",
+  "short_name": "STRUM",
+  "description": "An offline guitar library for lyrics, chords, and practice.",
   "start_url": "/?tab=guitar&full=1",
   "scope": "/",
   "display": "standalone",

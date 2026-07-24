@@ -1,4 +1,4 @@
-const CACHE_NAME = "elan-songbook-shell-v1";
+const CACHE_NAME = "elan-strum-shell-v2";
 const CORE_URLS = ["/", "/manifest.webmanifest", "/songbook-icon.svg"];
 
 async function cacheAppShell() {
@@ -20,7 +20,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
-    await Promise.all(names.filter((name) => name.startsWith("elan-songbook-") && name !== CACHE_NAME).map((name) => caches.delete(name)));
+    await Promise.all(names.filter((name) => (name.startsWith("elan-songbook-") || name.startsWith("elan-strum-")) && name !== CACHE_NAME).map((name) => caches.delete(name)));
     await self.clients.claim();
   })());
 });
