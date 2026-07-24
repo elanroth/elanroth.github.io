@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, Download, Edit3, ExternalLink, Guitar, Mic, Minus, Pause, Play, Plus, Search, Settings2, Square, Upload } from "lucide-react";
+import { IMPORTED_CHORDS } from "./importedChords";
 import { SAVED_SONGS, type SavedSong } from "./savedSongs";
 import "./songbook.css";
 
@@ -46,16 +47,6 @@ const PREFERRED_LRCLIB_IDS: Record<string, number> = {
   "2613978": 28268500, // Don't Let Me Down — demo
   "2325077": 2772439,  // I'm With You — Nation of Two studio
   "3112253": 5526094,  // Willy's Song — Feathers & Fishhooks
-};
-
-const KNOWN_CHORDS: Record<string, string[]> = {
-  "59609": ["Em", "D6/9"], "35827": ["G", "Em", "C", "D"], "1215756": ["G", "D", "Em", "C"],
-  "31443": ["G", "Cadd9", "Dsus4", "Em"], "1237247": ["Am", "G", "C"], "18688": ["Am", "C", "D", "F", "E"],
-  "1048613": ["C", "G/B", "Am7", "G"], "1709964": ["C", "G", "Em", "D"], "198052": ["C", "Am", "F", "G", "E7"],
-  "39144": ["Em7", "G", "Dsus4", "A7sus4"], "46190": ["Am", "E", "G", "D", "F", "C", "Dm"],
-  "1101747": ["G", "Em", "C", "D"], "1137467": ["G", "D", "Em", "C"], "146744": ["Em", "G", "D", "A"],
-  "373896": ["G", "D", "Em", "C"], "1144923": ["C", "Am", "F", "G"], "489173": ["D", "G", "A"],
-  "819644": ["G", "C", "D", "Em"], "910099": ["A", "E", "Bm", "D"], "1101795": ["Bb", "F", "Gm", "Eb"],
 };
 
 function readJson<T>(key: string, fallback: T): T {
@@ -351,12 +342,8 @@ export function SongbookGame() {
     if (!selected) return;
     setSettings((old) => ({ ...old, [selected.id]: { ...songSettings, ...patch } }));
   }
-  const transposedChords = selected ? (KNOWN_CHORDS[selected.id] ?? []).map((chord) => {
-    const root = chord.match(/^[A-G](?:#|b)?/)?.[0];
-    if (!root || !songSettings.transpose) return chord;
-    const index = NOTES.indexOf(root);
-    return index < 0 ? chord : chord.replace(root, NOTES[(index + songSettings.transpose + 12) % 12]);
-  }) : [];
+  const importedChordData = selected ? IMPORTED_CHORDS[selected.id] : undefined;
+  const transposedChords = importedChordData?.chords.map((chord) => transposeChord(chord, songSettings.transpose)) ?? [];
 
   if (selected) return (
     <div className="practice-shell">
@@ -388,7 +375,20 @@ export function SongbookGame() {
             <div className="song-kicker">{selected.kind} · {selected.custom ? "added to Songbook" : "saved in My Tabs"}</div>
             <h1>{cleanTitle(selected.title)}</h1><h2>{selected.artist}</h2>
             <RecordingLab key={selected.id} song={selected} />
-            {transposedChords.length > 0 && <section className="known-chords"><span>Quick chords</span><div>{transposedChords.map((chord) => <kbd key={chord}>{chord}</kbd>)}</div></section>}
+            {transposedChords.length > 0 && <section className="known-chords">
+              <span>Chords from your saved tab</span>
+              <p className="chord-setup">{[
+                importedChordData?.tuning && `Tuning ${importedChordData.tuning}`,
+                importedChordData?.key && `Key ${importedChordData.key}`,
+                importedChordData?.capo && importedChordData.capo !== "No capo" ? `Capo ${importedChordData.capo}` : "No capo",
+              ].filter(Boolean).join(" · ")}</p>
+              <div>{transposedChords.map((chord) => <kbd key={chord}>{chord}</kbd>)}</div>
+              <p className="chord-attribution">
+                Chord symbols transcribed by {importedChordData?.authorUrl
+                  ? <a href={importedChordData.authorUrl} target="_blank" rel="noreferrer">{importedChordData.author}</a>
+                  : importedChordData?.author} and sourced from <a href={importedChordData?.sourceUrl} target="_blank" rel="noreferrer">Ultimate Guitar</a>. Personal practice use only.
+              </p>
+            </section>}
             <section className="lrclib-section">
               <div className="lrclib-heading"><div><strong>Lyrics</strong><span>{offlineLyrics[selected.id] ? "Saved on this device · works offline" : "Downloads once · then works offline"}</span></div><a href={LRCLIB_URL} target="_blank" rel="noreferrer">Lyrics by LRCLIB <ExternalLink size={13} /></a></div>
               {(lyrics.status === "idle" || lyrics.status === "loading") && <div className="lyrics-message">Looking for this song on LRCLIB…</div>}
