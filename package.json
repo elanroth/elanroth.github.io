@@ -76,6 +76,7 @@
             "wordswords:build-zipf": "python3 scripts/wordswords-build-zipf.py",
             "strategy-lab:dev": "vite --config vite.strategy-lab.config.js",
             "strategy-lab:build": "vite build --config vite.strategy-lab.config.js",
-            "strategy-lab:preview": "vite preview --config vite.strategy-lab.config.js"
+            "strategy-lab:preview": "vite preview --config vite.strategy-lab.config.js",
+            "strum:audit": "tsx scripts/audit-strum-coverage.ts"
       }
 }
