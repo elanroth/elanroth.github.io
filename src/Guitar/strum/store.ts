@@ -1,5 +1,6 @@
 import { SAVED_SONGS } from "../savedSongs";
 import { IMPORTED_CHORD_PLACEMENTS } from "../importedChordPlacements";
+import { IMPORTED_PRACTICE_DATA } from "../importedPracticeData";
 import { emptySong, injectInlineChords, type StrumLibrary, type StrumSong } from "./model";
 
 const DB_NAME = "strum-private-library";
@@ -10,6 +11,7 @@ const SEEDED_KEY = "seeded-public-metadata-v1";
 const LEGACY_NOTES_KEY = "songbook-practice-notes-v1";
 const LEGACY_OFFLINE_LYRICS_KEY = "songbook-offline-lyrics-v1";
 const LEGACY_MIGRATION_KEY = "migrated-offline-library-v1";
+const CHORD_REPAIR_KEY = "repaired-word-anchored-chords-v1";
 
 type LegacyLyrics = { plainLyrics?: string | null; syncedLyrics?: string | null };
 type LrcLyrics = {
@@ -125,7 +127,57 @@ function lyricFingerprint(value: string) {
   return textHash(value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0590-\u05ff]+/g, " ").trim());
 }
 
+function lyricWords(text: string) {
+  const words: Array<{ value: string; line: number; at: number }> = [];
+  text.replace(/\r/g, "").split("\n").forEach((line, lineIndex) => {
+    const normalized = line.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0590-\u05ff]+/g, " ");
+    for (const match of normalized.matchAll(/[a-z0-9\u0590-\u05ff]+/g)) words.push({ value: match[0], line: lineIndex, at: match.index ?? 0 });
+  });
+  return words;
+}
+
+function alignWordHashes(source: string[], target: string[]) {
+  const rows = Array.from({ length: source.length + 1 }, () => new Uint16Array(target.length + 1));
+  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex++) for (let targetIndex = 1; targetIndex <= target.length; targetIndex++) {
+    rows[sourceIndex][targetIndex] = source[sourceIndex - 1] === target[targetIndex - 1]
+      ? rows[sourceIndex - 1][targetIndex - 1] + 1
+      : Math.max(rows[sourceIndex - 1][targetIndex], rows[sourceIndex][targetIndex - 1]);
+  }
+  const matches = new Map<number, number>();
+  for (let sourceIndex = source.length, targetIndex = target.length; sourceIndex && targetIndex;) {
+    if (source[sourceIndex - 1] === target[targetIndex - 1]) { matches.set(sourceIndex-- - 1, targetIndex-- - 1); }
+    else if (rows[sourceIndex - 1][targetIndex] >= rows[sourceIndex][targetIndex - 1]) sourceIndex--;
+    else targetIndex--;
+  }
+  return matches;
+}
+
+function applyPracticeAnchors(savedId: string, lyrics: string) {
+  const practice = IMPORTED_PRACTICE_DATA[savedId];
+  if (!practice?.wordHashes.length || !practice.chordAnchors.length) return undefined;
+  const lines = lyrics.replace(/\r/g, "").split("\n");
+  const words = lyricWords(lyrics);
+  const matches = alignWordHashes(practice.wordHashes, words.map((word) => textHash(word.value)));
+  const anchorsByLine = new Map<number, Array<[number, string]>>();
+  for (const [sourceWord, chord] of practice.chordAnchors) {
+    let targetWord = matches.get(sourceWord);
+    if (targetWord === undefined) for (let distance = 1; distance <= 4 && targetWord === undefined; distance++) targetWord = matches.get(sourceWord - distance) ?? matches.get(sourceWord + distance);
+    if (targetWord === undefined) continue;
+    const word = words[targetWord];
+    const anchors = anchorsByLine.get(word.line) ?? [];
+    anchors.push([word.at, chord]);
+    anchorsByLine.set(word.line, anchors);
+  }
+  if (!anchorsByLine.size) return undefined;
+  return lines.map((line, index) => {
+    const anchors = anchorsByLine.get(index);
+    return anchors?.length ? injectInlineChords(line, anchors) : line;
+  }).join("\n");
+}
+
 function migrateArrangement(savedId: string, lyrics: string) {
+  const practiceArrangement = applyPracticeAnchors(savedId, lyrics);
+  if (practiceArrangement) return practiceArrangement;
   const placements = IMPORTED_CHORD_PLACEMENTS[savedId] ?? [];
   const available = new Map<string, Array<Array<[number, string]>>>();
   for (const [fingerprint, chords] of placements) {
@@ -137,6 +189,10 @@ function migrateArrangement(savedId: string, lyrics: string) {
     const chords = available.get(lyricFingerprint(line))?.shift();
     return chords?.length ? injectInlineChords(line, chords) : line;
   }).join("\n");
+}
+
+function removeInlineChords(arrangement: string) {
+  return arrangement.replace(/\[([A-G](?:#|b)?(?:maj|min|m|dim|aug|sus|add)?\d*(?:\/[A-G](?:#|b)?)?)\]/g, "");
 }
 
 export async function seedMetadataIfNeeded() {
@@ -176,9 +232,27 @@ async function migrateLegacyOfflineLibrary() {
   });
 }
 
+async function repairDownloadedChordSheets() {
+  await withStore("readwrite", [SONGS_STORE, META_STORE], async ({ songs, meta }) => {
+    if (await request(meta.get(CHORD_REPAIR_KEY))) return;
+    for (const saved of SAVED_SONGS) {
+      const current = await request(songs.get(`saved-${saved.id}`)) as StrumSong | undefined;
+      if (!current?.arrangement.trim() || !IMPORTED_PRACTICE_DATA[saved.id]?.chordAnchors.length) continue;
+      const repaired = migrateArrangement(saved.id, removeInlineChords(current.arrangement));
+      if (repaired === current.arrangement) continue;
+      current.arrangement = repaired;
+      current.updatedAt = new Date().toISOString();
+      current.revision++;
+      await request(songs.put(current));
+    }
+    await request(meta.put(new Date().toISOString(), CHORD_REPAIR_KEY));
+  });
+}
+
 export async function getSongs() {
   await seedMetadataIfNeeded();
   await migrateLegacyOfflineLibrary();
+  await repairDownloadedChordSheets();
   return withStore("readonly", [SONGS_STORE], async ({ songs }) => {
     const all = await request(songs.getAll()) as StrumSong[];
     return all.sort((left, right) => left.title.localeCompare(right.title));
