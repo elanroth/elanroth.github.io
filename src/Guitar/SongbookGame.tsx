@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, Download, Edit3, FileUp, Minus, Pause, Play, Plus, Search, Settings2, Upload, X } from "lucide-react";
+import { ArrowLeft, Download, Edit3, Pause, Play, Plus, Search, Settings2, Upload, X } from "lucide-react";
 import { emptySong, parseArrangement, parseLibrary, type ArrangementToken, type Familiarity, type StrumSong } from "./strum/model";
 import { buildOfflineLibrary, createSong, exportLibrary, getSongs, replaceLibrary, requestPersistentStorage, saveSong, type OfflineLibraryProgress } from "./strum/store";
 import "./songbook.css";
@@ -153,18 +153,21 @@ export function SongbookGame() {
   const [editor, setEditor] = useState<StrumSong | "new" | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reading, setReading] = useState(readReadingSettings);
-  const [transpose, setTranspose] = useState(0);
   const [scrolling, setScrolling] = useState(false);
   const [notice, setNotice] = useState("");
   const [building, setBuilding] = useState(false);
   const [buildProgress, setBuildProgress] = useState<OfflineLibraryProgress | null>(null);
-  const songPageRef = useRef<HTMLElement>(null);
 
   const reload = async () => { setLoading(true); try { setSongs(await getSongs()); } catch { setNotice("STRUM could not open private browser storage."); } finally { setLoading(false); } };
   useEffect(() => { void reload(); void requestPersistentStorage(); }, []);
   useEffect(() => { localStorage.setItem(READING_KEY, JSON.stringify(reading)); }, [reading]);
   useEffect(() => { const pop = () => setSelectedId(querySongId()); window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, []);
-  useEffect(() => { if (!scrolling) return; const timer = window.setInterval(() => songPageRef.current?.scrollBy({ top: 1 }), Math.max(20, 80 - reading.autoscrollSpeed * 12)); return () => window.clearInterval(timer); }, [scrolling, reading.autoscrollSpeed]);
+  useEffect(() => {
+    if (!scrolling) return;
+    // The document/window is the scroll container; the song <main> itself is not.
+    const timer = window.setInterval(() => window.scrollBy({ top: reading.autoscrollSpeed, left: 0 }), 32);
+    return () => window.clearInterval(timer);
+  }, [scrolling, reading.autoscrollSpeed]);
 
   const selected = songs.find((song) => song.id === selectedId) ?? null;
   const filtered = useMemo(() => songs.filter((song) => {
@@ -173,7 +176,7 @@ export function SongbookGame() {
     return matchText && matchRating;
   }), [songs, query, filter]);
 
-  function selectSong(id: string) { setSongInUrl(id); setSelectedId(id); setTranspose(0); }
+  function selectSong(id: string) { setSongInUrl(id); setSelectedId(id); }
   function backToLibrary() { setSongInUrl(null); setSelectedId(null); setScrolling(false); }
   async function persist(song: StrumSong) { if (songs.some((item) => item.id === song.id)) await saveSong(song); else await createSong(song); setEditor(null); await reload(); setNotice("Saved privately on this device."); }
   async function updateSelected(patch: Partial<StrumSong>) { if (!selected) return; const next = await saveSong({ ...selected, ...patch }); setSongs((current) => current.map((song) => song.id === next.id ? next : song)); }
@@ -181,10 +184,10 @@ export function SongbookGame() {
   async function importJson(file: File) { try { const library = parseLibrary(JSON.parse(await file.text())); if (!window.confirm(`Replace this device's ${songs.length} songs with ${library.songs.length} imported songs?`)) return; await replaceLibrary(library); await reload(); setNotice("Private library replaced from JSON."); } catch (error) { setNotice(error instanceof Error ? error.message : "Could not read that JSON file."); } }
   async function buildLibrary() { if (building) return; setBuilding(true); setBuildProgress(null); try { const result = await buildOfflineLibrary(setBuildProgress); await reload(); setNotice(`Offline library updated: ${result.saved} lyric sheets saved${result.chorded ? `, ${result.chorded} with saved chord placements` : ""}${result.unavailable ? `; ${result.unavailable} unavailable` : ""}${result.failed ? `; ${result.failed} could not download` : ""}.`); } catch { setNotice("Could not build the offline library. Check your connection and try again."); } finally { setBuilding(false); } }
 
-  if (selected) return <div className="strum-app strum-song-view"><header className="strum-topbar"><button className="strum-back" onClick={backToLibrary}><ArrowLeft size={16} /> Library</button><span className="strum-status">{navigator.onLine ? "Saved locally" : "Offline"}</span><button className="strum-icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 size={18} /></button></header><main className="strum-song-page" ref={songPageRef} style={{ "--reading-size": `${reading.fontSize}px`, "--reading-leading": reading.lineHeight } as React.CSSProperties}><div className="strum-song-layout"><ChordRack text={selected.arrangement} transpose={transpose} /><div className="strum-song-content">
+  if (selected) return <div className="strum-app strum-song-view"><header className="strum-topbar"><button className="strum-back" onClick={backToLibrary}><ArrowLeft size={16} /> Library</button><span className="strum-status">{navigator.onLine ? "Saved locally" : "Offline"}</span><button className="strum-icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 size={18} /></button></header><main className="strum-song-page" style={{ "--reading-size": `${reading.fontSize}px`, "--reading-leading": reading.lineHeight } as React.CSSProperties}><div className="strum-song-layout"><ChordRack text={selected.arrangement} transpose={0} /><div className="strum-song-content">
     <section className="strum-song-header"><div className={`strum-cover strum-cover-large ${coverClass(selected)}`}>{coverLetters(selected)}</div><div><div className="strum-kicker"><Rating rating={selected.familiarity} /> · {displayCapo(selected.capo)}</div><h1>{cleanTitle(selected.title)}</h1><p>{selected.artist}</p></div></section>
-    <section className="strum-control-strip"><button onClick={() => void updateSelected({ capo: Math.max(0, (selected.capo ?? 0) - 1) })}><small>Capo</small><strong><Minus size={13} /> {selected.capo ?? 0}</strong></button><button onClick={() => void updateSelected({ capo: Math.min(12, (selected.capo ?? 0) + 1) })}><small>Capo</small><strong><Plus size={13} /> {selected.capo ?? 0}</strong></button><button onClick={() => setTranspose((value) => Math.max(-6, value - 1))}><small>Transpose</small><strong>−</strong></button><button onClick={() => setTranspose((value) => Math.min(6, value + 1))}><small>Transpose</small><strong>{transpose > 0 ? `+${transpose}` : transpose}</strong></button><button onClick={() => setScrolling((value) => !value)}><small>Autoscroll</small><strong>{scrolling ? <><Pause size={13} /> Pause</> : <><Play size={13} /> Start</>}</strong></button></section>
-    <article className="strum-paper"><Arrangement text={selected.arrangement} transpose={transpose} /></article>
+    <section className="strum-control-strip"><button onClick={() => setScrolling((value) => !value)}><small>Autoscroll</small><strong>{scrolling ? <><Pause size={13} /> Pause</> : <><Play size={13} /> Start</>}</strong></button></section>
+    <article className="strum-paper"><Arrangement text={selected.arrangement} transpose={0} /></article>
     <nav className="strum-song-actions"><button onClick={() => void updateSelected({ familiarity: selected.familiarity === 5 ? null : ((selected.familiarity ?? 0) + 1) as Familiarity })}><Rating rating={selected.familiarity} compact /></button><button className="strum-primary" onClick={() => setEditor(selected)}><Edit3 size={15} /> Edit song</button><button onClick={() => setSettingsOpen(true)}>Reading settings</button></nav>
   </div></div></main>{editor && <SongEditor song={editor === "new" ? undefined : editor} save={persist} close={() => setEditor(null)} />}{settingsOpen && <LibrarySettings reading={reading} setReading={(patch) => setReading((current) => ({ ...current, ...patch }))} exportJson={() => void exportJson()} importJson={(file) => void importJson(file)} buildLibrary={() => void buildLibrary()} buildProgress={buildProgress} building={building} close={() => setSettingsOpen(false)} />}</div>;
 
