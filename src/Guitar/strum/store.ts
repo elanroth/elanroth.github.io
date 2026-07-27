@@ -12,6 +12,38 @@ const LEGACY_OFFLINE_LYRICS_KEY = "songbook-offline-lyrics-v1";
 const LEGACY_MIGRATION_KEY = "migrated-offline-library-v1";
 
 type LegacyLyrics = { plainLyrics?: string | null; syncedLyrics?: string | null };
+type LrcLyrics = {
+  id: number;
+  trackName: string;
+  artistName: string;
+  plainLyrics: string | null;
+  syncedLyrics: string | null;
+};
+
+export type OfflineLibraryProgress = {
+  completed: number;
+  total: number;
+  saved: number;
+  chorded: number;
+  unavailable: number;
+};
+
+export type OfflineLibraryResult = OfflineLibraryProgress & { failed: number };
+
+const LRCLIB_URL = "https://lrclib.net";
+
+// Curated against LRCLIB's duplicate recording results. These IDs contain no
+// lyric text; they only choose the recording that matches the saved chord map.
+const PREFERRED_LRCLIB_IDS: Record<string, number> = {
+  "2888678": 8302830,
+  "2741586": 3158,
+  "271523": 16883324,
+  "373896": 29814514,
+  "1017988": 1005035,
+  "2613978": 28268500,
+  "2325077": 2772439,
+  "3112253": 5526094,
+};
 
 function request<T>(operation: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -67,6 +99,20 @@ function legacyLyrics(): Record<string, LegacyLyrics> {
 
 function readableLyrics(value: LegacyLyrics) {
   return (value.plainLyrics || value.syncedLyrics?.replace(/^\[\d{2}:\d{2}(?:\.\d{2,3})?\]\s*/gm, "") || "").trim();
+}
+
+function cleanTitle(title: string) { return title.replace(/\s*\(ver \d+\)$/i, ""); }
+
+function normalizeSongName(value: string) {
+  return value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function chooseLyricResult(song: typeof SAVED_SONGS[number], results: LrcLyrics[]) {
+  const preferred = results.find((result) => result.id === PREFERRED_LRCLIB_IDS[song.id]);
+  const title = normalizeSongName(cleanTitle(song.title));
+  const artist = normalizeSongName(song.artist);
+  const exact = results.find((result) => normalizeSongName(result.trackName) === title && normalizeSongName(result.artistName) === artist);
+  return preferred ?? exact ?? (results.length === 1 ? results[0] : undefined);
 }
 
 function textHash(value: string) {
@@ -137,6 +183,50 @@ export async function getSongs() {
     const all = await request(songs.getAll()) as StrumSong[];
     return all.sort((left, right) => left.title.localeCompare(right.title));
   });
+}
+
+/**
+ * Downloads only on the user's device after they explicitly request it.
+ * Complete lyric text is never included in the public STRUM bundle.
+ */
+export async function buildOfflineLibrary(onProgress?: (progress: OfflineLibraryProgress) => void): Promise<OfflineLibraryResult> {
+  const currentSongs = await getSongs();
+  const missing = SAVED_SONGS.filter((saved) => !currentSongs.find((song) => song.id === `saved-${saved.id}`)?.arrangement.trim());
+  const progress: OfflineLibraryProgress = { completed: 0, total: missing.length, saved: 0, chorded: 0, unavailable: 0 };
+  const report = () => onProgress?.({ ...progress });
+  report();
+  let failed = 0;
+
+  for (const saved of missing) {
+    try {
+      const params = new URLSearchParams({ track_name: cleanTitle(saved.title), artist_name: saved.artist });
+      const response = await fetch(`${LRCLIB_URL}/api/search?${params}`, {
+        headers: { "Lrclib-Client": "STRUM/1.0 (personal offline library; elanroth.github.io)" },
+      });
+      if (!response.ok) throw new Error(`LRCLIB returned ${response.status}`);
+      const result = chooseLyricResult(saved, await response.json() as LrcLyrics[]);
+      const lyrics = result ? readableLyrics(result) : "";
+      if (!lyrics) {
+        progress.unavailable++;
+      } else {
+        const arrangement = migrateArrangement(saved.id, lyrics);
+        const current = currentSongs.find((song) => song.id === `saved-${saved.id}`);
+        if (current) {
+          await saveSong({ ...current, arrangement });
+          current.arrangement = arrangement;
+          progress.saved++;
+          if (IMPORTED_CHORD_PLACEMENTS[saved.id]?.length) progress.chorded++;
+        }
+      }
+    } catch {
+      failed++;
+    }
+    progress.completed++;
+    report();
+    // Keep a small gap between requests so an initial library fill is polite to LRCLIB.
+    if (progress.completed < progress.total) await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+  return { ...progress, failed };
 }
 
 export async function saveSong(song: StrumSong) {
