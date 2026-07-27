@@ -16,7 +16,10 @@ const isTruthyEnv = (value?: string): boolean => value === "true" || value === "
 const cfg = {
   apiKey: readEnv("VITE_FIREBASE_API_KEY", "VITE_FB_API_KEY"),
   authDomain: readEnv("VITE_FIREBASE_AUTH_DOMAIN", "VITE_FB_AUTH_DOMAIN"),
-  projectId: readEnv("VITE_FIREBASE_PROJECT_ID", "VITE_FB_PROJECT_ID"),
+  // The full site imports this module even when a non-Banagrams page such as
+  // STRUM is open. In local development, use the existing emulator project
+  // instead of making every page require production Firebase environment vars.
+  projectId: readEnv("VITE_FIREBASE_PROJECT_ID", "VITE_FB_PROJECT_ID") ?? (import.meta.env.DEV ? "demo-bananagrams" : undefined),
   databaseURL: readEnv("VITE_FIREBASE_DATABASE_URL", "VITE_FB_DATABASE_URL")?.replace(/\/$/, ""),
   appId: readEnv("VITE_FIREBASE_APP_ID", "VITE_FB_APP_ID"),
   measurementId: readEnv("VITE_FIREBASE_MEASUREMENT_ID", "VITE_FB_MEASUREMENT_ID"),
