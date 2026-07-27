@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Download, Edit3, Pause, Play, Plus, Search, Settings2, Upload, X } from "lucide-react";
 import { emptySong, parseArrangement, parseLibrary, type ArrangementToken, type Familiarity, type StrumSong } from "./strum/model";
 import { buildOfflineLibrary, createSong, exportLibrary, getSongs, replaceLibrary, requestPersistentStorage, saveSong, type OfflineLibraryProgress } from "./strum/store";
+import { IMPORTED_PRACTICE_DATA, type StrummingPattern } from "./importedPracticeData";
 import "./songbook.css";
 
 type ReadingSettings = { fontSize: number; lineHeight: number; autoscrollSpeed: number };
@@ -79,6 +80,16 @@ function ChordRack({ text, transpose }: { text: string; transpose: number }) {
   const chords = useMemo(() => chordList(text, transpose), [text, transpose]);
   if (!chords.length) return null;
   return <aside className="strum-chord-rack" aria-label="Chord diagrams"><span className="strum-kicker">Chords</span><div>{chords.map((chord) => <ChordDiagram chord={chord} key={chord} />)}</div></aside>;
+}
+
+function StrummingPatternCard({ pattern }: { pattern: StrummingPattern }) {
+  return <section className="strum-pattern-card"><strong>{pattern.part.trim() || "Pattern"}</strong><small>{pattern.bpm} BPM · {pattern.denominator === 16 ? "16th notes" : "8th notes"}</small><div className="strum-pattern-beats">{pattern.beats.map(([stroke, effect], index) => <span className={effect === "rest" ? "is-rest" : effect === "accent" ? "is-accent" : ""} key={index}>{stroke === "–" || stroke === "—" ? "·" : stroke}</span>)}</div></section>;
+}
+
+function StrumRack({ songId }: { songId: string }) {
+  const savedId = songId.startsWith("saved-") ? songId.slice(6) : "";
+  const patterns = IMPORTED_PRACTICE_DATA[savedId]?.strumming ?? [];
+  return <aside className="strum-pattern-rack" aria-label="Strumming patterns"><span className="strum-kicker">Strum</span>{patterns.length ? patterns.map((pattern, index) => <StrummingPatternCard pattern={pattern} key={`${pattern.part}-${index}`} />) : <p>No saved pattern<br />for this song.</p>}</aside>;
 }
 
 function Rating({ rating, compact = false }: { rating: Familiarity; compact?: boolean }) {
@@ -189,7 +200,7 @@ export function SongbookGame() {
     <section className="strum-control-strip"><button onClick={() => setScrolling((value) => !value)}><small>Autoscroll</small><strong>{scrolling ? <><Pause size={13} /> Pause</> : <><Play size={13} /> Start</>}</strong></button></section>
     <article className="strum-paper"><Arrangement text={selected.arrangement} transpose={0} /></article>
     <nav className="strum-song-actions"><button onClick={() => void updateSelected({ familiarity: selected.familiarity === 5 ? null : ((selected.familiarity ?? 0) + 1) as Familiarity })}><Rating rating={selected.familiarity} compact /></button><button className="strum-primary" onClick={() => setEditor(selected)}><Edit3 size={15} /> Edit song</button><button onClick={() => setSettingsOpen(true)}>Reading settings</button></nav>
-  </div></div></main>{editor && <SongEditor song={editor === "new" ? undefined : editor} save={persist} close={() => setEditor(null)} />}{settingsOpen && <LibrarySettings reading={reading} setReading={(patch) => setReading((current) => ({ ...current, ...patch }))} exportJson={() => void exportJson()} importJson={(file) => void importJson(file)} buildLibrary={() => void buildLibrary()} buildProgress={buildProgress} building={building} close={() => setSettingsOpen(false)} />}</div>;
+  </div><StrumRack songId={selected.id} /></div></main>{editor && <SongEditor song={editor === "new" ? undefined : editor} save={persist} close={() => setEditor(null)} />}{settingsOpen && <LibrarySettings reading={reading} setReading={(patch) => setReading((current) => ({ ...current, ...patch }))} exportJson={() => void exportJson()} importJson={(file) => void importJson(file)} buildLibrary={() => void buildLibrary()} buildProgress={buildProgress} building={building} close={() => setSettingsOpen(false)} />}</div>;
 
   return <div className="strum-app strum-library-view"><header className="strum-topbar"><button className="strum-wordmark" onClick={() => { setQuery(""); setFilter("all"); }}>STRUM</button><span className="strum-status">{navigator.onLine ? "Private library" : "Offline"}</span><button className="strum-icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 size={18} /></button></header><main className="strum-library-page"><section className="strum-library-heading"><div><span className="strum-kicker">{songs.length} songs · local-first</span><h1>What do you want<br />to play?</h1><p>Chord sheets stay on this device and work without a connection.</p></div><button className="strum-primary" onClick={() => setEditor("new")}><Plus size={16} /> Add song</button></section>{notice && <div className="strum-notice">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={14} /></button></div>}<section className="strum-library-tools"><label className="strum-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search songs or artists" /></label><div className="strum-filter-row">{([ ["all", "All"], ["strong", "4–5"], ["three", "3"], ["learning", "1–2"], ["unrated", "Unrated"] ] as const).map(([value, label]) => <button key={value} className={filter === value ? "is-active" : ""} onClick={() => setFilter(value)}>{label}</button>)}</div></section>{loading ? <p className="strum-loading">Opening your private library…</p> : <section className="strum-library-list">{filtered.map((song) => <button className="strum-song-row" key={song.id} onClick={() => selectSong(song.id)}><span className={`strum-cover ${coverClass(song)}`}>{coverLetters(song)}</span><span className="strum-song-copy"><strong>{cleanTitle(song.title)}</strong><small>{song.artist} · {displayCapo(song.capo)}</small>{!song.arrangement.trim() && <em>Needs chord sheet</em>}</span><Rating rating={song.familiarity} /></button>)}{!filtered.length && <div className="strum-empty-state"><strong>No songs match that filter.</strong><span>Add one or try another search.</span></div>}</section>}</main>{editor && <SongEditor song={editor === "new" ? undefined : editor} save={persist} close={() => setEditor(null)} />}{settingsOpen && <LibrarySettings reading={reading} setReading={(patch) => setReading((current) => ({ ...current, ...patch }))} exportJson={() => void exportJson()} importJson={(file) => void importJson(file)} buildLibrary={() => void buildLibrary()} buildProgress={buildProgress} building={building} close={() => setSettingsOpen(false)} />}</div>;
 }
