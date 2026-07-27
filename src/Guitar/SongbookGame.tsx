@@ -83,7 +83,11 @@ function ChordRack({ text, transpose }: { text: string; transpose: number }) {
 }
 
 function StrummingPatternCard({ pattern }: { pattern: StrummingPattern }) {
-  return <section className="strum-pattern-card"><strong>{pattern.part.trim() || "Pattern"}</strong><small>{pattern.bpm} BPM · {pattern.denominator === 16 ? "16th notes" : "8th notes"}</small><div className="strum-pattern-beats">{pattern.beats.map(([stroke, effect], index) => <span className={effect === "rest" ? "is-rest" : effect === "accent" ? "is-accent" : ""} key={index}>{stroke === "–" || stroke === "—" ? "·" : stroke}</span>)}</div></section>;
+  return <section className="strum-pattern-card"><strong>{pattern.part.trim() || "Pattern"}</strong><small>{pattern.bpm} BPM · {pattern.denominator === 16 ? "16th notes" : "8th notes"}</small><div className="strum-pattern-beats">{pattern.beats.map(([stroke, effect], index) => {
+    const rest = effect === "rest" || stroke === "–" || stroke === "—";
+    const symbol = rest ? "—" : stroke === "D" ? "↓" : stroke === "U" ? "↑" : stroke;
+    return <span className={rest ? "is-rest" : effect === "accent" ? "is-accent" : ""} key={index}>{symbol}</span>;
+  })}</div></section>;
 }
 
 function StrumRack({ songId }: { songId: string }) {
