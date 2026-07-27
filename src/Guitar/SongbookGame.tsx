@@ -1,666 +1,143 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, Download, Edit3, ExternalLink, Guitar, Mic, Minus, Pause, Play, Plus, Search, Settings2, Square, Upload } from "lucide-react";
-import { IMPORTED_CHORD_PLACEMENTS, type ChordPlacement } from "./importedChordPlacements";
-import { IMPORTED_CHORDS } from "./importedChords";
-import { IMPORTED_PRACTICE_DATA, type ImportedPracticeData, type StrummingPattern } from "./importedPracticeData";
-import { SAVED_SONGS, type SavedSong } from "./savedSongs";
+import { ArrowLeft, ChevronDown, Download, Edit3, FileUp, Minus, Pause, Play, Plus, Search, Settings2, Upload, X } from "lucide-react";
+import { emptySong, parseArrangement, parseLibrary, type ArrangementToken, type Familiarity, type StrumSong } from "./strum/model";
+import { createSong, exportLibrary, getSongs, removeSong, replaceLibrary, requestPersistentStorage, saveSong } from "./strum/store";
 import "./songbook.css";
 
-const NOTES_KEY = "songbook-practice-notes-v1";
-const SETTINGS_KEY = "songbook-practice-settings-v1";
-const CUSTOM_SONGS_KEY = "songbook-custom-songs-v1";
-const LYRIC_CHOICES_KEY = "songbook-lyric-choices-v1";
-const OFFLINE_LYRICS_KEY = "songbook-offline-lyrics-v1";
-const LRCLIB_URL = "https://lrclib.net";
-const NOTES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+type ReadingSettings = { fontSize: number; lineHeight: number; autoscrollSpeed: number };
+const READING_KEY = "strum-reading-settings-v1";
+const defaults: ReadingSettings = { fontSize: 19, lineHeight: 1.7, autoscrollSpeed: 2 };
 
-type LrcLyrics = {
-  id: number;
-  trackName: string;
-  artistName: string;
-  albumName: string | null;
-  duration: number | null;
-  plainLyrics: string | null;
-  syncedLyrics: string | null;
-};
+function readReadingSettings() {
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem(READING_KEY) ?? "{}") } as ReadingSettings; }
+  catch { return defaults; }
+}
 
-type LyricsState =
-  | { status: "idle" | "loading" }
-  | { status: "ready"; result: LrcLyrics }
-  | { status: "ambiguous"; results: LrcLyrics[]; message: string }
-  | { status: "missing" | "error"; message: string };
+function querySongId() {
+  try { return new URL(window.location.href).searchParams.get("song"); }
+  catch { return null; }
+}
 
-type OfflineProgress = {
-  status: "idle" | "running" | "done" | "error";
-  completed: number;
-  total: number;
-  saved: number;
-  message?: string;
-};
-
-// Curated once from LRCLIB's duplicate/version candidates. User choices made in
-// the app take precedence over these defaults.
-const PREFERRED_LRCLIB_IDS: Record<string, number> = {
-  "2888678": 8302830,  // Truly Madly Deeply — Spotify Singles
-  "2741586": 3158,     // All Your'n — Country Squire
-  "271523": 16883324,  // Mariner's Revenge Song — Picaresque studio
-  "373896": 29814514,  // I'm Yours — standard recording
-  "1017988": 1005035,  // Don't Carry It All — The King Is Dead
-  "2613978": 28268500, // Don't Let Me Down — demo
-  "2325077": 2772439,  // I'm With You — Nation of Two studio
-  "3112253": 5526094,  // Willy's Song — Feathers & Fishhooks
-};
-
-function readJson<T>(key: string, fallback: T): T {
-  try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; }
+function setSongInUrl(id: string | null) {
+  const url = new URL(window.location.href);
+  if (id) url.searchParams.set("song", id); else url.searchParams.delete("song");
+  window.history.pushState({}, "", url);
 }
 
 function cleanTitle(title: string) { return title.replace(/\s*\(ver \d+\)$/i, ""); }
-
-function normalizeSongName(value: string) {
-  return value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function chooseLyricResult(song: SavedSong, results: LrcLyrics[], choices: Record<string, number>) {
-  const savedChoice = choices[song.id];
-  const preferredId = savedChoice === 0 ? undefined : savedChoice ?? PREFERRED_LRCLIB_IDS[song.id];
-  const preferred = results.find((result) => result.id === preferredId);
-  const titleKey = normalizeSongName(cleanTitle(song.title));
-  const artistKey = normalizeSongName(song.artist);
-  const exact = results.filter((result) => normalizeSongName(result.trackName) === titleKey && normalizeSongName(result.artistName) === artistKey);
-  return preferred ?? exact[0] ?? (results.length === 1 ? results[0] : undefined);
-}
-
-function readableSyncedLyrics(value: string) {
-  return value.replace(/^\[\d{2}:\d{2}(?:\.\d{2,3})?\]\s*/gm, "").trim();
-}
-
-function normalizeLyricLine(value: string) {
-  return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0590-\u05ff]+/g, " ").trim();
-}
-
-function textHash(value: string) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index++) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36);
-}
-
-function lyricFingerprint(value: string) {
-  return textHash(normalizeLyricLine(value));
-}
-
-function lyricWordHashes(words: string[]) {
-  return words.map(textHash);
-}
-
-function lyricWords(text: string) {
-  const words: Array<{ value: string; line: number; at: number }> = [];
-  text.replace(/\r/g, "").split("\n").forEach((line, lineIndex) => {
-    const normalized = line.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0590-\u05ff]+/g, " ");
-    for (const match of normalized.matchAll(/[a-z0-9\u0590-\u05ff]+/g)) {
-      words.push({ value: match[0], line: lineIndex, at: match.index ?? 0 });
-    }
-  });
-  return words;
-}
-
-function alignWordHashes(source: string[], target: string[]) {
-  const rows = Array.from({ length: source.length + 1 }, () => new Uint16Array(target.length + 1));
-  for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex++) {
-    for (let targetIndex = 1; targetIndex <= target.length; targetIndex++) {
-      rows[sourceIndex][targetIndex] = source[sourceIndex - 1] === target[targetIndex - 1]
-        ? rows[sourceIndex - 1][targetIndex - 1] + 1
-        : Math.max(rows[sourceIndex - 1][targetIndex], rows[sourceIndex][targetIndex - 1]);
-    }
-  }
-  const matches = new Map<number, number>();
-  let sourceIndex = source.length;
-  let targetIndex = target.length;
-  while (sourceIndex && targetIndex) {
-    if (source[sourceIndex - 1] === target[targetIndex - 1]) {
-      matches.set(sourceIndex - 1, targetIndex - 1);
-      sourceIndex--;
-      targetIndex--;
-    } else if (rows[sourceIndex - 1][targetIndex] >= rows[sourceIndex][targetIndex - 1]) sourceIndex--;
-    else targetIndex--;
-  }
-  return matches;
-}
-
-function formatDuration(duration: number | null) {
-  if (!duration) return "";
-  const seconds = Math.round(duration);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
+function displayCapo(capo: number | null) { return capo ? `Capo ${capo}` : "No capo"; }
+function coverLetters(song: StrumSong) { return `${song.title[0] ?? "S"}${song.artist[0] ?? "T"}`.toUpperCase(); }
+function coverClass(song: StrumSong) { return `cover-${song.id.split("").reduce((total, value) => total + value.charCodeAt(0), 0) % 5}`; }
 
 function transposeChord(chord: string, amount: number) {
-  if (!amount) return chord;
+  const notes = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
   return chord.replace(/(^|\/)([A-G](?:#|b)?)/g, (match, prefix: string, root: string) => {
-    const index = NOTES.indexOf(root);
-    return index < 0 ? match : `${prefix}${NOTES[(index + amount + 12) % 12]}`;
+    const index = notes.indexOf(root);
+    return index < 0 || !amount ? match : `${prefix}${notes[(index + amount + 12) % 12]}`;
   });
 }
 
-function looksLikeChordLine(line: string) {
-  const tokens = line.trim().split(/\s+/).filter(Boolean);
-  if (!tokens.length) return false;
-  return tokens.filter((token) => /^(?:[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?)?|N\.C\.|[-|x])+[,.]?$/.test(token)).length / tokens.length >= .7;
+function Rating({ rating, compact = false }: { rating: Familiarity; compact?: boolean }) {
+  return <span className={`strum-rating ${compact ? "is-compact" : ""}`}>{rating ?? "–"}<small>{compact ? "/5" : "familiarity"}</small></span>;
+}
+
+function ArrangementLine({ token, transpose }: { token: ArrangementToken; transpose: number }) {
+  if (token.type === "section") return <h3 className="strum-section-label">{token.label}</h3>;
+  if (token.type === "blank") return <div className="strum-arrangement-space" />;
+  return <p className="strum-lyric-line">{token.runs.map((run, index) => {
+    const fragments = run.text.split(/(\s+)/).filter(Boolean);
+    let chordPlaced = false;
+    return fragments.map((fragment, fragmentIndex) => {
+      if (/^\s+$/.test(fragment)) return <React.Fragment key={`${index}-${fragmentIndex}`}>{fragment}</React.Fragment>;
+      const chord = !chordPlaced ? run.chord : undefined;
+      chordPlaced ||= Boolean(chord);
+      return chord
+        ? <span className="strum-chord-word" key={`${index}-${fragmentIndex}`}><b>{transposeChord(chord, transpose)}</b><span>{fragment}</span></span>
+        : <span className="strum-word" key={`${index}-${fragmentIndex}`}>{fragment}</span>;
+    });
+  })}</p>;
 }
 
 function Arrangement({ text, transpose }: { text: string; transpose: number }) {
-  const lines = text.replace(/\r/g, "").split("\n");
-  return <div className="formatted-arrangement">{lines.map((line, index) => {
-    if (/^\s*\[[^\]]+\]\s*$/.test(line)) return <h3 key={index}>{line.trim().slice(1, -1)}</h3>;
-    if (/\[[A-G](?:#|b)?[^\]]*\]/.test(line)) {
-      const chunks = line.split(/(\[[^\]]+\])/).filter(Boolean);
-      const parts: Array<{ chord: string; lyric: string }> = [];
-      for (const chunk of chunks) {
-        if (/^\[[^\]]+\]$/.test(chunk)) parts.push({ chord: transposeChord(chunk.slice(1, -1), transpose), lyric: "" });
-        else if (parts.length) parts[parts.length - 1].lyric += chunk;
-        else parts.push({ chord: "", lyric: chunk });
-      }
-      return <div className="inline-chord-line" key={index}>{parts.map((part, partIndex) => <span key={partIndex}><b>{part.chord}</b><span>{part.lyric || "\u00a0"}</span></span>)}</div>;
-    }
-    if (looksLikeChordLine(line)) return <div className="chords-over-lyrics" key={index}><b>{line.split(/(\s+)/).map((token) => /\s+/.test(token) ? token : transposeChord(token, transpose))}</b>{lines[index + 1] && !looksLikeChordLine(lines[index + 1]) ? null : <span>&nbsp;</span>}</div>;
-    return <div className={line.trim() ? "lyric-line" : "song-space"} key={index}>{line || "\u00a0"}</div>;
-  })}</div>;
+  const tokens = useMemo(() => parseArrangement(text), [text]);
+  if (!text.trim()) return <div className="strum-empty-arrangement"><strong>No chord sheet on this device yet.</strong><span>Use Edit to paste your own text such as <code>[G]word [C]next</code>.</span></div>;
+  return <div className="strum-arrangement">{tokens.map((token, index) => <ArrangementLine token={token} transpose={transpose} key={index} />)}</div>;
 }
 
-function ChordedLyrics({ text, placements, practice, transpose }: { text: string; placements: ChordPlacement[]; practice?: ImportedPracticeData; transpose: number }) {
-  const prepared = useMemo(() => {
-    const rawLines = text.replace(/\r/g, "").split("\n");
-    if (practice?.wordHashes.length && practice.chordAnchors.length) {
-      const words = lyricWords(text);
-      const matches = alignWordHashes(practice.wordHashes, lyricWordHashes(words.map((word) => word.value)));
-      const chordLines = new Map<number, Array<[number, string]>>();
-      const sectionLines = new Map<number, string[]>();
-      const nearestTarget = (sourceWord: number) => {
-        if (matches.has(sourceWord)) return matches.get(sourceWord);
-        for (let distance = 1; distance <= 4; distance++) {
-          if (matches.has(sourceWord - distance)) return matches.get(sourceWord - distance);
-          if (matches.has(sourceWord + distance)) return matches.get(sourceWord + distance);
-        }
-        return undefined;
-      };
-      for (const [sourceWord, chord] of practice.chordAnchors) {
-        const targetWord = nearestTarget(sourceWord);
-        if (targetWord === undefined) continue;
-        const word = words[targetWord];
-        const lineChords = chordLines.get(word.line) ?? [];
-        lineChords.push([word.at, chord]);
-        chordLines.set(word.line, lineChords);
-      }
-      for (const [sourceWord, section] of practice.sections) {
-        const targetWord = nearestTarget(sourceWord);
-        if (targetWord === undefined) continue;
-        const line = words[targetWord].line;
-        const headings = sectionLines.get(line) ?? [];
-        if (!headings.includes(section)) headings.push(section);
-        sectionLines.set(line, headings);
-      }
-      const lines = rawLines.map((line, index) => ({
-        line,
-        chords: (chordLines.get(index) ?? []).sort((left, right) => left[0] - right[0]),
-        sections: sectionLines.get(index) ?? [],
-      }));
-      const repeatedLineChords = new Map<string, Array<{ index: number; chords: Array<[number, string]> }>>();
-      lines.forEach((line, index) => {
-        if (!line.chords.length || !line.line.trim()) return;
-        const fingerprint = lyricFingerprint(line.line);
-        const templates = repeatedLineChords.get(fingerprint) ?? [];
-        templates.push({ index, chords: line.chords });
-        repeatedLineChords.set(fingerprint, templates);
-      });
-      lines.forEach((line, index) => {
-        if (line.chords.length || !line.line.trim()) return;
-        const templates = repeatedLineChords.get(lyricFingerprint(line.line));
-        if (!templates?.length) return;
-        const nearest = templates.reduce((best, candidate) =>
-          Math.abs(candidate.index - index) < Math.abs(best.index - index) ? candidate : best
-        );
-        line.chords = nearest.chords.map(([at, chord]) => [at, chord]);
-      });
-      return { lines, matched: lines.filter((line) => line.chords.length).length };
-    }
-
-    const available = new Map<string, ChordPlacement[]>();
-    for (const placement of placements) {
-      const queue = available.get(placement[0]) ?? [];
-      queue.push(placement);
-      available.set(placement[0], queue);
-    }
-    let matched = 0;
-    const lines: Array<{ line: string; chords: Array<[number, string]>; sections: string[] }> = [];
-    for (let index = 0; index < rawLines.length;) {
-      const line = rawLines[index];
-      const fingerprint = line.trim() ? lyricFingerprint(line) : "";
-      const queue = fingerprint ? available.get(fingerprint) : undefined;
-      const placement = queue?.shift();
-      if (placement) {
-        matched++;
-        lines.push({ line, chords: placement[1], sections: [] });
-        index++;
-        continue;
-      }
-
-      let grouped: { count: number; placement: ChordPlacement } | undefined;
-      if (line.trim()) {
-        for (let count = 2; count <= 4 && index + count <= rawLines.length; count++) {
-          const group = rawLines.slice(index, index + count);
-          if (group.some((candidate) => !candidate.trim())) break;
-          const groupQueue = available.get(lyricFingerprint(group.join(" ")));
-          if (groupQueue?.length) {
-            grouped = { count, placement: groupQueue.shift()! };
-            break;
-          }
-        }
-      }
-      if (!grouped) {
-        lines.push({ line, chords: [], sections: [] });
-        index++;
-        continue;
-      }
-
-      const groupLines = rawLines.slice(index, index + grouped.count);
-      const starts: number[] = [];
-      groupLines.reduce((offset, candidate) => {
-        starts.push(offset);
-        return offset + candidate.length + 1;
-      }, 0);
-      groupLines.forEach((candidate, groupIndex) => {
-        const nextStart = starts[groupIndex + 1] ?? Number.POSITIVE_INFINITY;
-        const chords = grouped!.placement[1]
-          .filter(([at]) => at >= starts[groupIndex] && at < nextStart)
-          .map(([at, name]) => [Math.max(0, at - starts[groupIndex]), name] as [number, string]);
-        lines.push({ line: candidate, chords, sections: [] });
-      });
-      matched += grouped.count;
-      index += grouped.count;
-    }
-    return { lines, matched };
-  }, [text, placements, practice]);
-
-  return <div className="fetched-lyrics chorded-lyrics">
-    {prepared.matched > 0 && <div className="alignment-summary">{prepared.matched} lyric lines aligned with your saved tab</div>}
-    {prepared.lines.map(({ line, chords, sections }, index) => {
-      if (!line.trim()) return <div className="chorded-song-space" key={index}>&nbsp;</div>;
-      const width = Math.max(line.length, ...chords.map(([at, name]) => at + name.length), 1);
-      return <React.Fragment key={index}>
-        {sections.map((section) => <h3 className="chorded-section-heading" key={section}>{section}</h3>)}
-        <div className="chorded-line-scroll"><div className="chorded-lyric-line" style={{ minWidth: `${width}ch` }}>
-        {chords.length > 0 && <div className="chord-position-row">{chords.map(([at, name], chordIndex) =>
-          <b key={`${at}-${name}-${chordIndex}`} style={{ left: `${at}ch` }}>{transposeChord(name, transpose)}</b>
-        )}</div>}
-        <div className="chorded-lyric-text">{line}</div>
-        </div></div>
-      </React.Fragment>;
-    })}
-    {placements.length > 0 && prepared.matched === 0 && <div className="alignment-missing">This lyric version does not match the saved tab closely enough to place chords safely. Try “Find a different recording” below.</div>}
+function Sheet({ title, children, close }: { title: string; children: React.ReactNode; close: () => void }) {
+  return <div className="strum-sheet-backdrop" role="presentation" onMouseDown={close}>
+    <section className="strum-sheet" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+      <header><h2>{title}</h2><button onClick={close} aria-label="Close"><X size={18} /></button></header>{children}
+    </section>
   </div>;
 }
 
-function beatLabel(index: number, pattern: StrummingPattern) {
-  const subdivision = pattern.triplet ? ["1", "&", "a"] : pattern.denominator >= 16 ? ["1", "e", "&", "a"] : ["1", "&"];
-  const beat = Math.floor(index / subdivision.length) + 1;
-  return subdivision[index % subdivision.length] === "1" ? String(beat) : subdivision[index % subdivision.length];
+function SongEditor({ song, save, close }: { song?: StrumSong; save: (song: StrumSong) => Promise<void>; close: () => void }) {
+  const [draft, setDraft] = useState(() => song ?? emptySong({ title: "", artist: "" }));
+  const valid = draft.title.trim() && draft.artist.trim();
+  return <Sheet title={song ? "Edit song" : "Add song"} close={close}>
+    <form className="strum-form" onSubmit={(event) => { event.preventDefault(); if (valid) void save({ ...draft, title: draft.title.trim(), artist: draft.artist.trim() }); }}>
+      <label>Title<input autoFocus value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} required /></label>
+      <label>Artist<input value={draft.artist} onChange={(event) => setDraft({ ...draft, artist: event.target.value })} required /></label>
+      <div className="strum-form-grid"><label>Capo<input type="number" min="0" max="12" value={draft.capo ?? ""} onChange={(event) => setDraft({ ...draft, capo: event.target.value ? Number(event.target.value) : null })} /></label><label>Familiarity<select value={draft.familiarity ?? ""} onChange={(event) => setDraft({ ...draft, familiarity: event.target.value ? Number(event.target.value) as Familiarity : null })}><option value="">Unrated</option>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value} / 5</option>)}</select></label></div>
+      <label>Original source <small>optional</small><input type="url" value={draft.sourceUrl ?? ""} onChange={(event) => setDraft({ ...draft, sourceUrl: event.target.value })} placeholder="https://…" /></label>
+      <label>Chord sheet<textarea value={draft.arrangement} onChange={(event) => setDraft({ ...draft, arrangement: event.target.value })} placeholder={'[Verse 1]\n[G]Put the chord directly before the word\n[Chorus]\n[C]Switch right where it happens'} /></label>
+      <p className="strum-form-help">`[G]word` means change to G on “word.” Section labels such as `[Chorus]` stay headings.</p>
+      <button className="strum-primary" disabled={!valid} type="submit">{song ? "Save changes" : "Add to library"}</button>
+    </form>
+  </Sheet>;
 }
 
-function StrummingGuide({ patterns }: { patterns: StrummingPattern[] }) {
-  if (!patterns.length) return null;
-  return <section className="strumming-guide">
-    <div className="strumming-heading"><div><strong>Strumming</strong><span>Static play-along pattern · every section supplied by the tab</span></div></div>
-    <div className="strumming-patterns">{patterns.map((pattern, patternIndex) =>
-      <div className="strumming-pattern" key={`${pattern.part}-${patternIndex}`}>
-        <div className="strumming-part"><b>{pattern.part || "All"}</b>{pattern.bpm > 0 && <span>{pattern.bpm} bpm</span>}</div>
-        <div className="strumming-scroll"><div className="strumming-beats">
-          {pattern.beats.map(([stroke, effect], beatIndex) =>
-            <div className={`strum-beat ${effect || "plain"}`} key={beatIndex} aria-label={`${beatLabel(beatIndex, pattern)} ${stroke} ${effect}`.trim()}>
-              <span className="strum-mark">{effect === "accent" && <i>›</i>}{stroke === "D" ? "↓" : stroke === "U" ? "↑" : stroke}</span>
-              <small>{effect === "mute" ? "×" : "\u00a0"}</small>
-              <b>{beatLabel(beatIndex, pattern)}</b>
-            </div>
-          )}
-        </div></div>
-      </div>
-    )}</div>
-    <p>↓ down · ↑ up · × muted · › accented · PM palm mute · — rest</p>
-  </section>;
-}
-
-function makeWavBlob(chunks: Float32Array[], sampleRate: number) {
-  const length = chunks.reduce((total, chunk) => total + chunk.length, 0);
-  const buffer = new ArrayBuffer(44 + length * 2);
-  const view = new DataView(buffer);
-  const writeText = (offset: number, value: string) => {
-    for (let index = 0; index < value.length; index++) view.setUint8(offset + index, value.charCodeAt(index));
-  };
-  writeText(0, "RIFF"); view.setUint32(4, 36 + length * 2, true); writeText(8, "WAVE"); writeText(12, "fmt ");
-  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-  writeText(36, "data"); view.setUint32(40, length * 2, true);
-  let offset = 44;
-  for (const chunk of chunks) for (const value of chunk) {
-    const clipped = Math.max(-1, Math.min(1, value));
-    view.setInt16(offset, clipped < 0 ? clipped * 0x8000 : clipped * 0x7fff, true);
-    offset += 2;
-  }
-  return new Blob([view], { type: "audio/wav" });
-}
-
-function RecordingLab({ song }: { song: SavedSong }) {
-  const [audio, setAudio] = useState<{ url: string; name: string } | null>(null);
-  const [speed, setSpeed] = useState(1);
-  const [recording, setRecording] = useState(false);
-  const [recordingError, setRecordingError] = useState("");
-  const playerRef = useRef<HTMLAudioElement>(null);
-  const recordingRef = useRef<{ context: AudioContext; source: MediaStreamAudioSourceNode; processor: ScriptProcessorNode; stream: MediaStream; chunks: Float32Array[] } | null>(null);
-
-  function loadAudio(blob: Blob, name: string) {
-    setAudio((current) => {
-      if (current) URL.revokeObjectURL(current.url);
-      return { url: URL.createObjectURL(blob), name };
-    });
-  }
-
-  useEffect(() => () => { if (audio) URL.revokeObjectURL(audio.url); }, [audio]);
-  useEffect(() => () => {
-    const session = recordingRef.current;
-    if (!session) return;
-    session.processor.disconnect(); session.source.disconnect();
-    session.stream.getTracks().forEach((track) => track.stop());
-    void session.context.close();
-  }, []);
-  useEffect(() => { if (playerRef.current) playerRef.current.playbackRate = speed; }, [speed, audio]);
-
-  async function startRecording() {
-    setRecordingError("");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const context = new AudioContext();
-      const source = context.createMediaStreamSource(stream);
-      const processor = context.createScriptProcessor(4096, 1, 1);
-      const chunks: Float32Array[] = [];
-      processor.onaudioprocess = (event) => chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
-      source.connect(processor); processor.connect(context.destination);
-      recordingRef.current = { context, source, processor, stream, chunks };
-      setRecording(true);
-    } catch (error) {
-      setRecordingError(error instanceof Error ? error.message : "Microphone access was not available.");
-    }
-  }
-
-  async function stopRecording() {
-    const session = recordingRef.current;
-    if (!session) return;
-    session.processor.disconnect(); session.source.disconnect();
-    session.stream.getTracks().forEach((track) => track.stop());
-    const blob = makeWavBlob(session.chunks, session.context.sampleRate);
-    await session.context.close();
-    recordingRef.current = null; setRecording(false);
-    loadAudio(blob, `${cleanTitle(song.title)} - captured recording.wav`);
-  }
-
-  return <section className="recording-lab">
-    <div className="recording-heading"><div><strong>Practice recording</strong><span>Stays in this tab · free</span></div><a href="https://livechord.org/" target="_blank" rel="noreferrer">Analyze with LiveChord <ExternalLink size={13} /></a></div>
-    {!audio ? <div className="recording-dropzone">
-      <Upload size={22} /><div><b>Give STRUM a recording</b><span>Pick MP3, WAV, FLAC or OGG—or capture audio through your microphone.</span></div>
-      <label className="recording-action"><input type="file" accept="audio/mpeg,audio/wav,audio/flac,audio/ogg,.mp3,.wav,.flac,.ogg" onChange={(event) => { const file = event.target.files?.[0]; if (file) loadAudio(file, file.name); }} />Choose audio</label>
-      <button className={recording ? "recording-action is-recording" : "recording-action"} onClick={recording ? stopRecording : startRecording}>{recording ? <><Square size={13} fill="currentColor" /> Stop & use recording</> : <><Mic size={14} /> Record from microphone</>}</button>
-    </div> : <div className="recording-player">
-      <div className="recording-file"><b>{audio.name}</b><button onClick={() => setAudio(null)}>Choose another</button></div>
-      <audio ref={playerRef} src={audio.url} controls />
-      <div className="speed-row"><span>Practice speed</span>{[0.5, 0.75, 1].map((value) => <button className={speed === value ? "active" : ""} key={value} onClick={() => setSpeed(value)}>{value}×</button>)}</div>
-      <div className="recording-next"><a href={audio.url} download={audio.name}><Download size={14} /> Save recording</a><a className="livechord-button" href="https://livechord.org/" target="_blank" rel="noreferrer">Open free chord detection <ExternalLink size={13} /></a></div>
-      <p>LiveChord opens separately; choose this same file there. Browsers do not let one website silently send your local recording to another.</p>
-    </div>}
-    {recordingError && <div className="recording-error">Couldn’t start the microphone: {recordingError}</div>}
-    <footer>Chord analysis by <a href="https://livechord.org/" target="_blank" rel="noreferrer">LiveChord</a>, an open-source AGPL-3.0 project. Only use audio you have permission to analyze.</footer>
-  </section>;
+function LibrarySettings({ reading, setReading, exportJson, importJson, close }: { reading: ReadingSettings; setReading: (patch: Partial<ReadingSettings>) => void; exportJson: () => void; importJson: (file: File) => void; close: () => void }) {
+  const importRef = useRef<HTMLInputElement>(null);
+  return <Sheet title="Settings" close={close}>
+    <div className="strum-settings">
+      <section><h3>Reading</h3><label>Text size <b>{reading.fontSize}px</b><input type="range" min="15" max="28" value={reading.fontSize} onChange={(event) => setReading({ fontSize: Number(event.target.value) })} /></label><label>Line spacing <b>{reading.lineHeight.toFixed(1)}</b><input type="range" min="1.3" max="2.2" step="0.1" value={reading.lineHeight} onChange={(event) => setReading({ lineHeight: Number(event.target.value) })} /></label><label>Default autoscroll <b>{reading.autoscrollSpeed}</b><input type="range" min="1" max="5" value={reading.autoscrollSpeed} onChange={(event) => setReading({ autoscrollSpeed: Number(event.target.value) })} /></label></section>
+      <section><h3>Private library</h3><p>This device keeps your complete chord sheets in private browser storage. Cloud sync is intentionally inactive until its authenticated Firebase setup is connected.</p><button onClick={exportJson}><Download size={15} /> Export private JSON</button><input ref={importRef} type="file" accept="application/json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) importJson(file); event.currentTarget.value = ""; }} /><button onClick={() => importRef.current?.click()}><Upload size={15} /> Replace from JSON</button></section>
+    </div>
+  </Sheet>;
 }
 
 export function SongbookGame() {
+  const [songs, setSongs] = useState<StrumSong[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState(querySongId());
   const [query, setQuery] = useState("");
-  const [artist, setArtist] = useState("All artists");
-  const [selected, setSelected] = useState<SavedSong | null>(null);
-  const [customSongs, setCustomSongs] = useState<SavedSong[]>(() => readJson(CUSTOM_SONGS_KEY, []));
-  const [lyricChoices, setLyricChoices] = useState<Record<string, number>>(() => readJson(LYRIC_CHOICES_KEY, {}));
-  const [offlineLyrics, setOfflineLyrics] = useState<Record<string, LrcLyrics>>(() => readJson(OFFLINE_LYRICS_KEY, {}));
-  const [offlineProgress, setOfflineProgress] = useState<OfflineProgress>({ status: "idle", completed: 0, total: 0, saved: 0 });
-  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
-  const [addingSong, setAddingSong] = useState(false);
-  const [newSong, setNewSong] = useState({ title: "", artist: "", sourceUrl: "", kind: "Chords" as "Chords" | "Tab" });
-  const [notes, setNotes] = useState<Record<string, string>>(() => readJson(NOTES_KEY, {}));
-  const [settings, setSettings] = useState<Record<string, { capo: number; transpose: number; fontSize: number }>>(() => readJson(SETTINGS_KEY, {}));
+  const [filter, setFilter] = useState<"all" | "strong" | "three" | "learning" | "unrated">("all");
+  const [editor, setEditor] = useState<StrumSong | "new" | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reading, setReading] = useState(readReadingSettings);
+  const [transpose, setTranspose] = useState(0);
   const [scrolling, setScrolling] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState(2);
-  const [editing, setEditing] = useState(false);
-  const [lyrics, setLyrics] = useState<LyricsState>({ status: "idle" });
-  const practiceRef = useRef<HTMLDivElement>(null);
-  const offlineLyricsRef = useRef(offlineLyrics);
+  const [notice, setNotice] = useState("");
+  const songPageRef = useRef<HTMLElement>(null);
 
-  useEffect(() => { localStorage.setItem(CUSTOM_SONGS_KEY, JSON.stringify(customSongs)); }, [customSongs]);
-  useEffect(() => { localStorage.setItem(LYRIC_CHOICES_KEY, JSON.stringify(lyricChoices)); }, [lyricChoices]);
-  useEffect(() => {
-    offlineLyricsRef.current = offlineLyrics;
-    try { localStorage.setItem(OFFLINE_LYRICS_KEY, JSON.stringify(offlineLyrics)); }
-    catch { setOfflineProgress((progress) => ({ ...progress, status: "error", message: "This browser could not reserve enough offline storage." })); }
-  }, [offlineLyrics]);
-  useEffect(() => { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); }, [notes]);
-  useEffect(() => { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }, [settings]);
-  useEffect(() => {
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener("online", updateOnlineStatus);
-    window.addEventListener("offline", updateOnlineStatus);
-    return () => { window.removeEventListener("online", updateOnlineStatus); window.removeEventListener("offline", updateOnlineStatus); };
-  }, []);
-  useEffect(() => {
-    if (!scrolling) return;
-    const timer = window.setInterval(() => practiceRef.current?.scrollBy({ top: 1, behavior: "auto" }), Math.max(18, 70 - scrollSpeed * 10));
-    return () => window.clearInterval(timer);
-  }, [scrolling, scrollSpeed]);
-  useEffect(() => {
-    if (!selected) { setLyrics({ status: "idle" }); return; }
-    const controller = new AbortController();
-    const title = cleanTitle(selected.title);
-    const cached = offlineLyricsRef.current[selected.id];
-    if (cached) setLyrics({ status: "ready", result: cached });
-    else setLyrics({ status: "loading" });
-    if (!navigator.onLine) {
-      if (!cached) setLyrics({ status: "missing", message: "This song was not downloaded before going offline." });
-      return;
-    }
-    const params = new URLSearchParams({ track_name: title, artist_name: selected.artist });
-    fetch(`${LRCLIB_URL}/api/search?${params}`, {
-      signal: controller.signal,
-      headers: { "Lrclib-Client": "STRUM/1.0 (personal use; elanroth.github.io)" },
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`LRCLIB returned ${response.status}`);
-        return response.json() as Promise<LrcLyrics[]>;
-      })
-      .then((results) => {
-        const result = chooseLyricResult(selected, results, lyricChoices);
-        if (!result && results.length) setLyrics({ status: "ambiguous", results, message: "Choose the recording that matches the version you play." });
-        else if (!result) setLyrics({ status: "missing", message: "No lyrics were found on LRCLIB." });
-        else if (!result.plainLyrics && !result.syncedLyrics) setLyrics({ status: "missing", message: "LRCLIB found the track, but it has no lyric text." });
-        else {
-          setLyrics({ status: "ready", result });
-          setOfflineLyrics((current) => current[selected.id]?.id === result.id ? current : { ...current, [selected.id]: result });
-        }
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (!cached) setLyrics({ status: "error", message: error instanceof Error ? error.message : "LRCLIB could not be reached." });
-      });
-    return () => controller.abort();
-  }, [selected, lyricChoices]);
+  const reload = async () => { setLoading(true); try { setSongs(await getSongs()); } catch { setNotice("STRUM could not open private browser storage."); } finally { setLoading(false); } };
+  useEffect(() => { void reload(); void requestPersistentStorage(); }, []);
+  useEffect(() => { localStorage.setItem(READING_KEY, JSON.stringify(reading)); }, [reading]);
+  useEffect(() => { const pop = () => setSelectedId(querySongId()); window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, []);
+  useEffect(() => { if (!scrolling) return; const timer = window.setInterval(() => songPageRef.current?.scrollBy({ top: 1 }), Math.max(20, 80 - reading.autoscrollSpeed * 12)); return () => window.clearInterval(timer); }, [scrolling, reading.autoscrollSpeed]);
 
-  const allSongs = useMemo(() => [...SAVED_SONGS, ...customSongs], [customSongs]);
-  const artists = useMemo(() => ["All artists", ...Array.from(new Set(allSongs.map((song) => song.artist))).sort()], [allSongs]);
-  const filtered = useMemo(() => allSongs.filter((song) => {
-    const text = `${song.title} ${song.artist}`.toLowerCase();
-    return text.includes(query.toLowerCase()) && (artist === "All artists" || song.artist === artist);
-  }), [allSongs, query, artist]);
-  const offlineCount = useMemo(() => allSongs.filter((song) => offlineLyrics[song.id]).length, [allSongs, offlineLyrics]);
+  const selected = songs.find((song) => song.id === selectedId) ?? null;
+  const filtered = useMemo(() => songs.filter((song) => {
+    const matchText = `${song.title} ${song.artist}`.toLocaleLowerCase().includes(query.toLocaleLowerCase());
+    const matchRating = filter === "all" || (filter === "strong" && (song.familiarity ?? 0) >= 4) || (filter === "three" && song.familiarity === 3) || (filter === "learning" && !!song.familiarity && song.familiarity <= 2) || (filter === "unrated" && song.familiarity === null);
+    return matchText && matchRating;
+  }), [songs, query, filter]);
 
-  async function saveLibraryOffline() {
-    if (!navigator.onLine || offlineProgress.status === "running") return;
-    setOfflineProgress({ status: "running", completed: 0, total: allSongs.length, saved: offlineCount });
-    const next = { ...offlineLyricsRef.current };
-    let completed = 0;
-    try {
-      for (let index = 0; index < allSongs.length; index += 4) {
-        const batch = allSongs.slice(index, index + 4);
-        const results = await Promise.all(batch.map(async (song) => {
-          const params = new URLSearchParams({ track_name: cleanTitle(song.title), artist_name: song.artist });
-          const response = await fetch(`${LRCLIB_URL}/api/search?${params}`, { headers: { "Lrclib-Client": "STRUM/1.0 (personal offline library; elanroth.github.io)" } });
-          if (!response.ok) return undefined;
-          const candidates = await response.json() as LrcLyrics[];
-          const result = chooseLyricResult(song, candidates, lyricChoices);
-          return result && (result.plainLyrics || result.syncedLyrics) ? { song, result } : undefined;
-        }));
-        for (const match of results) if (match) next[match.song.id] = match.result;
-        completed += batch.length;
-        offlineLyricsRef.current = next;
-        setOfflineLyrics({ ...next });
-        setOfflineProgress({ status: "running", completed, total: allSongs.length, saved: allSongs.filter((song) => next[song.id]).length });
-      }
-      if (navigator.storage?.persist) await navigator.storage.persist();
-      const saved = allSongs.filter((song) => next[song.id]).length;
-      setOfflineProgress({ status: "done", completed: allSongs.length, total: allSongs.length, saved, message: `${saved} songs are ready without Wi-Fi. ${allSongs.length - saved} still need lyrics or a version choice.` });
-    } catch (error) {
-      setOfflineProgress({ status: "error", completed, total: allSongs.length, saved: allSongs.filter((song) => next[song.id]).length, message: error instanceof Error ? error.message : "The offline download stopped early." });
-    }
-  }
+  function selectSong(id: string) { setSongInUrl(id); setSelectedId(id); setTranspose(0); }
+  function backToLibrary() { setSongInUrl(null); setSelectedId(null); setScrolling(false); }
+  async function persist(song: StrumSong) { if (songs.some((item) => item.id === song.id)) await saveSong(song); else await createSong(song); setEditor(null); await reload(); setNotice("Saved privately on this device."); }
+  async function updateSelected(patch: Partial<StrumSong>) { if (!selected) return; const next = await saveSong({ ...selected, ...patch }); setSongs((current) => current.map((song) => song.id === next.id ? next : song)); }
+  async function exportJson() { const library = await exportLibrary(); const blob = new Blob([JSON.stringify(library, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `strum-private-library-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); URL.revokeObjectURL(url); setNotice("Private library exported."); }
+  async function importJson(file: File) { try { const library = parseLibrary(JSON.parse(await file.text())); if (!window.confirm(`Replace this device's ${songs.length} songs with ${library.songs.length} imported songs?`)) return; await replaceLibrary(library); await reload(); setNotice("Private library replaced from JSON."); } catch (error) { setNotice(error instanceof Error ? error.message : "Could not read that JSON file."); } }
 
-  function addSong(event: React.FormEvent) {
-    event.preventDefault();
-    const title = newSong.title.trim();
-    const songArtist = newSong.artist.trim();
-    if (!title || !songArtist) return;
-    const song: SavedSong = {
-      id: `custom-${crypto.randomUUID()}`,
-      title,
-      artist: songArtist,
-      sourceUrl: newSong.sourceUrl.trim(),
-      kind: newSong.kind,
-      custom: true,
-    };
-    setCustomSongs((songs) => [...songs, song]);
-    setNewSong({ title: "", artist: "", sourceUrl: "", kind: "Chords" });
-    setAddingSong(false);
-    setSelected(song);
-  }
+  if (selected) return <div className="strum-app strum-song-view"><header className="strum-topbar"><button className="strum-back" onClick={backToLibrary}><ArrowLeft size={16} /> Library</button><span className="strum-status">{navigator.onLine ? "Saved locally" : "Offline"}</span><button className="strum-icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 size={18} /></button></header><main className="strum-song-page" ref={songPageRef} style={{ "--reading-size": `${reading.fontSize}px`, "--reading-leading": reading.lineHeight } as React.CSSProperties}>
+    <section className="strum-song-header"><div className={`strum-cover strum-cover-large ${coverClass(selected)}`}>{coverLetters(selected)}</div><div><div className="strum-kicker"><Rating rating={selected.familiarity} /> · {displayCapo(selected.capo)}</div><h1>{cleanTitle(selected.title)}</h1><p>{selected.artist}</p></div></section>
+    <section className="strum-control-strip"><button onClick={() => void updateSelected({ capo: Math.max(0, (selected.capo ?? 0) - 1) })}><small>Capo</small><strong><Minus size={13} /> {selected.capo ?? 0}</strong></button><button onClick={() => void updateSelected({ capo: Math.min(12, (selected.capo ?? 0) + 1) })}><small>Capo</small><strong><Plus size={13} /> {selected.capo ?? 0}</strong></button><button onClick={() => setTranspose((value) => Math.max(-6, value - 1))}><small>Transpose</small><strong>−</strong></button><button onClick={() => setTranspose((value) => Math.min(6, value + 1))}><small>Transpose</small><strong>{transpose > 0 ? `+${transpose}` : transpose}</strong></button><button onClick={() => setScrolling((value) => !value)}><small>Autoscroll</small><strong>{scrolling ? <><Pause size={13} /> Pause</> : <><Play size={13} /> Start</>}</strong></button></section>
+    <article className="strum-paper"><Arrangement text={selected.arrangement} transpose={transpose} /></article>
+    <nav className="strum-song-actions"><button onClick={() => void updateSelected({ familiarity: selected.familiarity === 5 ? null : ((selected.familiarity ?? 0) + 1) as Familiarity })}><Rating rating={selected.familiarity} compact /></button><button className="strum-primary" onClick={() => setEditor(selected)}><Edit3 size={15} /> Edit song</button><button onClick={() => setSettingsOpen(true)}>Reading settings</button></nav>
+  </main>{editor && <SongEditor song={editor === "new" ? undefined : editor} save={persist} close={() => setEditor(null)} />}{settingsOpen && <LibrarySettings reading={reading} setReading={(patch) => setReading((current) => ({ ...current, ...patch }))} exportJson={() => void exportJson()} importJson={(file) => void importJson(file)} close={() => setSettingsOpen(false)} />}</div>;
 
-  const songSettings = selected ? (settings[selected.id] ?? { capo: 0, transpose: 0, fontSize: 17 }) : { capo: 0, transpose: 0, fontSize: 17 };
-  function updateSettings(patch: Partial<typeof songSettings>) {
-    if (!selected) return;
-    setSettings((old) => ({ ...old, [selected.id]: { ...songSettings, ...patch } }));
-  }
-  const importedChordData = selected ? IMPORTED_CHORDS[selected.id] : undefined;
-  const importedPracticeData = selected ? IMPORTED_PRACTICE_DATA[selected.id] : undefined;
-  const transposedChords = importedChordData?.chords.map((chord) => transposeChord(chord, songSettings.transpose)) ?? [];
-
-  if (selected) return (
-    <div className="practice-shell">
-      <header className="practice-bar">
-        <button className="back-library" onClick={() => { setSelected(null); setScrolling(false); }}><ArrowLeft size={17} /> Library</button>
-        <div className="practice-title"><strong>{cleanTitle(selected.title)}</strong><span>{selected.artist}</span></div>
-        {selected.sourceUrl ? <a className="source-link" href={selected.sourceUrl} target="_blank" rel="noreferrer">Ultimate Guitar <ExternalLink size={14} /></a> : <span className="source-link personal-source">Personal song</span>}
-      </header>
-      <div className="practice-layout">
-        <aside className="practice-controls">
-          <div className="control-label"><Settings2 size={14} /> Player controls</div>
-          <label>Capo <span>{songSettings.capo || "None"}</span></label>
-          <div className="stepper"><button onClick={() => updateSettings({ capo: Math.max(0, songSettings.capo - 1) })}><Minus /></button><b>{songSettings.capo}</b><button onClick={() => updateSettings({ capo: Math.min(12, songSettings.capo + 1) })}><Plus /></button></div>
-          <label>Transpose <span>{songSettings.transpose > 0 ? `+${songSettings.transpose}` : songSettings.transpose}</span></label>
-          <div className="stepper"><button onClick={() => updateSettings({ transpose: Math.max(-6, songSettings.transpose - 1) })}><Minus /></button><b>{songSettings.transpose}</b><button onClick={() => updateSettings({ transpose: Math.min(6, songSettings.transpose + 1) })}><Plus /></button></div>
-          <label>Text size <span>{songSettings.fontSize}px</span></label>
-          <input type="range" min="13" max="28" value={songSettings.fontSize} onChange={(e) => updateSettings({ fontSize: Number(e.target.value) })} />
-          <label>Autoscroll <span>Speed {scrollSpeed}</span></label>
-          <input type="range" min="1" max="5" value={scrollSpeed} onChange={(e) => setScrollSpeed(Number(e.target.value))} />
-          <button className="scroll-button" onClick={() => setScrolling((value) => !value)}>{scrolling ? <Pause /> : <Play />} {scrolling ? "Pause" : "Start"} autoscroll</button>
-          {selected.custom && <button className="remove-song" onClick={() => {
-            if (!window.confirm(`Remove ${cleanTitle(selected.title)} from STRUM?`)) return;
-            setCustomSongs((songs) => songs.filter((song) => song.id !== selected.id));
-            setSelected(null);
-          }}>Remove this song</button>}
-        </aside>
-        <main className="practice-page" ref={practiceRef}>
-          <div className="practice-paper" style={{ fontSize: songSettings.fontSize }}>
-            <div className="song-kicker">{selected.kind} · {selected.custom ? "added to STRUM" : "saved in My Tabs"}</div>
-            <h1>{cleanTitle(selected.title)}</h1><h2>{selected.artist}</h2>
-            <RecordingLab key={selected.id} song={selected} />
-            {transposedChords.length > 0 && <section className="known-chords">
-              <span>Chords from your saved tab</span>
-              <p className="chord-setup">{[
-                importedChordData?.tuning && `Tuning ${importedChordData.tuning}`,
-                importedChordData?.key && `Key ${importedChordData.key}`,
-                importedChordData?.capo && importedChordData.capo !== "No capo" ? `Capo ${importedChordData.capo}` : "No capo",
-              ].filter(Boolean).join(" · ")}</p>
-              <div>{transposedChords.map((chord) => <kbd key={chord}>{chord}</kbd>)}</div>
-              <p className="chord-attribution">
-                Chord symbols transcribed by {importedChordData?.authorUrl
-                  ? <a href={importedChordData.authorUrl} target="_blank" rel="noreferrer">{importedChordData.author}</a>
-                  : importedChordData?.author} and sourced from <a href={importedChordData?.sourceUrl} target="_blank" rel="noreferrer">Ultimate Guitar</a>. Personal practice use only.
-              </p>
-            </section>}
-            <StrummingGuide patterns={importedPracticeData?.strumming ?? []} />
-            <section className="lrclib-section">
-              <div className="lrclib-heading"><div><strong>Lyrics</strong><span>{offlineLyrics[selected.id] ? "Saved on this device · works offline" : "Downloads once · then works offline"}</span></div><a href={LRCLIB_URL} target="_blank" rel="noreferrer">Lyrics by LRCLIB <ExternalLink size={13} /></a></div>
-              {(lyrics.status === "idle" || lyrics.status === "loading") && <div className="lyrics-message">Looking for this song on LRCLIB…</div>}
-              {(lyrics.status === "missing" || lyrics.status === "error") && <div className="lyrics-message"><b>{lyrics.status === "error" ? "Couldn’t load lyrics." : "Lyrics unavailable."}</b><span>{lyrics.message}</span><a href={`${LRCLIB_URL}/search/${encodeURIComponent(`${cleanTitle(selected.title)} ${selected.artist}`)}`} target="_blank" rel="noreferrer">Search LRCLIB</a></div>}
-              {lyrics.status === "ambiguous" && <div className="lyric-matches"><b>Which version do you play?</b><span>{lyrics.message}</span>{lyrics.results.slice(0, 8).map((result) => <button key={result.id} onClick={() => {
-                setLyricChoices((choices) => ({ ...choices, [selected.id]: result.id }));
-                setOfflineLyrics((current) => ({ ...current, [selected.id]: result }));
-                setLyrics({ status: "ready", result });
-              }}><span><strong>{result.trackName}</strong><small>{result.artistName}{result.albumName ? ` · ${result.albumName}` : ""}</small></span><em>{formatDuration(result.duration) || "Choose"}</em></button>)}</div>}
-              {lyrics.status === "ready" && <div className="selected-lyric-source">Matched to <b>{lyrics.result.trackName}</b>{lyrics.result.albumName ? ` · ${lyrics.result.albumName}` : ""}{formatDuration(lyrics.result.duration) ? ` · ${formatDuration(lyrics.result.duration)}` : ""}</div>}
-              {lyrics.status === "ready" && <ChordedLyrics text={lyrics.result.plainLyrics?.trim() || readableSyncedLyrics(lyrics.result.syncedLyrics || "")} placements={IMPORTED_CHORD_PLACEMENTS[selected.id] ?? []} practice={importedPracticeData} transpose={songSettings.transpose} />}
-              {lyrics.status === "ready" && <button className="change-lyrics-version" onClick={() => {
-                setLyricChoices((choices) => ({ ...choices, [selected.id]: 0 }));
-                setOfflineLyrics((current) => { const next = { ...current }; delete next[selected.id]; return next; });
-                setLyrics({ status: "idle" });
-              }}>Find a different recording</button>}
-              <div className="lyrics-attribution">Community-contributed lyric text supplied on demand by <a href={LRCLIB_URL} target="_blank" rel="noreferrer">LRCLIB</a>. Rights remain with the respective authors and publishers. Personal practice use only.</div>
-            </section>
-            <section className="arrangement-notes">
-              <div className="arrangement-heading"><div><strong>{editing ? "Edit chord sheet" : "Your chord sheet"}</strong><span>Optional · saved only in this browser</span></div>{(notes[selected.id] ?? "").trim() && <button onClick={() => setEditing((value) => !value)}>{editing ? <><Play size={14} /> Play view</> : <><Edit3 size={14} /> Edit / paste</>}</button>}</div>
-              {editing || !(notes[selected.id] ?? "").trim() ? <>
-                <div className="import-help">Paste chord-and-lyric text. Chord lines and inline chords like <code>[G]hello [C]world</code> are formatted automatically.</div>
-                <textarea value={notes[selected.id] ?? ""} onChange={(e) => { setEditing(true); setNotes((old) => ({ ...old, [selected.id]: e.target.value })); }} placeholder={"[Verse 1]\nG                 C\nYour lyric line goes here\n\nAm                D\nThe next lyric line goes here\n\n—or—\n[G]Your lyric [C]line goes here"} style={{ fontSize: songSettings.fontSize }} />
-                {(notes[selected.id] ?? "").trim() && <button className="done-editing" onClick={() => setEditing(false)}><Play size={15} /> Done — show play view</button>}
-              </> : <Arrangement text={notes[selected.id]} transpose={songSettings.transpose} />}
-            </section>
-            <div className="source-notice">Opened or downloaded LRCLIB lyrics and your personal chord sheet stay on this device for offline practice.{selected.sourceUrl ? " The original Ultimate Guitar arrangement remains at the source link." : ""}</div>
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="mytabs-shell">
-      <header className="mytabs-header"><div className="mytabs-brand"><span><Guitar /></span><div><b>STRUM</b><small>Your guitar library</small></div></div><div className="library-actions"><button className="offline-library" disabled={!isOnline || offlineProgress.status === "running"} onClick={saveLibraryOffline}><Download size={15} /> {offlineProgress.status === "running" ? `${offlineProgress.completed}/${offlineProgress.total}` : offlineCount ? `${offlineCount} offline` : "Save offline"}</button><button onClick={() => setAddingSong((value) => !value)}><Plus size={15} /> Add song</button><div className="library-count"><strong>{allSongs.length}</strong><span>saved songs</span></div></div></header>
-      <main className="mytabs-main">
-        <section className="library-intro"><span>Imported from My Tabs</span><h1>What do you want<br />to play?</h1><p>Your complete Ultimate Guitar collection, organized for faster practice.</p></section>
-        {offlineCount === 0 && offlineProgress.status === "idle" && <div className="offline-tip"><Download size={16} /><span><b>Taking STRUM off-grid?</b> Tap Save offline while connected, then add this site to your phone’s Home Screen.</span></div>}
-        {(!isOnline || offlineProgress.status !== "idle") && <div className={`offline-status ${!isOnline ? "is-offline" : ""}`}><span className="offline-dot" /><div><strong>{!isOnline ? "Offline mode" : offlineProgress.status === "running" ? "Saving your library…" : offlineProgress.status === "error" ? "Offline save needs attention" : "Offline library ready"}</strong><span>{!isOnline ? `${offlineCount} songs are stored on this device.` : offlineProgress.status === "running" ? `${offlineProgress.saved} saved · ${offlineProgress.completed} of ${offlineProgress.total} checked` : offlineProgress.message}</span></div></div>}
-        {addingSong && <form className="add-song-form" onSubmit={addSong}>
-          <div className="add-song-heading"><div><strong>Add a song</strong><span>Lyrics and version matching happen automatically</span></div><button type="button" onClick={() => setAddingSong(false)}>Cancel</button></div>
-          <label><span>Song title</span><input autoFocus required value={newSong.title} onChange={(event) => setNewSong((song) => ({ ...song, title: event.target.value }))} placeholder="e.g. Yihyeh Tov" /></label>
-          <label><span>Artist</span><input required value={newSong.artist} onChange={(event) => setNewSong((song) => ({ ...song, artist: event.target.value }))} placeholder="e.g. David Broza" /></label>
-          <label className="add-song-source"><span>Ultimate Guitar link <small>optional</small></span><input type="url" value={newSong.sourceUrl} onChange={(event) => setNewSong((song) => ({ ...song, sourceUrl: event.target.value }))} placeholder="https://tabs.ultimate-guitar.com/…" /></label>
-          <label><span>Type</span><select value={newSong.kind} onChange={(event) => setNewSong((song) => ({ ...song, kind: event.target.value as "Chords" | "Tab" }))}><option>Chords</option><option>Tab</option></select></label>
-          <button className="save-song" type="submit">Add and find lyrics <Plus size={15} /></button>
-        </form>}
-        <div className="library-toolbar"><label className="library-search"><Search /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search songs or artists" /></label><label className="artist-filter"><select value={artist} onChange={(e) => setArtist(e.target.value)}>{artists.map((name) => <option key={name}>{name}</option>)}</select><ChevronDown /></label></div>
-        <div className="library-table"><div className="library-row library-columns"><span>Song</span><span>Artist</span><span>Type</span><span /></div>{filtered.map((song, index) => <button className="library-row" key={`${song.id}-${song.kind}`} onClick={() => setSelected(song)}><span className="song-index">{String(index + 1).padStart(2, "0")}</span><span className="song-name">{cleanTitle(song.title)}<small>{song.title.match(/\(ver \d+\)/i)?.[0] ?? ""}</small></span><span className="song-artist">{song.artist}</span><span className="song-type">{song.kind}</span><span className="play-song"><Play fill="currentColor" /></span></button>)}</div>
-        {filtered.length === 0 && <div className="no-songs">No saved songs match that search.</div>}
-      </main>
-    </div>
-  );
+  return <div className="strum-app strum-library-view"><header className="strum-topbar"><button className="strum-wordmark" onClick={() => { setQuery(""); setFilter("all"); }}>STRUM</button><span className="strum-status">{navigator.onLine ? "Private library" : "Offline"}</span><button className="strum-icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 size={18} /></button></header><main className="strum-library-page"><section className="strum-library-heading"><div><span className="strum-kicker">{songs.length} songs · local-first</span><h1>What do you want<br />to play?</h1><p>Chord sheets stay on this device and work without a connection.</p></div><button className="strum-primary" onClick={() => setEditor("new")}><Plus size={16} /> Add song</button></section>{notice && <div className="strum-notice">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><X size={14} /></button></div>}<section className="strum-library-tools"><label className="strum-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search songs or artists" /></label><div className="strum-filter-row">{([ ["all", "All"], ["strong", "4–5"], ["three", "3"], ["learning", "1–2"], ["unrated", "Unrated"] ] as const).map(([value, label]) => <button key={value} className={filter === value ? "is-active" : ""} onClick={() => setFilter(value)}>{label}</button>)}</div></section>{loading ? <p className="strum-loading">Opening your private library…</p> : <section className="strum-library-list">{filtered.map((song) => <button className="strum-song-row" key={song.id} onClick={() => selectSong(song.id)}><span className={`strum-cover ${coverClass(song)}`}>{coverLetters(song)}</span><span className="strum-song-copy"><strong>{cleanTitle(song.title)}</strong><small>{song.artist} · {displayCapo(song.capo)}</small>{!song.arrangement.trim() && <em>Needs chord sheet</em>}</span><Rating rating={song.familiarity} /></button>)}{!filtered.length && <div className="strum-empty-state"><strong>No songs match that filter.</strong><span>Add one or try another search.</span></div>}</section>}</main>{editor && <SongEditor song={editor === "new" ? undefined : editor} save={persist} close={() => setEditor(null)} />}{settingsOpen && <LibrarySettings reading={reading} setReading={(patch) => setReading((current) => ({ ...current, ...patch }))} exportJson={() => void exportJson()} importJson={(file) => void importJson(file)} close={() => setSettingsOpen(false)} />}</div>;
 }
