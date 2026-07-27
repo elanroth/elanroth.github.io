@@ -48,7 +48,9 @@ function ArrangementLine({ token, transpose }: { token: ArrangementToken; transp
     const fragments = run.text.split(/(\s+)/).filter(Boolean);
     let chordPlaced = false;
     return fragments.map((fragment, fragmentIndex) => {
-      if (/^\s+$/.test(fragment)) return <React.Fragment key={`${index}-${fragmentIndex}`}>{fragment}</React.Fragment>;
+      // Flex children do not retain bare whitespace text nodes. Keep spaces in
+      // their own preformatted item so words stay separated under their chords.
+      if (/^\s+$/.test(fragment)) return <span className="strum-lyric-space" key={`${index}-${fragmentIndex}`}>{fragment}</span>;
       const chord = !chordPlaced ? run.chord : undefined;
       chordPlaced ||= Boolean(chord);
       return chord
