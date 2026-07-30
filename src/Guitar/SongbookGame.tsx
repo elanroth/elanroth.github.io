@@ -3,6 +3,7 @@ import { ArrowLeft, Download, Edit3, Pause, Play, Plus, Search, Settings2, Uploa
 import { emptySong, parseArrangement, parseLibrary, type ArrangementToken, type Familiarity, type StrumSong } from "./strum/model";
 import { buildOfflineLibrary, createSong, exportLibrary, getSongs, replaceLibrary, requestPersistentStorage, saveSong, type OfflineLibraryProgress } from "./strum/store";
 import { IMPORTED_PRACTICE_DATA, type StrummingPattern } from "./importedPracticeData";
+import { SONG_TECHNIQUE_GUIDES, tabForChord, type PickingChord, type SongTechniqueGuide } from "./songTechniqueGuides";
 import "./songbook.css";
 
 type ReadingSettings = { fontSize: number; lineHeight: number; autoscrollSpeed: number };
@@ -40,13 +41,13 @@ function transposeChord(chord: string, amount: number) {
 
 type ChordShape = { frets: number[]; base?: number };
 
-// Standard open-position shapes. A slash chord uses the fingering of its main
-// chord; the bass note remains visible in the card's chord label.
+// Standard open-position shapes. Save a slash voicing when its bass fingering
+// matters; otherwise the diagram falls back to the main chord shape.
 const CHORD_SHAPES: Record<string, ChordShape> = {
   A: { frets: [-1, 0, 2, 2, 2, 0] }, Am: { frets: [-1, 0, 2, 2, 1, 0] }, A7: { frets: [-1, 0, 2, 0, 2, 0] }, Am7: { frets: [-1, 0, 2, 0, 1, 0] }, Amaj7: { frets: [-1, 0, 2, 1, 2, 0] },
   B: { frets: [-1, 2, 4, 4, 4, 2] }, Bm: { frets: [-1, 2, 4, 4, 3, 2] }, B7: { frets: [-1, 2, 1, 2, 0, 2] }, Bm7: { frets: [-1, 2, 4, 2, 3, 2] }, Bb: { frets: [-1, 1, 3, 3, 3, 1] }, Bbm: { frets: [-1, 1, 3, 3, 2, 1] },
   C: { frets: [-1, 3, 2, 0, 1, 0] }, Cm: { frets: [-1, 3, 5, 5, 4, 3], base: 3 }, C7: { frets: [-1, 3, 2, 3, 1, 0] }, Cmaj7: { frets: [-1, 3, 2, 0, 0, 0] }, Cadd9: { frets: [-1, 3, 2, 0, 3, 3] },
-  D: { frets: [-1, -1, 0, 2, 3, 2] }, Dm: { frets: [-1, -1, 0, 2, 3, 1] }, D7: { frets: [-1, -1, 0, 2, 1, 2] }, Dsus2: { frets: [-1, -1, 0, 2, 3, 0] }, Dsus4: { frets: [-1, -1, 0, 2, 3, 3] },
+  D: { frets: [-1, -1, 0, 2, 3, 2] }, "D/F#": { frets: [2, -1, 0, 2, 3, 2] }, Dm: { frets: [-1, -1, 0, 2, 3, 1] }, D7: { frets: [-1, -1, 0, 2, 1, 2] }, Dsus2: { frets: [-1, -1, 0, 2, 3, 0] }, Dsus4: { frets: [-1, -1, 0, 2, 3, 3] },
   E: { frets: [0, 2, 2, 1, 0, 0] }, Em: { frets: [0, 2, 2, 0, 0, 0] }, E7: { frets: [0, 2, 0, 1, 0, 0] }, Em7: { frets: [0, 2, 0, 0, 0, 0] }, Emaj7: { frets: [0, 2, 1, 1, 0, 0] },
   F: { frets: [1, 3, 3, 2, 1, 1] }, Fm: { frets: [1, 3, 3, 1, 1, 1] }, Fmaj7: { frets: [-1, -1, 3, 2, 1, 0] },
   G: { frets: [3, 2, 0, 0, 0, 3] }, G7: { frets: [3, 2, 0, 0, 0, 1] }, Gmaj7: { frets: [3, 2, 0, 0, 0, 2] }, G6: { frets: [3, 2, 0, 0, 0, 0] },
@@ -62,7 +63,7 @@ function chordList(text: string, transpose: number) {
 }
 
 function ChordDiagram({ chord }: { chord: string }) {
-  const shape = CHORD_SHAPES[chord.replace(/\/[A-G](?:#|b)?$/, "")];
+  const shape = CHORD_SHAPES[chord] ?? CHORD_SHAPES[chord.replace(/\/[A-G](?:#|b)?$/, "")];
   if (!shape) return <div className="strum-chord-card strum-chord-card-unknown"><strong>{chord}</strong><span>shape<br />not saved</span></div>;
   const base = shape.base ?? 1;
   const strings = [12, 23, 34, 45, 56, 67];
@@ -93,7 +94,53 @@ function StrummingPatternCard({ pattern }: { pattern: StrummingPattern }) {
 function StrumRack({ songId }: { songId: string }) {
   const savedId = songId.startsWith("saved-") ? songId.slice(6) : "";
   const patterns = IMPORTED_PRACTICE_DATA[savedId]?.strumming ?? [];
-  return <aside className="strum-pattern-rack" aria-label="Strumming patterns"><span className="strum-kicker">Strum</span>{patterns.length ? patterns.map((pattern, index) => <StrummingPatternCard pattern={pattern} key={`${pattern.part}-${index}`} />) : <p>No saved pattern<br />for this song.</p>}</aside>;
+  const hasPickingGuide = Boolean(SONG_TECHNIQUE_GUIDES[savedId]);
+  const showPickingPrompt = hasPickingGuide && !patterns.length;
+  return <aside className="strum-pattern-rack" aria-label={showPickingPrompt ? "Picking guidance" : "Strumming patterns"}><span className="strum-kicker">{showPickingPrompt ? "Pick" : "Strum"}</span>{patterns.length ? patterns.map((pattern, index) => <StrummingPatternCard pattern={pattern} key={`${pattern.part}-${index}`} />) : <p>{showPickingPrompt ? <>Use the fingerpick<br />guide on this page.</> : <>No saved pattern<br />for this song.</>}</p>}</aside>;
+}
+
+function PickingTab({ chord, pluckOrder }: { chord: PickingChord; pluckOrder: SongTechniqueGuide["pluckOrder"] }) {
+  return <figure className="strum-picking-tab">
+    <figcaption>{chord.name} · start on string {chord.bassString}</figcaption>
+    <pre aria-label={`${chord.name} picking tab`}>{tabForChord(chord, pluckOrder).join("\n")}</pre>
+  </figure>;
+}
+
+function TechniqueGuide({ songId }: { songId: string }) {
+  const savedId = songId.startsWith("saved-") ? songId.slice(6) : "";
+  const guide = SONG_TECHNIQUE_GUIDES[savedId];
+  const [activeChord, setActiveChord] = useState(guide?.chords[0]?.name ?? "");
+  useEffect(() => { setActiveChord(guide?.chords[0]?.name ?? ""); }, [savedId, guide]);
+  if (!guide) return null;
+  const chord = guide.chords.find((candidate) => candidate.name === activeChord) ?? guide.chords[0];
+  return <section className="strum-technique-guide" aria-labelledby="strum-fingerpick-title">
+    <header>
+      <div><span className="strum-kicker">Pick</span><h2 id="strum-fingerpick-title">{guide.title}</h2></div>
+      <span className="strum-technique-tuning">{guide.tuning}</span>
+    </header>
+    <p>{guide.summary}</p>
+    <div className="strum-pick-grid">
+      <section className="strum-pick-sequence" aria-label="Picking sequence">
+        <h3>One bar — repeat on every chord</h3>
+        <div className="strum-pick-count">{guide.count.map((count, index) => <span key={`${count}-${index}`}><small>{count}</small><b>{guide.pluckOrder[index]}</b></span>)}</div>
+        <p><strong>String numbers:</strong> 1 is the thinnest/highest string; 6 is the thickest/lowest. “Bass” means use the starting string shown for the selected chord.</p>
+      </section>
+      <section className="strum-pick-shape" aria-label="Fret and tab view">
+        <div className="strum-chord-tabs" role="group" aria-label="Choose a chord">
+          {guide.chords.map((candidate) => <button aria-pressed={candidate.name === chord.name} className={candidate.name === chord.name ? "is-active" : ""} onClick={() => setActiveChord(candidate.name)} type="button" key={candidate.name}>{candidate.name}</button>)}
+        </div>
+        <div className="strum-pick-result" aria-live="polite">
+          <p className="strum-fret-shape"><strong>Hold:</strong> <code>{chord.frets}</code> <small>strings 6 → 1 · × = mute · 0 = open</small></p>
+          <PickingTab chord={chord} pluckOrder={guide.pluckOrder} />
+        </div>
+      </section>
+    </div>
+    <div className="strum-practice-loop"><strong>Start with this loop</strong>{guide.practiceLoop.map((name, index) => <span key={`${name}-${index}`}>{name}</span>)}</div>
+    <aside className="strum-harmonic-tip">
+      <div><span className="strum-kicker">Technique</span><h3>{guide.harmonic.title}</h3><p>{guide.harmonic.explanation}</p></div>
+      <pre aria-label="Natural harmonic at the twelfth fret">{guide.harmonic.tab.join("\n")}</pre>
+    </aside>
+  </section>;
 }
 
 function Rating({ rating, compact = false }: { rating: Familiarity; compact?: boolean }) {
@@ -202,6 +249,7 @@ export function SongbookGame() {
   if (selected) return <div className="strum-app strum-song-view"><header className="strum-topbar"><button className="strum-back" onClick={backToLibrary}><ArrowLeft size={16} /> Library</button><span className="strum-status">{navigator.onLine ? "Saved locally" : "Offline"}</span><button className="strum-icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 size={18} /></button></header><main className="strum-song-page" style={{ "--reading-size": `${reading.fontSize}px`, "--reading-leading": reading.lineHeight } as React.CSSProperties}><div className="strum-song-layout"><ChordRack text={selected.arrangement} transpose={0} /><div className="strum-song-content">
     <section className="strum-song-header"><div className={`strum-cover strum-cover-large ${coverClass(selected)}`}>{coverLetters(selected)}</div><div><div className="strum-kicker"><Rating rating={selected.familiarity} /> · {displayCapo(selected.capo)}</div><h1>{cleanTitle(selected.title)}</h1><p>{selected.artist}</p></div></section>
     <section className="strum-control-strip"><button onClick={() => setScrolling((value) => !value)}><small>Autoscroll</small><strong>{scrolling ? <><Pause size={13} /> Pause</> : <><Play size={13} /> Start</>}</strong></button></section>
+    <TechniqueGuide songId={selected.id} />
     <article className="strum-paper"><Arrangement text={selected.arrangement} transpose={0} /></article>
     <nav className="strum-song-actions"><button onClick={() => void updateSelected({ familiarity: selected.familiarity === 5 ? null : ((selected.familiarity ?? 0) + 1) as Familiarity })}><Rating rating={selected.familiarity} compact /></button><button className="strum-primary" onClick={() => setEditor(selected)}><Edit3 size={15} /> Edit song</button><button onClick={() => setSettingsOpen(true)}>Reading settings</button></nav>
   </div><StrumRack songId={selected.id} /></div></main>{editor && <SongEditor song={editor === "new" ? undefined : editor} save={persist} close={() => setEditor(null)} />}{settingsOpen && <LibrarySettings reading={reading} setReading={(patch) => setReading((current) => ({ ...current, ...patch }))} exportJson={() => void exportJson()} importJson={(file) => void importJson(file)} buildLibrary={() => void buildLibrary()} buildProgress={buildProgress} building={building} close={() => setSettingsOpen(false)} />}</div>;
