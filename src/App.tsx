@@ -10,6 +10,7 @@ import React from "react";
 import BlogView from "./Blog/BlogView";
 import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
 import { SongbookGame } from "./Guitar/SongbookGame";
+import { applyStrumBranding } from "./Guitar/strumBranding";
 import { HiLoJackApp } from "./HiLoJack/HiLoJackApp";
 
 type TabId = "home" | "about" | "cv" | "blog" | "games" | "anagrams" | "banagrams" | "seqnc" | "wordswords" | "guitar" | "hilojack" | "god";
@@ -309,6 +310,34 @@ function TabButton({ tab, active, onClick }: { tab: Tab; active: boolean; onClic
   );
 }
 
+function GitHubIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width={18} height={18} fill="#111827" aria-hidden="true">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  );
+}
+
+function GmailIcon() {
+  return (
+    <svg viewBox="52 42 88 66" width={20} height={15} aria-hidden="true">
+      <path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6" />
+      <path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15" />
+      <path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2" />
+      <path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92" />
+      <path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2c-5.94-4.45-14.4-.22-14.4 7.2" />
+    </svg>
+  );
+}
+
+function LinkedInIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} fill="#0a66c2" aria-hidden="true">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+    </svg>
+  );
+}
+
 function openBanagramsInNewTab() {
   try {
     const url = new URL(window.location.href);
@@ -432,6 +461,11 @@ export default function App() {
       setAboutSection("education");
     }
   }, [activeTab]);
+  useEffect(() => {
+    if (fullGuitar && activeTab === "guitar") {
+      applyStrumBranding();
+    }
+  }, [fullGuitar, activeTab]);
 
   const banagramsView = (() => {
     if (showInstructions) return <InstructionsPage onClose={() => setShowInstructions(false)} />;
@@ -562,6 +596,17 @@ export default function App() {
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     loading="lazy"
                   />
+                </div>
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 14 }}>
+                  <a href="https://github.com/elanroth" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub" style={{ display: "inline-flex" }}>
+                    <GitHubIcon />
+                  </a>
+                  <a href="mailto:elanmroth@gmail.com" aria-label="Email Elan" title="Email Elan" style={{ display: "inline-flex" }}>
+                    <GmailIcon />
+                  </a>
+                  <a href="https://www.linkedin.com/in/elanroth/" target="_blank" rel="noreferrer" aria-label="LinkedIn" title="LinkedIn" style={{ display: "inline-flex" }}>
+                    <LinkedInIcon />
+                  </a>
                 </div>
               </div>
             </div>
