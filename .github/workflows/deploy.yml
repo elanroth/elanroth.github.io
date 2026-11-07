@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: elanroth/Formality
-          ref: 07434dd0906cd4190e3b1d327cc31c45e73715e3
+          ref: f30cedaabf241366240158559dd82cdbfd075d1f
           path: .formality-source
       - name: Checkout pinned browser Lean runtime
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
           ref: a8aed095534e67061e2626b94e8e69193099091d
           path: .formality-runtime
       - name: Build Formality under /formality/
-        run: node .formality-source/scripts/build-pages.mjs --runtime "$GITHUB_WORKSPACE/.formality-runtime" --output "$GITHUB_WORKSPACE/build/formality"
+        run: node .formality-source/scripts/build-pages.mjs --external-runtime --runtime "$GITHUB_WORKSPACE/.formality-runtime" --output "$GITHUB_WORKSPACE/build/formality"
 
       # - name: Include budget app
       #   run: |
