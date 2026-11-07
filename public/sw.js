@@ -29,12 +29,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // /dojo/ is a separate app (elanroth/dojo) sharing this origin because a
-  // GitHub Pages project page lives under the user page. It ships its own
-  // service worker at /dojo/ scope. Without this guard the navigate branch
-  // below would cache the dojo's HTML under "/" and replace STRUM's offline
-  // shell, and the cache-first branch would absorb its assets.
-  if (url.pathname.startsWith("/dojo/")) return;
+  // /dojo/ and /formality/ are separate apps with their own service workers.
+  // Keep their HTML and assets out of STRUM's offline shell/cache.
+  if (url.pathname.startsWith("/dojo/") || url.pathname === "/formality" ||
+      url.pathname.startsWith("/formality/")) return;
 
   if (event.request.mode === "navigate") {
     event.respondWith((async () => {
