@@ -1,6 +1,31 @@
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Options as MarkdownOptions } from "react-markdown";
 import { blogMetadata } from "./metadata";
+
+// KaTeX was dropped in May to keep ~85 kB gzipped off every page load. Load it
+// lazily instead: the chunk, its CSS and its fonts are only fetched once someone
+// opens the Blog tab, so the rest of the site stays as light as before.
+type MathPlugins = Pick<MarkdownOptions, "remarkPlugins" | "rehypePlugins">;
+let mathPluginsPromise: Promise<MathPlugins> | null = null;
+
+function loadMathPlugins(): Promise<MathPlugins> {
+  mathPluginsPromise ??= Promise.all([
+    import("remark-math"),
+    import("rehype-katex"),
+    import("katex/dist/katex.min.css"),
+  ]).then(([remarkMath, rehypeKatex]) => ({
+    remarkPlugins: [remarkMath.default],
+    rehypePlugins: [rehypeKatex.default],
+  }));
+  return mathPluginsPromise;
+}
+
+const hasMath = (markdown: string) => /\$[^$\n]+\$|^\$\$/m.test(markdown);
+
+// remark-math only renders `$$ … $$` as centered display math when the fences sit
+// on their own lines; posts often write `$$x = y$$` on one line, so split those.
+const normalizeDisplayMath = (markdown: string) =>
+  markdown.replace(/^\$\$(?!\s*$)(.+?)\$\$[ \t]*$/gm, (_match, body: string) => `$$\n${body.trim()}\n$$`);
 
 type BlogPost = { slug: string; title: string; content: string; date?: string; excerpt?: string; tags?: string[] };
 
@@ -76,6 +101,21 @@ const BLOG_POSTS: BlogPost[] = Object.entries(postModules)
 export default function BlogView() {
   const [activePostSlug, setActivePostSlug] = useState<string>(BLOG_POSTS[0]?.slug ?? "");
   const [blogView, setBlogView] = useState<BlogViewMode>("list");
+  const [mathPlugins, setMathPlugins] = useState<MathPlugins | null>(null);
+  const [mathFailed, setMathFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadMathPlugins()
+      .then((plugins) => !cancelled && setMathPlugins(plugins))
+      .catch((err) => {
+        console.error("[blog] math renderer failed to load", err);
+        if (!cancelled) setMathFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const slugFromUrl = getPostSlugFromUrl();
@@ -143,7 +183,9 @@ export default function BlogView() {
   }
 
   const activePost = BLOG_POSTS.find((post) => post.slug === activePostSlug);
-  const postContent = activePost?.content ? stripFirstHeading(activePost.content) : "";
+  const postContent = activePost?.content ? normalizeDisplayMath(stripFirstHeading(activePost.content)) : "";
+  // Hold a math-heavy post for the moment KaTeX takes to arrive rather than flash raw `$…$`.
+  const waitingForMath = hasMath(postContent) && !mathPlugins && !mathFailed;
 
   return (
     <article className="site-card" style={{ padding: "22px 26px" }}>
@@ -160,9 +202,13 @@ export default function BlogView() {
       <h1 className="site-post-title">{activePost?.title ?? "Post"}</h1>
       {activePost?.date && <div className="site-meta" style={{ marginTop: 6 }}>{activePost.date}</div>}
       <div className="markdown" style={{ marginTop: 16 }}>
-        <ReactMarkdown>
-          {postContent}
-        </ReactMarkdown>
+        {waitingForMath ? (
+          <p className="site-meta">Loading…</p>
+        ) : (
+          <ReactMarkdown remarkPlugins={mathPlugins?.remarkPlugins} rehypePlugins={mathPlugins?.rehypePlugins}>
+            {postContent}
+          </ReactMarkdown>
+        )}
       </div>
       <div style={{ marginTop: 20 }}>
         <button

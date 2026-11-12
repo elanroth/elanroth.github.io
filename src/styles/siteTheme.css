@@ -306,6 +306,9 @@
 .site .markdown pre { background: var(--accent-dark); color: #f1eefa; border: 2px solid var(--ink); }
 .site .markdown hr { border-top: 2px solid var(--rule-soft); }
 .site .markdown img { border: 2px solid var(--ink); }
+.site .markdown .katex { font-size: 1.08em; }
+.site .markdown .katex-display { margin: 18px 0; padding: 4px 0; overflow-x: auto; overflow-y: hidden; }
+.site .markdown .katex-error { color: #a52f1a; font-family: var(--mono); font-size: 0.9em; }
 
 @media (prefers-reduced-motion: reduce) {
   .site *, .site *::before, .site *::after { transition-duration: 0.01ms !important; }
