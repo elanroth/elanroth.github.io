@@ -4,8 +4,7 @@ import { LobbyGate, type LobbyChoice } from "./Banagrams/engine/LobbyGate";
 import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./SEQNC/GreatWhiteNorth";
-import { AnagramsVisualizer } from "./Anagrams/game";
-import { AnagramsLobbyGate, type AnagramsLobbyChoice } from "./Anagrams/LobbyGate";
+import { AnagramsPage } from "./Anagrams/AnagramsPage";
 import React from "react";
 import BlogView from "./Blog/BlogView";
 import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
@@ -207,8 +206,8 @@ const GAME_CARDS: GameCard[] = [
     id: "anagrams",
     title: "Anagrams",
     description: "Sometimes called Snatch, just a game I grew up playing.",
+    imageUrl: "/images/Anagrams_Photo.png",
     onOpen: openAnagramsInNewTab,
-    disabled: true,
   },
   {
     id: "wordswords",
@@ -444,7 +443,6 @@ export default function App() {
   const [fullGuitar] = useState<boolean>(initialNav.fullGuitar);
   const [fullHiLoJack] = useState<boolean>(initialNav.fullHiLoJack);
   const [choice, setChoice] = useState<LobbyChoice | null>(null);
-  const [anagramsChoice, setAnagramsChoice] = useState<AnagramsLobbyChoice | null>(null);
   const [phase, setPhase] = useState<"waiting" | "game">("waiting");
   const [showInstructions, setShowInstructions] = useState(false);
   const [aboutSection, setAboutSection] = useState<AboutSectionId>("education");
@@ -513,15 +511,7 @@ export default function App() {
   }
 
   if (fullAnagrams && activeTab === "anagrams") {
-    return (
-      <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-        {anagramsChoice ? (
-          <AnagramsVisualizer choice={anagramsChoice} />
-        ) : (
-          <AnagramsLobbyGate onEnter={setAnagramsChoice} />
-        )}
-      </div>
-    );
+    return <AnagramsPage />;
   }
 
   if (fullWordsWords && activeTab === "wordswords") {

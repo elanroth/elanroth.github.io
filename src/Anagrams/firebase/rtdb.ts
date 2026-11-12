@@ -1,6 +1,6 @@
 import { get, onDisconnect, onValue, ref, runTransaction, serverTimestamp, set, update } from "firebase/database";
-import type { GameState, PlayerState } from "../engine";
-import { createGame } from "../engine";
+import type { GameState, PendingSnatch, PlayerState, WordSource } from "../engine";
+import { claimWord, createGame, drawTile, isPendingSnatchLive, normalizeWord } from "../engine";
 import { createBanagramsBag, shuffleTiles } from "../engine/banagramsBag";
 import { db } from "./firebase";
 
@@ -82,7 +82,7 @@ export async function createAnagramsLobby({
   const createdAt = Date.now();
   const gameId = `anagrams-${createdAt.toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
   const trimmedLobbyName = lobbyName?.trim() || "Anagrams";
-  const bag = shuffleTiles(createTestBag(options.bagSize));
+  const bag = shuffleTiles(createBanagramsBag(options.bagSize));
   const initialRevealCount = Math.max(0, Math.round(options.minWordLength) - 1);
   const revealed = bag.slice(0, initialRevealCount);
   const remainingBag = bag.slice(initialRevealCount);
@@ -236,7 +236,8 @@ export async function joinAnagramsLobby(gameId: string, playerId: string, nickna
       const raw = (curr ?? {}) as any;
       const players = coercePlayersMap(raw.players);
       const existing = players[playerId];
-      if (!existing) wasNew = true;
+      // Count returning players again too: leaving decremented the count.
+      wasNew = !existing || existing.active === false;
       players[playerId] = {
         name: nickname,
         words: Array.isArray(existing?.words) ? existing.words : [],
@@ -349,6 +350,160 @@ export function subscribeAnagramsLobbies(cb: (lobbies: AnagramsLobbyMeta[]) => v
 
 export async function updateAnagramsGame(gameId: string, next: Partial<GameState>): Promise<void> {
   await update(ref(db, gamePath(gameId)), next);
+}
+
+// ---- moves ------------------------------------------------------------------
+// Every move runs as a transaction on the whole game, so two players flipping or
+// claiming at the same moment can't duplicate a tile or overwrite each other's
+// words. The transaction retries against the server's latest state.
+
+export type MoveResult = { ok: true } | { ok: false; reason: string };
+export type ClaimSource = WordSource & { word: string };
+
+const BUSY_REASON = "Hold on, someone is choosing a word to steal.";
+
+const readArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value.filter((v) => v !== null && v !== undefined) as T[];
+  if (value && typeof value === "object") return Object.values(value as Record<string, T>);
+  return [];
+};
+
+const rawToState = (raw: Record<string, any>): GameState => {
+  const players: Record<string, PlayerState> = {};
+  for (const [id, player] of Object.entries(coercePlayersMap(raw.players))) {
+    const words = readArray<string>(player?.words);
+    players[id] = {
+      ...player,
+      name: player?.name ?? "Player",
+      words,
+      score: words.reduce((sum, word) => sum + word.length, 0),
+    };
+  }
+  return {
+    bag: readArray<string>(raw.bag),
+    revealed: readArray<string>(raw.revealed),
+    players,
+    minWordLength: raw.minWordLength ?? 3,
+    pendingSnatch: raw.pendingSnatch ?? null,
+    lastSnatch: raw.lastSnatch ?? null,
+  };
+};
+
+// Firebase rejects undefined anywhere in a write.
+const stripUndefined = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+
+async function runMove(
+  gameId: string,
+  move: (state: GameState, raw: Record<string, any>) => GameState | string,
+): Promise<MoveResult> {
+  let reason: string | null = null;
+  try {
+    const result = await runTransaction(ref(db, gamePath(cleanSegment("gameId", gameId))), (curr) => {
+      // A null first pass just means the local cache is cold; Firebase retries with the server value.
+      if (curr === null) return curr;
+      const raw = curr as Record<string, any>;
+      const out = move(rawToState(raw), raw);
+      if (typeof out === "string") {
+        reason = out;
+        return undefined; // abort
+      }
+      reason = null;
+      const rawPlayers = coercePlayersMap(raw.players);
+      const players: Record<string, unknown> = {};
+      for (const [id, player] of Object.entries(out.players)) {
+        players[id] = { ...(rawPlayers[id] ?? {}), ...player };
+      }
+      return stripUndefined({
+        ...raw,
+        bag: out.bag,
+        revealed: out.revealed,
+        players,
+        minWordLength: out.minWordLength,
+        pendingSnatch: out.pendingSnatch ?? null,
+        lastSnatch: out.lastSnatch ?? null,
+      });
+    });
+    if (!result.committed) return { ok: false, reason: reason ?? "That move didn't go through. Try again." };
+    return { ok: true };
+  } catch (err) {
+    console.error("[anagrams] move failed", { gameId, err });
+    return { ok: false, reason: "Couldn't reach the game server. Try again." };
+  }
+}
+
+export function drawAnagramsTile(gameId: string): Promise<MoveResult> {
+  return runMove(gameId, (state) => {
+    if (isPendingSnatchLive(state.pendingSnatch)) return BUSY_REASON;
+    if (state.bag.length === 0) return "The bag is empty.";
+    // Drawing also clears a steal choice that timed out.
+    return { ...drawTile(state).state, pendingSnatch: null };
+  });
+}
+
+export function claimAnagramsWord(
+  gameId: string,
+  playerId: string,
+  word: string,
+  sources: ClaimSource[],
+  dictionary: Set<string>,
+): Promise<MoveResult> {
+  return runMove(gameId, (state) => {
+    const pending = isPendingSnatchLive(state.pendingSnatch) ? state.pendingSnatch : null;
+    if (pending && pending.claimantId !== playerId) return BUSY_REASON;
+    for (const source of sources) {
+      if (state.players[source.playerId]?.words[source.wordIndex] !== source.word) {
+        return `Too slow: ${source.word} was just taken.`;
+      }
+    }
+    const result = claimWord(state, playerId, word, sources, dictionary);
+    if (!result.ok) return result.reason ?? "Word not allowed.";
+    const lastSnatch = sources.length > 0
+      ? {
+        at: Date.now(),
+        byPlayerId: playerId,
+        word: normalizeWord(word),
+        targets: sources.map((source) => ({ playerId: source.playerId, word: source.word })),
+      }
+      : state.lastSnatch ?? null;
+    return { ...result.state, pendingSnatch: null, lastSnatch };
+  });
+}
+
+/** Freeze the table while the claimant picks which word to steal (expires on its own). */
+export function proposeAnagramsSnatch(gameId: string, pending: PendingSnatch): Promise<MoveResult> {
+  return runMove(gameId, (state) => {
+    if (isPendingSnatchLive(state.pendingSnatch)) return BUSY_REASON;
+    return { ...state, pendingSnatch: pending };
+  });
+}
+
+export function cancelAnagramsSnatch(gameId: string, playerId: string): Promise<MoveResult> {
+  return runMove(gameId, (state) => {
+    if (state.pendingSnatch?.claimantId !== playerId) return "Nothing to cancel.";
+    return { ...state, pendingSnatch: null };
+  });
+}
+
+/** New round in the same lobby: fresh bag, everyone keeps their seat, words cleared. */
+export function resetAnagramsGame(gameId: string): Promise<MoveResult> {
+  return runMove(gameId, (state, raw) => {
+    if (isPendingSnatchLive(state.pendingSnatch)) return BUSY_REASON;
+    const bagSize = Number(raw.options?.bagSize) || 60;
+    const bag = shuffleTiles(createBanagramsBag(bagSize));
+    const revealCount = Math.max(0, state.minWordLength - 1);
+    const players: Record<string, PlayerState> = {};
+    for (const [id, player] of Object.entries(state.players)) {
+      players[id] = { ...player, words: [], score: 0 };
+    }
+    return {
+      ...state,
+      bag: bag.slice(revealCount),
+      revealed: bag.slice(0, revealCount),
+      players,
+      pendingSnatch: null,
+      lastSnatch: null,
+    };
+  });
 }
 
 export function subscribeAnagramsGame(gameId: string, cb: (snapshot: AnagramsSnapshot) => void): () => void {

@@ -17,6 +17,8 @@ export interface PlayerState {
 export interface WordSource {
   playerId: string;
   wordIndex: number;
+  /** The word expected at that index; lets a move fail cleanly if someone else took it first. */
+  word?: string;
 }
 
 export type PendingSnatch = {
@@ -26,6 +28,14 @@ export type PendingSnatch = {
   allowPool: boolean;
   createdAt: number;
 };
+
+/** How long a claimant has to pick which word to steal before everyone else is unblocked. */
+export const PENDING_SNATCH_TTL_MS = 20_000;
+
+export const isPendingSnatchLive = (
+  pending: PendingSnatch | null | undefined,
+  now: number = Date.now(),
+): pending is PendingSnatch => !!pending && now - (pending.createdAt ?? 0) < PENDING_SNATCH_TTL_MS;
 
 export type LastSnatch = {
   at: number;
