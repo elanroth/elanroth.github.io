@@ -12,15 +12,12 @@ export type AnagramsLobbyChoice = {
   gameId: string;
   playerId: string;
   nickname: string;
-  lobbyName?: string;
 };
 
 type Props = {
   onEnter: (choice: AnagramsLobbyChoice) => void;
 };
 
-const BAG_SIZES = [40, 60, 100, 144];
-const MIN_LENGTHS = [2, 3, 4];
 // Lobbies are never deleted and player counts drift when tabs close, so only list
 // ones that are plausibly still going: new today, or occupied and under a week old.
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,15 +64,6 @@ function getOrCreatePlayerId(): string {
   return id;
 }
 
-function timeAgo(ts: number, now: number): string {
-  const mins = Math.max(0, Math.round((now - ts) / 60000));
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
-
 export function AnagramsLobbyGate({ onEnter }: Props) {
   const [nickname, setNickname] = useState(() => localStorage.getItem("anagrams_nick") || "");
   const [lobbies, setLobbies] = useState<AnagramsLobbyMeta[]>([]);
@@ -99,25 +87,18 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
     return subscribeAnagramsLobbies(setLobbies);
   }, []);
 
-  function requireNickname(): string | null {
+  async function enter(lobby: AnagramsLobbyMeta) {
     const nick = nickname.trim();
     if (!nick) {
-      setError("Enter your name first.");
-      document.getElementById("anagrams-nickname")?.focus();
-      return null;
+      setError("Enter a nickname");
+      return;
     }
-    return nick;
-  }
-
-  async function enter(lobby: AnagramsLobbyMeta) {
-    const nick = requireNickname();
-    if (!nick) return;
     setError(null);
     setBusy(true);
     try {
       await joinAnagramsLobby(lobby.gameId, playerId, nick);
       localStorage.setItem("anagrams_nick", nick);
-      onEnter({ gameId: lobby.gameId, playerId, nickname: nick, lobbyName: lobby.lobbyName });
+      onEnter({ gameId: lobby.gameId, playerId, nickname: nick });
     } catch (err) {
       console.error("[anagrams] joinLobby failed", err);
       setError(describeLobbyError("Could not join lobby", err));
@@ -127,19 +108,23 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
   }
 
   async function createAndEnter() {
-    const nick = requireNickname();
-    if (!nick) return;
+    const nick = nickname.trim();
+    if (!nick) {
+      setError("Enter a nickname");
+      return;
+    }
+    const trimmedLobbyName = lobbyName.trim();
     setError(null);
     setBusy(true);
     try {
-      const created = await createAnagramsLobby({
-        lobbyName: lobbyName.trim() || `${nick}'s table`,
+      const { gameId } = await createAnagramsLobby({
+        lobbyName: trimmedLobbyName,
         hostId: playerId,
         options: { bagSize, minWordLength },
       });
-      await joinAnagramsLobby(created.gameId, playerId, nick);
+      await joinAnagramsLobby(gameId, playerId, nick);
       localStorage.setItem("anagrams_nick", nick);
-      onEnter({ gameId: created.gameId, playerId, nickname: nick, lobbyName: created.lobbyName });
+      onEnter({ gameId, playerId, nickname: nick });
     } catch (err) {
       console.error("[anagrams] createLobby failed", err);
       setError(describeLobbyError("Could not create lobby", err));
@@ -149,14 +134,17 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
   }
 
   async function createTestGame() {
-    const nick = requireNickname();
-    if (!nick) return;
+    const nick = nickname.trim();
+    if (!nick) {
+      setError("Enter a nickname");
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
-      const created = await createAnagramsTestLobby({ hostId: playerId, nickname: nick });
+      const { gameId } = await createAnagramsTestLobby({ hostId: playerId, nickname: nick });
       localStorage.setItem("anagrams_nick", nick);
-      onEnter({ gameId: created.gameId, playerId, nickname: nick, lobbyName: created.lobbyName });
+      onEnter({ gameId, playerId, nickname: nick });
     } catch (err) {
       console.error("[anagrams] createTestLobby failed", err);
       setError(describeLobbyError("Could not create test lobby", err));
@@ -166,178 +154,216 @@ export function AnagramsLobbyGate({ onEnter }: Props) {
   }
 
   return (
-    <div className="ag-lobby">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #667eea, #764ba2)", fontFamily: "'Fredoka', system-ui, sans-serif", width: "100vw", minHeight: "100vh", margin: 0, padding: 0 }}>
       <style>{`
-        .ag-lobby {
-          max-width: 980px;
-          margin: 0 auto;
-          padding: 40px 16px 56px;
-          display: grid;
-          gap: 26px;
-        }
-        .ag-lobby-title {
-          font-family: var(--serif);
-          font-weight: 800;
-          font-size: clamp(40px, 7vw, 64px);
-          letter-spacing: -0.02em;
-          line-height: 1;
+        html, body, #root {
+          width: 100%;
+          height: 100%;
           margin: 0;
-          color: var(--accent-dark);
-        }
-        .ag-lobby-sub { margin: 10px 0 0; font-size: 18px; color: var(--ink-soft); }
-        .ag-lobby-grid {
-          display: grid;
-          gap: 26px;
-          grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
-          align-items: start;
-        }
-        .ag-field { display: grid; gap: 0; }
-        .ag-form { display: grid; gap: 16px; }
-        .ag-lobby-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 12px 0;
-          border-bottom: 1px solid var(--rule-soft);
-        }
-        .ag-lobby-row:last-child { border-bottom: none; }
-        .ag-lobby-name { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
-        .ag-lobby-meta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
-        .ag-rules { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--ink-soft); }
-        .ag-rules b { color: var(--accent-dark); }
-        .ag-kbd {
-          font-family: var(--mono);
-          font-size: 12px;
-          border: 1.5px solid var(--ink);
-          border-radius: 5px;
-          padding: 0 5px;
-          background: var(--paper-2);
         }
       `}</style>
+      <div style={{ width: "min(880px, 96vw)", background: "rgba(255,255,255,0.96)", padding: 28, borderRadius: 22, boxShadow: "0 18px 36px rgba(17,24,39,0.2)", margin: "24px" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 22, letterSpacing: "0.08em", textTransform: "uppercase" }}>Anagrams</div>
+            <div style={{ color: "#6b7280", fontSize: 14 }}>Join any lobby (even in progress) or start a new one.</div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {import.meta.env.DEV && (
+              <button
+                type="button"
+                onClick={createTestGame}
+                disabled={busy}
+                style={{
+                  padding: "10px 12px",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                  borderRadius: 12,
+                  border: "1px solid #e5e7eb",
+                  fontWeight: 800,
+                  boxShadow: "0 6px 14px rgba(17,24,39,0.12)",
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
+              >
+                Test game
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={createAndEnter}
+              disabled={busy}
+              style={{
+                padding: "10px 14px",
+                background: "#2dd4bf",
+                color: "#0f172a",
+                borderRadius: 12,
+                border: "1px solid #14b8a6",
+                boxShadow: "0 8px 18px rgba(15,118,110,0.32)",
+                fontWeight: 800,
+                cursor: busy ? "not-allowed" : "pointer",
+              }}
+            >
+              Start new lobby
+            </button>
+          </div>
+        </div>
 
-      <header>
-        <h1 className="ag-lobby-title">Anagrams</h1>
-        <p className="ag-lobby-sub ag-italic">Sometimes called Snatch. Flip tiles, make words, steal words.</p>
-      </header>
+        <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+          <div>
+            <label htmlFor="anagrams-nickname" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+              Nickname
+            </label>
+            <input
+              id="anagrams-nickname"
+              name="nickname"
+              autoComplete="nickname"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="Your name"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
+                fontSize: 16,
+                background: "rgba(255,255,255,0.92)",
+              }}
+            />
+          </div>
 
-      {error && <div className="ag-error" role="alert">{error}</div>}
+          <div>
+            <label htmlFor="anagrams-lobby-name" style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+              Lobby name (optional)
+            </label>
+            <input
+              id="anagrams-lobby-name"
+              value={lobbyName}
+              onChange={(e) => setLobbyName(e.target.value)}
+              placeholder="Auto-named if left blank"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid #e5e7eb",
+                boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
+                fontSize: 15,
+                background: "rgba(255,255,255,0.92)",
+              }}
+            />
+          </div>
 
-      <div className="ag-lobby-grid">
-        <section className="ag-card">
-          <div className="ag-card-head"><h2>Start a game</h2></div>
-          <div className="ag-card-body ag-form">
-            <div className="ag-field">
-              <label htmlFor="anagrams-nickname" className="ag-label">Your name</label>
-              <input
-                id="anagrams-nickname"
-                name="nickname"
-                autoComplete="nickname"
-                className="ag-input"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="What should the table call you?"
-              />
-            </div>
-
-            <div className="ag-field">
-              <label htmlFor="anagrams-lobby-name" className="ag-label">Lobby name (optional)</label>
-              <input
-                id="anagrams-lobby-name"
-                className="ag-input"
-                value={lobbyName}
-                onChange={(e) => setLobbyName(e.target.value)}
-                placeholder="Named after you if left blank"
-              />
-            </div>
-
-            <div className="ag-field">
-              <span className="ag-label">Tiles in the bag</span>
-              <div className="ag-pills" role="group" aria-label="Tiles in the bag">
-                {BAG_SIZES.map((v) => (
+          <div style={{ display: "grid", gap: 8 }}>
+            <strong style={{ fontSize: 13, color: "#374151" }}>Bag size</strong>
+            <div style={{ display: "inline-flex" }}>
+              {[40, 60, 100, 144].map((v, idx, arr) => {
+                const isActive = bagSize === v;
+                const isFirst = idx === 0;
+                const isLast = idx === arr.length - 1;
+                return (
                   <button
                     key={v}
-                    type="button"
-                    className={`ag-btn${bagSize === v ? " is-on" : ""}`}
-                    aria-pressed={bagSize === v}
                     onClick={() => setBagSize(v)}
                     disabled={busy}
+                    style={{
+                      padding: "10px 12px",
+                      minWidth: 90,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      display: "inline-flex",
+                      fontWeight: 800,
+                      border: "1px solid #e5e7eb",
+                      background: isActive ? "#2563eb" : "white",
+                      color: isActive ? "white" : "#111",
+                      cursor: busy ? "not-allowed" : "pointer",
+                      marginLeft: isFirst ? 0 : -1,
+                      borderRadius: isFirst ? "12px 0 0 12px" : isLast ? "0 12px 12px 0" : "0",
+                    }}
+                  >
+                    {v} tiles
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: 8 }}>
+            <strong style={{ fontSize: 13, color: "#374151" }}>Min word length</strong>
+            <div style={{ display: "inline-flex" }}>
+              {[2, 3, 4].map((v, idx, arr) => {
+                const isActive = minWordLength === v;
+                const isFirst = idx === 0;
+                const isLast = idx === arr.length - 1;
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setMinWordLength(v)}
+                    disabled={busy}
+                    style={{
+                      padding: "10px 12px",
+                      minWidth: 70,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      display: "inline-flex",
+                      fontWeight: 800,
+                      border: "1px solid #e5e7eb",
+                      background: isActive ? "#2563eb" : "white",
+                      color: isActive ? "white" : "#111",
+                      cursor: busy ? "not-allowed" : "pointer",
+                      marginLeft: isFirst ? 0 : -1,
+                      borderRadius: isFirst ? "12px 0 0 12px" : isLast ? "0 12px 12px 0" : "0",
+                    }}
                   >
                     {v}
                   </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="ag-field">
-              <span className="ag-label">Shortest word</span>
-              <div className="ag-pills" role="group" aria-label="Shortest word">
-                {MIN_LENGTHS.map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    className={`ag-btn${minWordLength === v ? " is-on" : ""}`}
-                    aria-pressed={minWordLength === v}
-                    onClick={() => setMinWordLength(v)}
-                    disabled={busy}
-                  >
-                    {v} letters
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
-              <button type="button" className="ag-btn ag-btn--lg is-on" onClick={createAndEnter} disabled={busy}>
-                Start new lobby
-              </button>
-              {import.meta.env.DEV && (
-                <button type="button" className="ag-btn ag-btn--muted" onClick={createTestGame} disabled={busy}>
-                  Test game (dev)
-                </button>
-              )}
+                );
+              })}
             </div>
           </div>
-        </section>
-
-        <section className="ag-card">
-          <div className="ag-card-head">
-            <h2>Open lobbies</h2>
-            <span className="ag-count">{loading ? "…" : openLobbies.length}</span>
-          </div>
-          <div className="ag-card-body">
-            {loading && <div className="ag-muted ag-italic">Loading lobbies…</div>}
-            {!loading && openLobbies.length === 0 && (
-              <div className="ag-muted ag-italic">No one's playing right now. Start a lobby and send a friend the link.</div>
-            )}
-            {openLobbies.map((lobby) => (
-              <div key={lobby.gameId} className="ag-lobby-row">
-                <div style={{ minWidth: 0 }}>
-                  <div className="ag-lobby-name">{lobby.lobbyName}</div>
-                  <div className="ag-lobby-meta">
-                    {lobby.playerCount} player{lobby.playerCount === 1 ? "" : "s"} · {lobby.options.bagSize} tiles · {timeAgo(lobby.createdAt, now)}
-                  </div>
-                </div>
-                <button type="button" className="ag-btn" onClick={() => enter(lobby)} disabled={busy}>
-                  Join
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section className="ag-card">
-        <div className="ag-card-head"><h2>How to play</h2></div>
-        <div className="ag-card-body">
-          <ol className="ag-rules">
-            <li><b>Flip</b> a tile into the middle with the button or <span className="ag-kbd">Space</span>. Anyone can flip, any time.</li>
-            <li><b>Claim</b> a word you can spell from the middle: type it and press <span className="ag-kbd">Enter</span>.</li>
-            <li><b>Steal</b> someone's word by using all of its letters plus at least one from the middle: TONE + S → STONE works, TONE + S → TONES doesn't (plurals and tense changes don't count).</li>
-            <li>When the bag runs out, the most letters in words wins.</li>
-          </ol>
         </div>
-      </section>
+
+        {error && <div style={{ color: "#b3261e", marginBottom: 12, fontWeight: 700 }}>{error}</div>}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {loading && <div style={{ color: "#6b7280" }}>Loading lobbies…</div>}
+          {!loading && openLobbies.length === 0 && <div style={{ color: "#6b7280" }}>No lobbies yet. Start one!</div>}
+          {openLobbies.map((lobby) => (
+            <div
+              key={lobby.gameId}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 14px",
+                borderRadius: 12,
+                background: "linear-gradient(180deg,#fffef9,#fff7d6)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 800 }}>{lobby.lobbyName}</div>
+                <div style={{ color: "#6b7280", fontSize: 14 }}>
+                  {lobby.playerCount} player{lobby.playerCount === 1 ? "" : "s"} · {lobby.status}
+                </div>
+              </div>
+              <button
+                onClick={() => enter(lobby)}
+                disabled={busy}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  background: "white",
+                  fontWeight: 800,
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
+              >
+                Join
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,312 @@
+/* Site shell theme (Home / About / Blog / Games tabs).
+   Bartholomew's "purple + editorial card" look, from ~/bartholomew/src/styles/theme.css:
+   paper background with a radial purple glow, white cards with a 2px ink border and
+   an offset purple hard shadow, accent-soft card heads, outline/solid pill buttons,
+   Fraunces serif / Inter labels / JetBrains Mono numerals.
+   Everything is scoped to `.site`, so the full-screen games keep their own looks. */
+
+.site {
+  --paper: #fbfaf6;
+  --paper-2: #f1eee4;
+  --ink: #0d0d0d;
+  --ink-soft: #2a2a2a;
+  --muted: #7a7468;
+  --rule-soft: #d4cfc0;
+
+  --accent: #4a3590;
+  --accent-dark: #291d5f;
+  --accent-soft: #e7e1f3;
+  --accent-hi: #b9a8ec;
+
+  --shadow-amb: rgba(41, 29, 95, 0.2);
+
+  --serif: "Fraunces", "Iowan Old Style", Charter, Georgia, serif;
+  --sans: "Inter", -apple-system, system-ui, sans-serif;
+  --mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+
+  --radius: 16px;
+  --maxw: 1180px;
+
+  min-height: 100vh;
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(1300px 820px at 50% 36%, #e9e1f6 0%, rgba(233, 225, 246, 0.45) 34%, rgba(233, 225, 246, 0) 64%),
+    linear-gradient(180deg, #fdfcf8 0%, var(--paper) 46%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.site button { font-family: var(--sans); }
+.site a { color: var(--accent); }
+
+/* ---- header ------------------------------------------------------------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(251, 250, 246, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 2px solid var(--ink);
+}
+.site-header-inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.site-name {
+  font-family: var(--serif);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--accent-dark);
+}
+.site-kicker {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.site-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 480px) {
+  .site-header-inner { padding: 10px 12px; gap: 8px; }
+  .site-name { font-size: 22px; }
+  .site-nav { gap: 5px; }
+  .site-nav .site-btn { padding: 6px 9px; font-size: 9.5px; letter-spacing: 0.08em; }
+}
+
+/* ---- buttons: outline when selectable, solid when selected (.is-on) ----- */
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  background: transparent;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.site-btn:hover:not(.is-on):not(:disabled) { background: var(--accent-soft); }
+.site-btn.is-on { background: var(--accent); color: #fff; }
+.site-btn:disabled { opacity: 0.45; cursor: default; }
+
+.site-side-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.site-side-btn:hover:not(.is-on) { background: var(--accent-soft); }
+.site-side-btn.is-on { background: var(--accent); color: #fff; box-shadow: 3px 3px 0 var(--accent-dark); }
+
+/* ---- layout --------------------------------------------------------------- */
+.site-main { max-width: var(--maxw); margin: 0 auto; padding: 26px 16px 48px; }
+.site-stack { display: grid; gap: 28px; }
+.site-list-grid { display: grid; gap: 16px; }
+.site-hero {
+  display: grid;
+  gap: 24px;
+  align-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.site-lede { font-size: 20px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 12px; }
+.site-photo {
+  width: 260px;
+  height: 320px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  box-shadow: 6px 6px 0 var(--accent), 9px 11px 24px -8px var(--shadow-amb);
+}
+.site-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.site-contacts { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 16px; }
+.site-contacts a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--accent);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.site-contacts a:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--accent); }
+
+.site-h2 {
+  font-family: var(--serif);
+  font-weight: 800;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--accent-dark);
+  margin: 0 0 14px;
+}
+
+.site-about { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: start; }
+.site-about aside { display: grid; gap: 8px; align-content: start; position: sticky; top: 92px; }
+@media (max-width: 720px) {
+  .site-about { grid-template-columns: 1fr; }
+  .site-about aside { position: static; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+/* ---- card: the signature surface ---------------------------------------- */
+.site-card {
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: 5px 5px 0 var(--accent), 9px 11px 24px -8px var(--shadow-amb);
+  padding: 16px 18px;
+  min-width: 0;
+}
+.site-card-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline; }
+.site-card-title {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.3;
+  color: var(--ink);
+  margin: 0;
+}
+.site-card-strong { font-weight: 600; color: var(--ink-soft); margin-top: 8px; }
+.site-card-text { color: var(--ink-soft); line-height: 1.6; margin: 6px 0 0; }
+.site-meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.site-list { margin: 8px 0 0; padding-left: 20px; color: var(--ink-soft); line-height: 1.6; list-style: disc; }
+
+.site-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.site-pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--accent-dark) !important;
+  background: var(--accent-soft);
+  border: 1.5px solid var(--accent-hi);
+  border-radius: 999px;
+  padding: 5px 11px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.site-pill:hover { background: #fff; border-color: var(--accent); }
+
+/* ---- games grid ------------------------------------------------------------- */
+.site-games {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  width: 100%;
+}
+.site .site-game {
+  font-family: var(--serif);
+}
+.site-game {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: 5px 5px 0 var(--accent), 9px 11px 24px -8px var(--shadow-amb);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.site-game:hover:not(:disabled) {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--accent), 12px 16px 30px -8px var(--shadow-amb);
+}
+.site-game:disabled { cursor: not-allowed; opacity: 0.9; }
+.site-game-head {
+  padding: 12px 16px;
+  background: var(--accent-soft);
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  text-align: center;
+}
+.site-game-img {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--paper-2);
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--serif);
+  font-weight: 800;
+  font-size: 44px;
+  color: var(--accent-hi);
+}
+.site-game-desc { padding: 14px 16px 16px; color: var(--ink-soft); line-height: 1.5; text-align: center; }
+.site-game-status {
+  margin-top: 6px;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---- blog -------------------------------------------------------------------- */
+.site .site-post-link { display: grid; gap: 8px; width: 100%; text-align: left; cursor: pointer; font-family: var(--serif); transition: transform 0.14s ease, box-shadow 0.14s ease; }
+.site-post-link:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--accent), 12px 16px 30px -8px var(--shadow-amb); }
+.site-post-title { font-family: var(--serif); font-weight: 800; font-size: 32px; line-height: 1.15; color: var(--accent-dark); margin: 18px 0 0; }
+
+.site .markdown { color: var(--ink); font-size: 17px; line-height: 1.75; }
+.site .markdown h1, .site .markdown h2, .site .markdown h3, .site .markdown h4 { font-family: var(--serif); color: var(--accent-dark); }
+.site .markdown a { color: var(--accent); }
+.site .markdown blockquote { border-left: 3px solid var(--accent-hi); background: var(--accent-soft); color: var(--ink-soft); border-radius: 0 10px 10px 0; }
+.site .markdown code { font-family: var(--mono); }
+.site .markdown :not(pre) > code { background: var(--paper-2); color: var(--accent-dark); }
+.site .markdown pre { background: var(--accent-dark); color: #f1eefa; border: 2px solid var(--ink); }
+.site .markdown hr { border-top: 2px solid var(--rule-soft); }
+.site .markdown img { border: 2px solid var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .site *, .site *::before, .site *::after { transition-duration: 0.01ms !important; }
+}

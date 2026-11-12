@@ -5,6 +5,7 @@ import { LobbyWaitingRoom } from "./Banagrams/engine/LobbyWaitingRoom";
 import { InstructionsPage } from "./Banagrams/engine/InstructionsPage";
 import { SEQNC } from "./SEQNC/GreatWhiteNorth";
 import { AnagramsPage } from "./Anagrams/AnagramsPage";
+import "./styles/siteTheme.css";
 import React from "react";
 import BlogView from "./Blog/BlogView";
 import { WordsWordsApp } from "./WordsWords/WordsWordsApp";
@@ -289,23 +290,31 @@ const currentProjects: CurrentProject[] = [
 ];
 
 
+const SITE_FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400&family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap";
+
 function TabButton({ tab, active, onClick }: { tab: Tab; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
+      className={`site-btn${active ? " is-on" : ""}`}
+      aria-current={active ? "page" : undefined}
       onClick={onClick}
-      style={{
-        padding: "10px 14px",
-        borderRadius: 10,
-        border: "1px solid #e5e7eb",
-        background: active ? "#111827" : "white",
-        color: active ? "white" : "#111827",
-        fontWeight: 800,
-        cursor: "pointer",
-      }}
     >
       {tab.label}
     </button>
+  );
+}
+
+function LinkPills({ links }: { links: LinkItem[] }) {
+  return (
+    <div className="site-pills">
+      {links.map((link) => (
+        <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="site-pill">
+          {link.label}
+        </a>
+      ))}
+    </div>
   );
 }
 
@@ -541,14 +550,17 @@ export default function App() {
 
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f9fafb", color: "#111827", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(249,250,251,0.9)", backdropFilter: "blur(6px)", borderBottom: "1px solid #e5e7eb" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+    <div className="site">
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+      <link rel="stylesheet" href={SITE_FONTS_HREF} />
+      <header className="site-header">
+        <div className="site-header-inner">
           <div>
-            <div style={{ fontWeight: 900, fontSize: 20 }}>Elan Roth</div>
-            <div style={{ fontSize: 13, color: "#6b7280" }}>{tabTitle}</div>
+            <div className="site-name">Elan Roth</div>
+            <div className="site-kicker">{tabTitle}</div>
           </div>
-          <nav style={{ display: "flex", gap: 8 }}>
+          <nav className="site-nav">
             {TABS.map((tab) => (
               <TabButton
                 key={tab.id}
@@ -567,34 +579,29 @@ export default function App() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 32px" }}>
+      <main className="site-main">
         {activeTab === "home" && (
-          <section style={{ display: "grid", gap: 24 }}>
-            <div style={{ display: "grid", gap: 16, alignItems: "center", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+          <section className="site-stack">
+            <div className="site-hero">
               <div>
-                  <h1 style={{ fontSize: 30, fontWeight: 900, marginBottom: 10 }}></h1>
-                <p style={{ color: "#4b5563", lineHeight: 1.6, marginBottom: 12 }}>
+                <h1></h1>
+                <p className="site-lede">
                   Researching mathematical logic at the University of Waterloo with Dr. Barbara Csima on a Fulbright Scholarship.
                   I am most interested in computability theory and type theory, especially working with formal proof assistants such as Lean and Rocq.
                 </p>
               </div>
               <div style={{ justifySelf: "center" }}>
-                <div style={{ width: 260, height: 320, borderRadius: 18, overflow: "hidden", boxShadow: "0 14px 30px rgba(0,0,0,0.12)", border: "1px solid #e5e7eb" }}>
-                  <img
-                    src="/images/WhoDunIt.jpg"
-                    alt="Elan Roth"
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    loading="lazy"
-                  />
+                <div className="site-photo">
+                  <img src="/images/WhoDunIt.jpg" alt="Elan Roth" loading="lazy" />
                 </div>
-                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 14 }}>
-                  <a href="https://github.com/elanroth" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub" style={{ display: "inline-flex" }}>
+                <div className="site-contacts">
+                  <a href="https://github.com/elanroth" target="_blank" rel="noreferrer" aria-label="GitHub" title="GitHub">
                     <GitHubIcon />
                   </a>
-                  <a href="mailto:elanmroth@gmail.com" aria-label="Email Elan" title="Email Elan" style={{ display: "inline-flex" }}>
+                  <a href="mailto:elanmroth@gmail.com" aria-label="Email Elan" title="Email Elan">
                     <GmailIcon />
                   </a>
-                  <a href="https://www.linkedin.com/in/elanroth/" target="_blank" rel="noreferrer" aria-label="LinkedIn" title="LinkedIn" style={{ display: "inline-flex" }}>
+                  <a href="https://www.linkedin.com/in/elanroth/" target="_blank" rel="noreferrer" aria-label="LinkedIn" title="LinkedIn">
                     <LinkedInIcon />
                   </a>
                 </div>
@@ -602,35 +609,13 @@ export default function App() {
             </div>
 
             <div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>Current Projects</h2>
-              <div style={{ display: "grid", gap: 12 }}>
+              <h2 className="site-h2">Current Projects</h2>
+              <div className="site-list-grid">
                 {currentProjects.map((project) => (
-                  <div key={project.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>{project.title}</h3>
-                    <p style={{ color: "#4b5563", lineHeight: 1.5 }}>{project.description}</p>
-                    {project.links && (
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-                        {project.links.map((link) => (
-                          <a
-                            key={link.url}
-                            href={link.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: 999,
-                              border: "1px solid #e5e7eb",
-                              background: "#f8fafc",
-                              fontWeight: 700,
-                              color: "#1d4ed8",
-                              textDecoration: "none",
-                            }}
-                          >
-                            {link.label}
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                  <div key={project.title} className="site-card">
+                    <h3 className="site-card-title">{project.title}</h3>
+                    <p className="site-card-text">{project.description}</p>
+                    {project.links && <LinkPills links={project.links} />}
                   </div>
                 ))}
               </div>
@@ -639,23 +624,15 @@ export default function App() {
         )}
 
         {activeTab === "about" && (
-          <section style={{ display: "grid", gridTemplateColumns: "240px minmax(0, 1fr)", gap: 20, alignItems: "start" }}>
-            <aside style={{ display: "grid", gap: 8, alignContent: "start" }}>
+          <section className="site-about">
+            <aside>
               {ABOUT_SECTIONS.map((section) => (
                 <button
                   key={section.id}
                   type="button"
+                  className={`site-side-btn${aboutSection === section.id ? " is-on" : ""}`}
+                  aria-pressed={aboutSection === section.id}
                   onClick={() => setAboutSection(section.id)}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: aboutSection === section.id ? "#111827" : "white",
-                    color: aboutSection === section.id ? "white" : "#111827",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
                 >
                   {section.label}
                 </button>
@@ -663,22 +640,22 @@ export default function App() {
             </aside>
             <div style={{ display: "grid", gap: 20 }}>
               {aboutSection === "education" && (
-                <section style={{ display: "grid", gap: 20 }}>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Education</h2>
-                  <div style={{ display: "grid", gap: 12 }}>
+                <section>
+                  <h2 className="site-h2">Education</h2>
+                  <div className="site-list-grid">
                     {educationItems.map((item) => (
-                      <div key={item.school} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "space-between", alignItems: "baseline" }}>
+                      <div key={item.school} className="site-card">
+                        <div className="site-card-row">
                           <div>
-                            <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>{item.school}</div>
-                            <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 600 }}>{item.location}</div>
+                            <div className="site-card-title">{item.school}</div>
+                            <div className="site-meta">{item.location}</div>
                           </div>
-                          <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.dates}</div>
+                          <div className="site-meta">{item.dates}</div>
                         </div>
-                        <div style={{ marginTop: 8, color: "#374151", fontWeight: 700, fontSize: 14 }}>{item.detail}</div>
-                        {item.sub && <div style={{ color: "#4b5563", marginTop: 4, fontSize: 14 }}>{item.sub}</div>}
+                        <div className="site-card-strong">{item.detail}</div>
+                        {item.sub && <div className="site-card-text">{item.sub}</div>}
                         {item.honors && item.honors.length > 0 && (
-                          <ul style={{ marginTop: 8, paddingLeft: 18, color: "#4b5563", lineHeight: 1.5, fontSize: 14 }}>
+                          <ul className="site-list">
                             {item.honors.map((honor) => (
                               <li key={`${item.school}-${honor}`}>{honor}</li>
                             ))}
@@ -691,27 +668,27 @@ export default function App() {
               )}
 
               {aboutSection === "coursework" && (
-                <section style={{ display: "grid", gap: 16 }}>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Coursework</h2>
-                  <div style={{ display: "grid", gap: 12 }}>
-                    <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                      <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (University of Pennsylvania)</div>
-                      <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsPenn.join(" · ")}</div>
+                <section>
+                  <h2 className="site-h2">Coursework</h2>
+                  <div className="site-list-grid">
+                    <div className="site-card">
+                      <div className="site-card-title">Mathematics (University of Pennsylvania)</div>
+                      <div className="site-card-text">{coursework.mathematicsPenn.join(" · ")}</div>
                     </div>
-                    <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                      <div style={{ fontWeight: 800, marginBottom: 6 }}>Mathematics (Budapest Semester in Mathematics)</div>
-                      <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.mathematicsBsm.join(" · ")}</div>
+                    <div className="site-card">
+                      <div className="site-card-title">Mathematics (Budapest Semester in Mathematics)</div>
+                      <div className="site-card-text">{coursework.mathematicsBsm.join(" · ")}</div>
                     </div>
-                    <div style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                      <div style={{ fontWeight: 800, marginBottom: 6 }}>Computer Science (University of Pennsylvania)</div>
-                      <div style={{ color: "#4b5563", lineHeight: 1.6 }}>{coursework.computerScience.join(" · ")}</div>
+                    <div className="site-card">
+                      <div className="site-card-title">Computer Science (University of Pennsylvania)</div>
+                      <div className="site-card-text">{coursework.computerScience.join(" · ")}</div>
                     </div>
                   </div>
                 </section>
               )}
 
               {(aboutSection === "research" || aboutSection === "open-source" || aboutSection === "teaching" || aboutSection === "sports-analytics") && (
-                <section style={{ display: "grid", gap: 16 }}>
+                <section>
                   {experienceSections
                     .filter((section) => {
                       if (aboutSection === "research") return section.title === "Research";
@@ -721,38 +698,16 @@ export default function App() {
                     })
                     .map((section) => (
                       <div key={section.title}>
-                        <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>{section.title}</h2>
-                        <div style={{ marginTop: 10, display: "grid", gap: 12 }}>
+                        <h2 className="site-h2">{section.title}</h2>
+                        <div className="site-list-grid">
                           {section.items.map((item) => (
-                            <div key={`${section.title}-${item.title}`} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                                <div style={{ fontWeight: 800 }}>{item.title}</div>
-                                {item.meta && <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 700 }}>{item.meta}</div>}
+                            <div key={`${section.title}-${item.title}`} className="site-card">
+                              <div className="site-card-row">
+                                <div className="site-card-title">{item.title}</div>
+                                {item.meta && <div className="site-meta">{item.meta}</div>}
                               </div>
-                              <p style={{ color: "#4b5563", lineHeight: 1.6, marginTop: 6 }}>{item.summary}</p>
-                              {item.links && (
-                                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
-                                  {item.links.map((link) => (
-                                    <a
-                                      key={link.url}
-                                      href={link.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      style={{
-                                        padding: "6px 10px",
-                                        borderRadius: 999,
-                                        border: "1px solid #e5e7eb",
-                                        background: "#f8fafc",
-                                        fontWeight: 700,
-                                        color: "#1d4ed8",
-                                        textDecoration: "none",
-                                      }}
-                                    >
-                                      {link.label}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
+                              <p className="site-card-text">{item.summary}</p>
+                              {item.links && <LinkPills links={item.links} />}
                             </div>
                           ))}
                         </div>
@@ -763,34 +718,12 @@ export default function App() {
 
               {aboutSection === "talks" && (
                 <section>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Talks</h2>
-                  <div style={{ marginTop: 10, display: "grid", gap: 12 }}>
+                  <h2 className="site-h2">Talks</h2>
+                  <div className="site-list-grid">
                     {talks.map((talk) => (
-                      <div key={talk.title} style={{ padding: 16, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)", color: "#4b5563", lineHeight: 1.6, display: "grid", gap: 8 }}>
-                        <div>{talk.title}</div>
-                        {talk.links && (
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                            {talk.links.map((link) => (
-                              <a
-                                key={link.url}
-                                href={link.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{
-                                  padding: "6px 10px",
-                                  borderRadius: 999,
-                                  border: "1px solid #e5e7eb",
-                                  background: "#f8fafc",
-                                  fontWeight: 700,
-                                  color: "#1d4ed8",
-                                  textDecoration: "none",
-                                }}
-                              >
-                                {link.label}
-                              </a>
-                            ))}
-                          </div>
-                        )}
+                      <div key={talk.title} className="site-card">
+                        <div className="site-card-text" style={{ marginTop: 0 }}>{talk.title}</div>
+                        {talk.links && <LinkPills links={talk.links} />}
                       </div>
                     ))}
                   </div>
@@ -808,78 +741,37 @@ export default function App() {
 
         {activeTab === "cv" && (
           <section>
-            <p style={{ color: "#4b5563", lineHeight: 1.5 }}>
+            <p className="site-card-text">
               Drop a PDF link here or add bullet highlights. This keeps the site light without extra UI.
             </p>
           </section>
         )}
 
         {activeTab === "games" && (
-          <section style={{ display: "grid", gap: 16, justifyItems: "center" }}>
-            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", width: "100%", maxWidth: 1120, margin: "0 auto" }}>
+          <section>
+            <div className="site-games">
               {GAME_CARDS.map((game) => (
                 <button
                   key={game.id}
                   type="button"
+                  className="site-game"
                   onClick={() => {
                     if (!game.disabled) {
                       game.onOpen();
                     }
                   }}
                   disabled={game.disabled}
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 14,
-                    background: "white",
-                    boxShadow: "0 8px 18px rgba(0,0,0,0.04)",
-                    overflow: "hidden",
-                    textAlign: "left",
-                    padding: 0,
-                    cursor: game.disabled ? "not-allowed" : "pointer",
-                    opacity: game.disabled ? 0.9 : 1,
-                    width: "100%",
-                  }}
                 >
+                  <div className="site-game-head">{game.title}</div>
                   <div
-                    style={{
-                      height: 52,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 800,
-                      fontSize: 18,
-                      letterSpacing: "0.02em",
-                      color: "#111827",
-                      background: "#f8fafc",
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
+                    className="site-game-img"
+                    style={game.imageUrl ? { backgroundImage: `url(${game.imageUrl})` } : undefined}
                   >
-                    {game.title}
-                  </div>
-                  <div
-                    style={{
-                      height: 220,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: game.imageUrl
-                        ? `url(${game.imageUrl}) center/contain no-repeat`
-                        : "linear-gradient(135deg, #e2e8f0, #f8fafc)",
-                      backgroundColor: game.imageUrl ? "#f8fafc" : "transparent",
-                      borderBottom: "1px solid #e5e7eb",
-                      color: "#94a3b8",
-                      fontSize: 44,
-                    }}
-                    >
                     {!game.imageUrl ? (game.disabled ? "SOON" : game.title.split(" ").map((word) => word[0]).join("").slice(0, 4)) : ""}
                   </div>
-                  <div style={{ padding: 14, display: "grid", gap: 8, textAlign: "center" }}>
-                    <div style={{ color: "#4b5563", lineHeight: 1.5 }}>{game.description}</div>
-                    {game.status && (
-                      <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.08em", color: "#9ca3af" }}>
-                        {game.status}
-                      </div>
-                    )}
+                  <div className="site-game-desc">
+                    <div>{game.description}</div>
+                    {game.status && <div className="site-game-status">{game.status}</div>}
                   </div>
                 </button>
               ))}

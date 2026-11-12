@@ -113,7 +113,7 @@ export default function BlogView() {
 
   if (BLOG_POSTS.length === 0) {
     return (
-      <div style={{ padding: 20, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)", color: "#6b7280", fontWeight: 600 }}>
+      <div className="site-card site-meta">
         No posts yet.
       </div>
     );
@@ -121,7 +121,7 @@ export default function BlogView() {
 
   if (blogView === "list") {
     return (
-      <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "grid", gap: 18 }}>
         {BLOG_POSTS.map((post) => (
           <button
             key={post.slug}
@@ -131,20 +131,11 @@ export default function BlogView() {
               setBlogView("post");
               setPostSlugInUrl(post.slug);
             }}
-            style={{
-              padding: 18,
-              borderRadius: 16,
-              border: "1px solid #e5e7eb",
-              background: "white",
-              boxShadow: "0 8px 18px rgba(15, 23, 42, 0.06)",
-              textAlign: "left",
-              cursor: "pointer",
-              display: "grid",
-              gap: 10,
-            }}
+            className="site-card site-post-link"
           >
-            <div style={{ fontWeight: 900, fontSize: 18, color: "#0f172a" }}>{post.title}</div>
-            {post.excerpt && <div style={{ color: "#475569", lineHeight: 1.6 }}>{post.excerpt}</div>}
+            <div className="site-card-title" style={{ fontSize: 21, color: "var(--accent-dark)" }}>{post.title}</div>
+            {post.date && <div className="site-meta">{post.date}</div>}
+            {post.excerpt && <div className="site-card-text" style={{ marginTop: 0 }}>{post.excerpt}</div>}
           </button>
         ))}
       </div>
@@ -155,30 +146,19 @@ export default function BlogView() {
   const postContent = activePost?.content ? stripFirstHeading(activePost.content) : "";
 
   return (
-    <div style={{ padding: 20, borderRadius: 12, border: "1px solid #e5e7eb", background: "white", boxShadow: "0 8px 18px rgba(0,0,0,0.04)" }}>
+    <article className="site-card" style={{ padding: "22px 26px" }}>
       <button
         type="button"
         onClick={() => {
           setBlogView("list");
           setPostSlugInUrl(undefined);
         }}
-        style={{
-          padding: "6px 12px",
-          borderRadius: 999,
-          border: "1px solid #e5e7eb",
-          background: "#f8fafc",
-          fontWeight: 700,
-          color: "#111827",
-          cursor: "pointer",
-        }}
+        className="site-btn"
       >
         Back to posts
       </button>
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontWeight: 900, fontSize: 26, color: "#111827" }}>
-          {activePost?.title ?? "Post"}
-        </div>
-      </div>
+      <h1 className="site-post-title">{activePost?.title ?? "Post"}</h1>
+      {activePost?.date && <div className="site-meta" style={{ marginTop: 6 }}>{activePost.date}</div>}
       <div className="markdown" style={{ marginTop: 16 }}>
         <ReactMarkdown>
           {postContent}
@@ -191,19 +171,11 @@ export default function BlogView() {
             setBlogView("list");
             setPostSlugInUrl(undefined);
           }}
-          style={{
-            padding: "6px 12px",
-            borderRadius: 999,
-            border: "1px solid #e5e7eb",
-            background: "#f8fafc",
-            fontWeight: 700,
-            color: "#111827",
-            cursor: "pointer",
-          }}
+          className="site-btn"
         >
           Back to posts
         </button>
       </div>
-    </div>
+    </article>
   );
 }

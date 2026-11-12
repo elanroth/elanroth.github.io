@@ -30,14 +30,31 @@ import type { AnagramsLobbyChoice } from "../LobbyGate";
 
 const emptyState = (): GameState => ({ ...createGame({ players: {} }), bag: [] });
 
+const tileStyle: CSSProperties = {
+  width: "var(--tile-size)",
+  height: "var(--tile-size)",
+  borderRadius: 6,
+  background: "linear-gradient(180deg, #f5e6d3, #e8d5bd)",
+  border: "2px solid #d8c5ab",
+  boxShadow: "inset 0 1px 2px rgba(255,255,255,0.6), inset 0 -2px 3px rgba(0,0,0,0.18)",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 900,
+  color: "#2b2b2b",
+  fontSize: "var(--tile-font)",
+  letterSpacing: 0.5,
+  fontFamily: "Arial Black, Arial, sans-serif",
+  userSelect: "none",
+};
+
 const sourceKey = (source: WordSource) => `${source.playerId}:${source.wordIndex}`;
 
-export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyChoice; onLeave?: () => void }) {
+export function AnagramsVisualizer({ choice }: { choice: AnagramsLobbyChoice }) {
   const gameId = choice.gameId;
   const playerId = choice.playerId;
   const [state, setState] = useState<GameState>(emptyState);
   const [loaded, setLoaded] = useState(false);
-  const [lobbyName, setLobbyName] = useState(choice.lobbyName ?? "");
   const [uiScale, setUiScale] = useState(1);
   const [claimInput, setClaimInput] = useState("");
   const [claimError, setClaimError] = useState<string | null>(null);
@@ -175,7 +192,6 @@ export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyC
         pendingSnatch: snapshot.pendingSnatch ?? null,
         lastSnatch: snapshot.lastSnatch ?? null,
       });
-      if (snapshot.lobbyName) setLobbyName(snapshot.lobbyName);
       setLoaded(true);
     });
     return () => unsubscribe();
@@ -219,8 +235,7 @@ export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyC
     lastSnatchSeenRef.current = last.at;
     const wasTarget = (last.targets ?? []).some((target) => target.playerId === playerId);
     if (!wasTarget || last.byPlayerId === playerId) return;
-    const thief = state.players?.[last.byPlayerId]?.name ?? "Someone";
-    setSnatchNotice(`${thief} stole your word!`);
+    setSnatchNotice("That sucks for you!");
     const timer = window.setTimeout(() => setSnatchNotice(null), 1600);
     return () => window.clearTimeout(timer);
   }, [state.lastSnatch, playerId]);
@@ -497,31 +512,41 @@ export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyC
 
   // ---- render -----------------------------------------------------------------
 
+  const wordStyle = (isSelected: boolean, isCandidate: boolean, canClick: boolean): CSSProperties => ({
+    border: isSelected
+      ? "2px solid #2563eb"
+      : isCandidate
+        ? "2px dashed #f59e0b"
+        : "1px solid rgba(15,23,42,0.12)",
+    background: isSelected
+      ? "rgba(219,234,254,0.95)"
+      : isCandidate
+        ? "rgba(254,243,199,0.9)"
+        : "rgba(255,255,255,0.85)",
+    cursor: canClick ? "pointer" : "not-allowed",
+    opacity: pendingSnatch && !isCandidate ? 0.25 : 1,
+    position: pendingSnatch && isCandidate ? "relative" : undefined,
+    zIndex: pendingSnatch && isCandidate ? 25 : undefined,
+  });
+
   const renderWord = (ownerId: string, word: string, wordIndex: number) => {
     const key = `${ownerId}:${wordIndex}`;
     const isCandidate = pendingSnatch ? candidateKeys.has(key) : false;
     const isSelected = selectedSources.some((source) => sourceKey(source) === key);
     const canClick = !pendingSnatch || (isChooser && isCandidate);
-    const classes = ["ag-word"];
-    if (isSelected) classes.push("is-selected");
-    else if (isCandidate) classes.push("is-candidate");
-    if (pendingSnatch && !isCandidate) classes.push("is-dimmed");
     return (
-      <button
-        type="button"
+      <div
         key={`${ownerId}-${word}-${wordIndex}`}
-        className={classes.join(" ")}
-        disabled={!canClick}
-        aria-pressed={isSelected}
-        aria-label={`${word}${isSelected ? " (selected)" : ""}`}
+        className="anagrams-word"
+        style={wordStyle(isSelected, isCandidate, canClick)}
         onClick={() => canClick && toggleSource({ playerId: ownerId, wordIndex })}
       >
         {word.split("").map((letter, letterIndex) => (
-          <span key={`${word}-${letterIndex}`} className="ag-tile">
+          <div key={`${word}-${letterIndex}`} style={tileStyle}>
             {letter}
-          </span>
+          </div>
         ))}
-      </button>
+      </div>
     );
   };
 
@@ -529,20 +554,17 @@ export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyC
     const slot = playerSlots[slotIndex];
     if (!slot) return null;
     const { player } = slot;
-    const isMe = slot.playerId === playerId;
+    const wordCount = player.words.length;
     return (
-      <div className={`ag-card ag-player${isMe ? " is-me" : ""}`}>
-        <div className="ag-card-head">
-          <h3>{player.name}</h3>
-          {isMe && <span className="ag-chip">you</span>}
-          <span className="ag-count">{player.score} pts</span>
+      <div className="anagrams-player-card" style={{ width: "100%", maxWidth: 360 }}>
+        <div className="anagrams-player-header">
+          <div className="anagrams-player-name">{player.name}</div>
+          <div className="anagrams-meta">
+            {wordCount} word{wordCount === 1 ? "" : "s"} · {player.score} pts
+          </div>
         </div>
-        <div className="ag-card-body ag-words">
-          {player.words.length === 0 ? (
-            <span className="ag-muted ag-italic">No words yet</span>
-          ) : (
-            player.words.map((word, wordIndex) => renderWord(slot.playerId, word, wordIndex))
-          )}
+        <div className="anagrams-words">
+          {player.words.map((word, wordIndex) => renderWord(slot.playerId, word, wordIndex))}
         </div>
       </div>
     );
@@ -550,9 +572,9 @@ export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyC
 
   return (
     <section
-      className="ag-stage"
+      className="anagrams-stage"
       onMouseDown={(event) => {
-        if ((event.target as HTMLElement).closest("button, a, input")) return;
+        if ((event.target as HTMLElement).closest("button, input")) return;
         focusInput();
       }}
       style={{
@@ -562,162 +584,202 @@ export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyC
       } as CSSProperties}
     >
       <style>{`
-        html, body, #root { width: 100%; height: 100%; margin: 0; }
-        .ag-stage {
-          height: 100vh;
-          width: 100%;
-          padding: calc(16px * var(--ui-scale));
-          overflow-y: auto;
-          font-size: calc(16px * var(--ui-scale));
-        }
-        .ag-topbar {
-          position: fixed;
-          top: 14px;
-          left: 18px;
-          z-index: 15;
-          display: grid;
-          gap: 2px;
-          max-width: 260px;
-        }
-        .ag-brand {
-          font-family: var(--serif);
-          font-weight: 800;
-          font-size: 22px;
-          color: var(--accent-dark);
-          line-height: 1;
-        }
-        .ag-lobby-label { font-family: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
-        .ag-ring {
-          position: relative;
+        html, body, #root {
           width: 100%;
           height: 100%;
           margin: 0;
         }
-        .ag-slot {
+        .anagrams-stage {
+          min-height: 100vh;
+          height: 100vh;
+          width: 100vw;
+          background: linear-gradient(135deg, #667eea, #764ba2);
+          padding: calc(16px * var(--ui-scale));
+          color: #111827;
+          box-sizing: border-box;
+          font-size: calc(16px * var(--ui-scale));
+          overflow-y: auto;
+        }
+        .anagrams-ring {
+          position: relative;
+          gap: calc(18px * var(--ui-scale));
+          width: 100%;
+          height: 100%;
+          margin: 0;
+        }
+        .anagrams-slot {
           width: 100%;
           display: flex;
           justify-content: center;
           z-index: 5;
         }
-        .ag-player { width: 100%; max-width: 360px; }
-        .ag-player.is-me { box-shadow: 5px 5px 0 var(--accent-dark), 9px 11px 24px -8px var(--shadow-amb); }
-        .ag-player.is-me .ag-card-head { background: var(--accent-hi); }
-        .ag-center {
+        .anagrams-center {
           width: 100%;
           display: grid;
-          gap: calc(18px * var(--ui-scale));
+          gap: calc(14px * var(--ui-scale));
           justify-items: center;
           z-index: 12;
         }
-        .ag-pool { width: 100%; max-width: min(92vw, calc(460px * var(--ui-scale))); }
-        .ag-pool-body { display: grid; gap: calc(12px * var(--ui-scale)); justify-items: center; }
-        .ag-pool-tiles {
+        .anagrams-card {
+          background: rgba(255, 255, 255, 0.95);
+          border-radius: calc(18px * var(--ui-scale));
+          padding: calc(12px * var(--ui-scale)) calc(14px * var(--ui-scale)) calc(14px * var(--ui-scale));
+          box-shadow: 0 10px 24px rgba(17, 24, 39, 0.18);
+        }
+        .anagrams-player-card {
+          background: transparent;
+          border-radius: 0;
+          padding: 0;
+          box-shadow: none;
+        }
+        .anagrams-player-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 8px;
+          gap: 10px;
+        }
+        .anagrams-player-name {
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-size: calc(0.7rem * var(--ui-scale));
+          background: rgba(255, 255, 255, 0.9);
+          padding: 6px 10px;
+          color: #111827;
+          clip-path: polygon(0 0, 92% 0, 100% 50%, 92% 100%, 0 100%);
+          box-shadow: 0 6px 14px rgba(17, 24, 39, 0.12);
+        }
+        .anagrams-title {
+          font-weight: 900;
+          letter-spacing: 0.08em;
+          font-size: calc(0.8rem * var(--ui-scale));
+          text-transform: uppercase;
+          transform: rotate(-2deg);
+          text-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+        }
+        .anagrams-words {
           display: flex;
           flex-wrap: wrap;
-          gap: calc(0.3rem * var(--ui-scale));
-          justify-content: center;
-          min-height: calc(2rem * var(--ui-scale));
-          align-items: center;
+          gap: calc(0.2rem * var(--ui-scale));
+          margin-top: calc(10px * var(--ui-scale));
         }
-        .ag-words { display: flex; flex-wrap: wrap; gap: calc(0.35rem * var(--ui-scale)); align-items: center; }
-        .ag-word {
+        .anagrams-word {
           display: inline-flex;
           flex-wrap: wrap;
-          gap: calc(0.15rem * var(--ui-scale));
+          gap: calc(0.2rem * var(--ui-scale));
           padding: calc(4px * var(--ui-scale));
           border-radius: calc(10px * var(--ui-scale));
-          border: 2px solid transparent;
-          background: transparent;
-          cursor: pointer;
-          transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+          cursor: default;
         }
-        .ag-word:hover:not(:disabled) { background: var(--accent-soft); }
-        .ag-word:disabled { cursor: default; }
-        .ag-word.is-candidate { border: 2px dashed var(--accent-warm); background: var(--accent-warm-soft); position: relative; z-index: 25; }
-        .ag-word.is-selected { border: 2px solid var(--accent); background: var(--accent-soft); position: relative; z-index: 25; }
-        .ag-word.is-dimmed { opacity: 0.3; }
-        .ag-hint { font-family: var(--sans); font-size: 12px; color: var(--muted); text-align: center; }
-        .ag-status { font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--accent-dark); text-align: center; }
-        .ag-claim { width: 100%; display: grid; gap: 8px; }
-        .ag-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; position: relative; z-index: 25; }
-        .ag-choice { position: relative; z-index: 25; }
-        /* Only waiting players get the dim; the chooser's non-options are already faded. */
-        .ag-dim.is-chooser { background: transparent; pointer-events: none; }
-        .ag-dim {
+        .anagrams-pool {
+          display: grid;
+          gap: calc(12px * var(--ui-scale));
+          justify-items: center;
+          width: 100%;
+          max-width: min(90vw, calc(440px * var(--ui-scale)));
+        }
+        .anagrams-pool-tiles {
+          display: flex;
+          flex-wrap: wrap;
+          gap: calc(0.2rem * var(--ui-scale));
+          justify-content: center;
+          min-height: calc(2rem * var(--ui-scale));
+        }
+        .anagrams-button {
+          padding: calc(10px * var(--ui-scale)) calc(16px * var(--ui-scale));
+          border-radius: calc(10px * var(--ui-scale));
+          border: 1px solid #d7b93b;
+          background: #f6d44a;
+          font-weight: 900;
+          letter-spacing: 0.02em;
+          color: #4b3c12;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+          cursor: pointer;
+        }
+        .anagrams-input {
+          width: 100%;
+          padding: calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale));
+          border-radius: calc(10px * var(--ui-scale));
+          border: 1px solid #e5e7eb;
+          font-weight: 700;
+          background: rgba(255, 255, 255, 0.9);
+        }
+        .anagrams-meta {
+          font-size: calc(0.75rem * var(--ui-scale));
+          color: #6b7280;
+          font-weight: 700;
+        }
+        .anagrams-dim {
           position: fixed;
           inset: 0;
-          background: rgba(41, 29, 95, 0.28);
+          background: rgba(15, 23, 42, 0.45);
+          backdrop-filter: blur(1px);
           z-index: 20;
           display: grid;
           place-items: start center;
           padding-top: calc(24px * var(--ui-scale));
         }
-        .ag-dim-message {
-          background: #fff;
-          color: var(--ink);
-          border: 2px solid var(--ink);
-          box-shadow: 4px 4px 0 var(--accent);
-          padding: 10px 18px;
-          border-radius: 999px;
-          font-family: var(--sans);
+        .anagrams-dim-message {
+          background: rgba(255, 255, 255, 0.95);
+          color: #111827;
+          padding: calc(10px * var(--ui-scale)) calc(14px * var(--ui-scale));
+          border-radius: calc(999px * var(--ui-scale));
           font-weight: 800;
-          font-size: 14px;
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2);
         }
-        .ag-flash {
+        .anagrams-flash {
           position: fixed;
           inset: 0;
           z-index: 30;
           display: grid;
           place-items: center;
+          background: rgba(220, 38, 38, 0.2);
+          color: #7f1d1d;
+          font-weight: 900;
+          font-size: calc(1.5rem * var(--ui-scale));
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
           pointer-events: none;
-          background: rgba(194, 65, 12, 0.14);
-          color: var(--accent-warm);
-          font-family: var(--serif);
-          font-style: italic;
-          font-weight: 800;
-          font-size: calc(2rem * var(--ui-scale));
-          animation: ag-flash 1.5s ease forwards;
+          animation: anagrams-flash 1.4s ease forwards;
         }
-        @keyframes ag-flash {
+        @keyframes anagrams-flash {
           0% { opacity: 0; transform: scale(0.98); }
           20% { opacity: 1; transform: scale(1); }
-          85% { opacity: 1; }
+          90% { opacity: 1; }
           100% { opacity: 0; }
         }
         @media (max-width: 900px) {
-          .ag-stage { height: auto; min-height: 100vh; }
-          .ag-topbar { position: static; margin-bottom: 14px; max-width: none; }
-          .ag-ring { display: flex; flex-direction: column; gap: 18px; height: auto; }
-          .ag-slot, .ag-center { position: static !important; transform: none !important; }
-          .ag-center { order: -1; }
+          .anagrams-stage {
+            height: auto;
+          }
+          .anagrams-ring {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+          }
+          .anagrams-slot,
+          .anagrams-center {
+            width: 100%;
+            position: static !important;
+            transform: none !important;
+          }
         }
       `}</style>
 
-      <div className="ag-topbar">
-        <div className="ag-brand">Anagrams</div>
-        {lobbyName && <div className="ag-lobby-label">{lobbyName}</div>}
-        {onLeave && (
-          <div>
-            <button type="button" className="ag-btn ag-btn--link" style={{ paddingLeft: 0 }} onClick={onLeave}>
-              ← Lobbies
-            </button>
-          </div>
-        )}
-      </div>
-
       {pendingSnatch ? (
-        <div className={`ag-dim${isChooser ? " is-chooser" : ""}`}>
-          <div className="ag-dim-message">
+        <div className="anagrams-dim" style={{ pointerEvents: isWaiting ? "auto" : "none" }}>
+          <div className="anagrams-dim-message">
             {isChooser
-              ? `Choose how to make ${pendingSnatch.word} · ${Math.ceil(pendingSecondsLeft)}s`
-              : `${claimantName} is choosing how to make ${pendingSnatch.word}… ${Math.ceil(pendingSecondsLeft)}s`}
+              ? `Choose which word to take (${Math.ceil(pendingSecondsLeft)}s)`
+              : `Waiting for ${claimantName} to choose a word to take... (${Math.ceil(pendingSecondsLeft)}s)`}
           </div>
         </div>
       ) : null}
 
-      {snatchNotice ? <div className="ag-flash">{snatchNotice}</div> : null}
+      {snatchNotice ? <div className="anagrams-flash">{snatchNotice}</div> : null}
 
-      <div className="ag-ring" ref={ringRef}>
+      <div className="anagrams-ring" ref={ringRef}>
         {playerSlots.map((slot, idx) => {
           const pos = slotPositions[idx];
           const style = useRingLayout && pos
@@ -729,131 +791,150 @@ export function AnagramsVisualizer({ choice, onLeave }: { choice: AnagramsLobbyC
             }
             : undefined;
           return (
-            <div key={slot.playerId ?? idx} className="ag-slot" style={style}>
+            <div key={slot.playerId ?? idx} className="anagrams-slot" style={style}>
               {renderPlayerCard(idx)}
             </div>
           );
         })}
 
         <div
-          className="ag-center"
+          className="anagrams-center"
           ref={centerRef}
           style={useRingLayout ? { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)" } : undefined}
         >
-          <div className="ag-card ag-pool">
-            <div className="ag-card-head">
-              <h2>The middle</h2>
-              <span className="ag-count">{loaded ? `${state.bag.length} in bag` : "…"}</span>
-            </div>
-            <div className="ag-card-body ag-pool-body">
-              <div className="ag-pool-tiles">
-                {state.revealed.length === 0 ? (
-                  <span className="ag-muted ag-italic">Nothing flipped yet</span>
-                ) : (
-                  state.revealed.map((tile, index) => (
-                    <span key={`${tile}-${index}`} className="ag-tile">
-                      {tile}
-                    </span>
-                  ))
-                )}
-              </div>
-
-              {bagEmpty ? (
-                <div className="ag-status">
-                  Bag's empty.{leader && leader.score > 0 ? ` ${leader.name} leads with ${leader.score}.` : ""} Keep claiming from the middle, or start a new round.
-                </div>
+          <div className="anagrams-card anagrams-pool">
+            <div className="anagrams-title">Tile Pool</div>
+            <div className="anagrams-pool-tiles">
+              {state.revealed.length === 0 ? (
+                <div className="anagrams-meta">(none)</div>
               ) : (
+                state.revealed.map((tile, index) => (
+                  <div key={`${tile}-${index}`} style={tileStyle}>
+                    {tile}
+                  </div>
+                ))
+              )}
+            </div>
+            {bagEmpty ? (
+              <div className="anagrams-meta" style={{ textAlign: "center" }}>
+                Bag's empty.{leader && leader.score > 0 ? ` ${leader.name} leads with ${leader.score}.` : ""}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="anagrams-button"
+                onClick={handleDraw}
+                disabled={!!pendingSnatch || !loaded}
+                style={{ opacity: pendingSnatch ? 0.6 : 1, cursor: pendingSnatch ? "not-allowed" : "pointer" }}
+              >
+                Flip a Tile
+              </button>
+            )}
+            <div className="anagrams-meta">{loaded ? `${state.bag.length} tiles left in the bag` : ""}</div>
+            <div style={{ width: "100%", display: "grid", gap: 8 }}>
+              <input
+                ref={inputRef}
+                value={claimInput}
+                onChange={(event) => {
+                  setClaimInput(event.target.value.replace(/\s/g, ""));
+                  setClaimError(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  actionsRef.current.enter();
+                }}
+                onBlur={() => {
+                  // Keep typing flowing into the box, but don't fight other controls (e.g. the reset confirm).
+                  requestAnimationFrame(() => {
+                    const active = document.activeElement;
+                    if (!active || active === document.body) focusInput();
+                  });
+                }}
+                placeholder="Type a word..."
+                className="anagrams-input"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={isWaiting}
+              />
+              {claimError ? <div className="anagrams-meta">{claimError}</div> : null}
+              {pendingSnatch ? (
+                <div className="anagrams-meta">
+                  {isChooser
+                    ? "Select the highlighted word(s), then confirm your snatch."
+                    : `Waiting for ${claimantName} to select a word to take.`}
+                </div>
+              ) : null}
+              {pendingSnatch && isChooser && pendingSnatch.allowPool ? (
                 <button
                   type="button"
-                  className="ag-btn ag-btn--lg is-on"
-                  onClick={handleDraw}
-                  disabled={!!pendingSnatch || !loaded}
+                  onClick={takeFromMiddle}
+                  style={{
+                    border: selectedPool ? "2px solid #2563eb" : "2px dashed #f59e0b",
+                    background: selectedPool ? "rgba(219,234,254,0.95)" : "rgba(254,243,199,0.9)",
+                    borderRadius: 12,
+                    padding: "8px 12px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    position: "relative",
+                    zIndex: 25,
+                  }}
                 >
-                  Flip a tile
+                  Take from middle
                 </button>
-              )}
-
-              <div className="ag-claim">
-                <input
-                  ref={inputRef}
-                  value={claimInput}
-                  onChange={(event) => {
-                    setClaimInput(event.target.value.replace(/\s/g, ""));
-                    setClaimError(null);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter") return;
-                    event.preventDefault();
-                    actionsRef.current.enter();
-                  }}
-                  onBlur={() => {
-                    // Keep typing flowing into the box, but don't fight other inputs (e.g. the reset confirm).
-                    requestAnimationFrame(() => {
-                      const active = document.activeElement;
-                      if (!active || active === document.body) focusInput();
-                    });
-                  }}
-                  placeholder="Type a word, press Enter"
-                  className="ag-input"
-                  style={{ textAlign: "center", textTransform: "uppercase", letterSpacing: "0.08em" }}
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="Claim a word"
-                  disabled={isWaiting}
-                />
-                {claimError ? <div className="ag-error" style={{ textAlign: "center" }} role="status">{claimError}</div> : null}
-                {dictStatus !== "ready" ? (
-                  <div className="ag-hint">{dictStatus === "loading" ? "Loading dictionary…" : "Dictionary failed to load."}</div>
-                ) : null}
-                {pendingSnatch && isChooser ? (
-                  <>
-                    <div className="ag-hint">Click a highlighted word{pendingSnatch.allowPool ? " or take it from the middle" : ""}, then confirm.</div>
-                    <div className="ag-row">
-                      {pendingSnatch.allowPool ? (
-                        <button
-                          type="button"
-                          className={`ag-btn ag-choice${selectedPool ? " is-on" : ""}`}
-                          onClick={takeFromMiddle}
-                        >
-                          Take from middle
-                        </button>
-                      ) : null}
-                      <button type="button" className="ag-btn is-on" onClick={confirmPendingSnatch}>
-                        Confirm (Enter)
-                      </button>
-                      <button type="button" className="ag-btn ag-btn--link" onClick={cancelPendingSnatch}>
-                        Cancel
-                      </button>
-                    </div>
-                  </>
-                ) : !pendingSnatch ? (
-                  <div className="ag-hint">
-                    <span className="ag-mono">Space</span> flips · click words first to choose which to steal
-                  </div>
-                ) : null}
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <button type="button" className="ag-btn ag-btn--link" onClick={handleReset} disabled={!!pendingSnatch}>
-                    New round
+              ) : null}
+              {dictStatus !== "ready" ? (
+                <div className="anagrams-meta">
+                  {dictStatus === "loading" ? "Loading dictionary..." : "Dictionary failed to load."}
+                </div>
+              ) : null}
+              {pendingSnatch && isChooser ? (
+                <div style={{ display: "flex", gap: 8, position: "relative", zIndex: 25 }}>
+                  <button type="button" className="anagrams-button" onClick={confirmPendingSnatch}>
+                    Confirm snatch (Enter)
+                  </button>
+                  <button
+                    type="button"
+                    className="anagrams-meta"
+                    onClick={cancelPendingSnatch}
+                    style={{ background: "transparent", border: "none", textDecoration: "underline", cursor: "pointer" }}
+                  >
+                    Cancel
                   </button>
                 </div>
-              </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleReset}
+                className="anagrams-meta"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  textDecoration: "underline",
+                  cursor: pendingSnatch ? "not-allowed" : "pointer",
+                  opacity: pendingSnatch ? 0.6 : 1,
+                }}
+                disabled={!!pendingSnatch}
+              >
+                Reset game
+              </button>
             </div>
           </div>
 
           {inactiveWithWords.length > 0 ? (
-            <div className="ag-card ag-player">
-              <div className="ag-card-head">
-                <h3>Gone but not forgotten</h3>
+            <div className="anagrams-player-card" style={{ width: "100%", maxWidth: 360 }}>
+              <div className="anagrams-player-header">
+                <div className="anagrams-player-name">Gone but not Forgotten</div>
               </div>
-              <div className="ag-card-body" style={{ display: "grid", gap: 10 }}>
+              <div className="anagrams-words">
                 {inactiveWithWords.map(({ playerId: goneId, player }) => (
-                  <div key={`gone-${goneId}`}>
-                    <div className="ag-hint" style={{ textAlign: "left", marginBottom: 4 }}>
-                      {player.name} · {player.score} pts
+                  <div key={`gone-${goneId}`} style={{ width: "100%" }}>
+                    <div className="anagrams-meta" style={{ marginBottom: 6 }}>
+                      {player.name}
                     </div>
-                    <div className="ag-words">
+                    <div className="anagrams-words">
                       {player.words.map((word, wordIndex) => renderWord(goneId, word, wordIndex))}
                     </div>
                   </div>
