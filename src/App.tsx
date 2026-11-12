@@ -224,6 +224,13 @@ const GAME_CARDS: GameCard[] = [
     imageUrl: "/images/Guitar_Photo.png",
     onOpen: openGuitarInNewTab,
   },
+  {
+    id: "formality",
+    title: "Formality",
+    description: "Turn Lean proofs into diagrams. Expand lemmas, unfold induction, and save the figure.",
+    imageUrl: "/images/Formality_Photo.png",
+    onOpen: openFormalityInNewTab,
+  },
 ];
 
 const talks = [
@@ -356,6 +363,10 @@ function openBanagramsInNewTab() {
     // fallback: still try to open current path
     window.open("?tab=banagrams&full=1", "_blank", "noopener,noreferrer");
   }
+}
+
+function openFormalityInNewTab() {
+  window.open("/formality/", "_blank", "noopener,noreferrer");
 }
 
 function openCvInNewTab() {
