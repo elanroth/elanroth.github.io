@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: elanroth/Formality
-          ref: 71960934446a7f4da045364c465fb8e5ae09a5ae
+          ref: 3da9eec91114f915a70fadf5e14eed24b1d3cdb4
           path: .formality-source
       - name: Checkout pinned browser Lean runtime
         uses: actions/checkout@v4
